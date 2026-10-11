@@ -99,8 +99,8 @@ public static class SessionEndpoints
 
             points.Add(new TrendPoint(
                 r.Id, r.StartedAt, r.Mode, summary.DurationSeconds, summary.JointRanges,
-                summary.Tremor is { } t && double.IsFinite(t.DominantFrequencyHz) ? t.DominantFrequencyHz : null,
-                summary.Tremor?.BandRmsMs2, summary.Gait?.CadenceStepsPerMinute, summary.Gait?.Steps, summary.Audio?.RmsDbfs));
+                summary.Tremor is { IsSignificant: true } t ? t.DominantFrequencyHz : null,
+                summary.Tremor is { IsSignificant: true } tr ? tr.BandRmsMs2 : null, summary.Gait?.CadenceStepsPerMinute, summary.Gait?.Steps, summary.Audio?.RmsDbfs));
         }
 
         return TypedResults.Ok(points);

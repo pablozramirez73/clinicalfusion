@@ -7,7 +7,20 @@ namespace ClinicalSensorFusion.Core.Signal;
 /// <param name="BandPowerRatio">Potenza nella banda del tremore / potenza totale 0.5–20 Hz (0..1).</param>
 /// <param name="BandRmsMs2">Ampiezza RMS dell'accelerazione nella banda (m/s²).</param>
 /// <param name="Windows">Finestre mediate (affidabilità della stima).</param>
-public sealed record TremorResult(double DominantFrequencyHz, double BandPowerRatio, double BandRmsMs2, int Windows);
+public sealed record TremorResult(double DominantFrequencyHz, double BandPowerRatio, double BandRmsMs2, int Windows)
+{
+    /// <summary>Quota minima della potenza 0.5–20 Hz concentrata nella banda del tremore.</summary>
+    public const double MinBandPowerRatio = 0.4;
+
+    /// <summary>Ampiezza minima (m/s²): sotto, l'oscillazione è confrontabile con il rumore del sensore e il tremore fisiologico normale.</summary>
+    public const double MinBandRmsMs2 = 0.05;
+
+    /// <summary>
+    /// Vero se nella banda c'è un'oscillazione distinguibile dal rumore. Il picco spettrale esiste sempre:
+    /// senza questa soglia anche un arto fermo produrrebbe una "frequenza di tremore" (il picco del rumore).
+    /// </summary>
+    public bool IsSignificant => double.IsFinite(DominantFrequencyHz) && BandPowerRatio >= MinBandPowerRatio && BandRmsMs2 >= MinBandRmsMs2;
+}
 
 /// <summary>
 /// Stima del tremore dall'accelerometro (accelerazione utente, gravità già rimossa da CoreMotion) con il

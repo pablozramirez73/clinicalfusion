@@ -76,7 +76,9 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
     /// l'energia alle varie frequenze. Un tremore appare come una "cresta" stabile tra 3 e 12 Hz.
     /// Potenza = somma dei tre assi (non il modulo, che raddoppierebbe la frequenza: vedi TremorAnalyzer).
     /// </summary>
-    public async Task<Spectrogram> GetTremorSpectrogramAsync(string sessionId, int window, int maxColumns, double maxFrequencyHz, CancellationToken ct)
+    /// <remarks>Si parte da 2 Hz (sotto la banda clinica 3–12 Hz): più in basso ci sono i movimenti volontari (uno squat è ~0,25 Hz) e la loro dispersione spettrale, con energia di
+    /// ordini di grandezza superiore che schiaccerebbe la scala di colore del resto dello spettro.</remarks>
+    public async Task<Spectrogram> GetTremorSpectrogramAsync(string sessionId, int window, int maxColumns, double maxFrequencyHz, CancellationToken ct, double minFrequencyHz = 2)
     {
         var motion = await ReadStreamAsync(sessionId, SensorKind.Motion, ct);
         if (motion.Count < window)
@@ -103,7 +105,9 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
         }
 
         var df = fs / window;
-        var bins = Math.Min(window / 2, (int)(maxFrequencyHz / df));
+        var lastBin = Math.Min(window / 2, (int)(maxFrequencyHz / df));
+        var firstBin = Math.Clamp((int)Math.Ceiling(minFrequencyHz / df), 1, lastBin);
+        var bins = lastBin - firstBin + 1;
         var times = new List<double>();
         var power = new List<float[]>();
         var buffer = new Complex[window];
@@ -126,9 +130,10 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
                 }
 
                 Fft.Forward(buffer);
-                for (var k = 1; k <= bins; k++)
+                for (var k = 0; k < bins; k++)
                 {
-                    columnPower[k - 1] += buffer[k].Magnitude * buffer[k].Magnitude / window;
+                    var c = buffer[firstBin + k];
+                    columnPower[k] += c.Magnitude * c.Magnitude / window;
                 }
             }
 
@@ -142,7 +147,7 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
             times.Add(motion[start + window / 2].Timestamp);
         }
 
-        var freqs = Enumerable.Range(1, bins).Select(k => k * df).ToArray();
+        var freqs = Enumerable.Range(firstBin, bins).Select(k => k * df).ToArray();
         return new Spectrogram([.. times], freqs, [.. power], fs);
     }
 

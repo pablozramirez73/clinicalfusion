@@ -62,8 +62,9 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
             session.SummaryJson = JsonSerializer.Serialize(summary, CsfJsonContext.Default.SessionSummary);
             session.DurationSeconds = summary.DurationSeconds;
             session.LidarCoverage = summary.LidarCoverage;
-            session.TremorFrequencyHz = summary.Tremor is { } t && double.IsFinite(t.DominantFrequencyHz) ? t.DominantFrequencyHz : null;
-            session.TremorRmsMs2 = summary.Tremor?.BandRmsMs2;
+            // Solo tremori significativi: il picco del rumore non è un tremore (vedi TremorResult.IsSignificant).
+            session.TremorFrequencyHz = summary.Tremor is { IsSignificant: true } t ? t.DominantFrequencyHz : null;
+            session.TremorRmsMs2 = summary.Tremor is { IsSignificant: true } tr ? tr.BandRmsMs2 : null;
             session.Steps = summary.Gait?.Steps;
         }
 

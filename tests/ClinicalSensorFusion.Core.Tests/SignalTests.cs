@@ -105,3 +105,33 @@ public class TremorAxisTests
         Assert.InRange(result.BandRmsMs2, 0.27, 0.35);
     }
 }
+
+public class TremorSignificanceTests
+{
+    [Fact]
+    public void Sensor_noise_alone_is_not_a_tremor()
+    {
+        var analyzer = new TremorAnalyzer();
+        var rng = new Random(7);
+        for (var i = 0; i < 3000; i++)
+        {
+            analyzer.Add((float)((rng.NextDouble() - 0.5) * 0.004), (float)((rng.NextDouble() - 0.5) * 0.004), 0);
+        }
+
+        var result = analyzer.Analyze()!;
+        Assert.True(double.IsFinite(result.DominantFrequencyHz)); // un picco c'è sempre…
+        Assert.False(result.IsSignificant);                       // …ma non è un tremore
+    }
+
+    [Fact]
+    public void Clear_oscillation_is_significant()
+    {
+        var analyzer = new TremorAnalyzer();
+        for (var i = 0; i < 3000; i++)
+        {
+            analyzer.Add((float)(0.03 * Math.Sin(2 * Math.PI * 4.5 * i / 100.0)), 0, 0);
+        }
+
+        Assert.True(analyzer.Analyze()!.IsSignificant);
+    }
+}

@@ -56,7 +56,7 @@ public static class SummaryReport
         if (s.Tremor is { } tremor)
         {
             rows.Add(new("Tremore (accelerometro)", "Frequenza dominante",
-                double.IsFinite(tremor.DominantFrequencyHz) ? string.Format(c, "{0:F1} Hz", tremor.DominantFrequencyHz) : "—"));
+                tremor.IsSignificant ? string.Format(c, "{0:F1} Hz", tremor.DominantFrequencyHz) : "nessun tremore significativo"));
             rows.Add(new("Tremore (accelerometro)", "Potenza in banda 3–12 Hz", string.Format(c, "{0:P0}", tremor.BandPowerRatio)));
             rows.Add(new("Tremore (accelerometro)", "Ampiezza RMS", string.Format(c, "{0:F3} m/s²", tremor.BandRmsMs2)));
         }
