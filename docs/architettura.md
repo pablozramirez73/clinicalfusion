@@ -8,7 +8,7 @@ App iOS in **.NET MAUI 11** che fonde **MediaPipe** (Google) con **tutti i senso
 | Fatto accertato (doc) | Implementazione |
 |---|---|
 | .NET MAUI 11, CoreCLR, ReadyToRun | `net11.0-ios`, `UseMonoRuntime=false`, `PublishReadyToRun` in Release |
-| Eseguibile `ClinicalSensorFusion`, id `com.lucaguelfi.clinicalsensorfusion` | `AssemblyName`, `ApplicationId` nel `.csproj` |
+| Eseguibile `ClinicalSensorFusion` | `AssemblyName` nel `.csproj`; l'app ricostruita si chiama **SensorFusion Clinic** con id `com.lucaguelfi.sensorfusionclinic` (diverso dall'originale `com.lucaguelfi.clinicalsensorfusion`, vedi §8) |
 | Audio in `Library/audio/<id>/audio.caf`, mono 48 kHz Float32 | `AudioCaptureSource` (AVAudioEngine, modalità *measurement*) |
 | `Library/clinical.db` interamente cifrato, chiave nel Portachiavi | SQLite3 Multiple Ciphers in formato SQLCipher 4 + `KeychainKeyProvider` |
 | `Documents` vuota | nessuna esportazione su file; `UIFileSharingEnabled=false` |
@@ -139,11 +139,11 @@ reinstallata; le entitlement sono vuote proprio per restare compatibili con il p
 
 - **Non disinstallare l'app originale** finché i dati non sono stati valutati: disinstallando si perdono le
   33 registrazioni e `clinical.db`.
-- L'`ApplicationId` è lo stesso dell'originale. Se l'app viene firmata con un **team diverso**, iOS rifiuta
-  l'installazione sopra quella esistente: non è un errore da risolvere disinstallando.
-- Anche con lo stesso id, la chiave del vecchio DB è nel Portachiavi legata al vecchio team: la nuova app
-  non può leggerla. In quel caso `ClinicalDatabase` solleva `DatabaseKeyMismatchException` e **non tocca il file**.
-- Per un'installazione affiancata cambiare temporaneamente `ApplicationId` (es. `…clinicalsensorfusion.v2`).
+- L'app ricostruita ha un `ApplicationId` diverso (`com.lucaguelfi.sensorfusionclinic`): si installa **accanto**
+  all'originale, senza sovrascriverla, e ha un proprio contenitore e un proprio archivio cifrato.
+- La nuova app non vede i dati dell'originale (sandbox iOS) e, anche se li copiasse, non potrebbe decifrare il
+  vecchio `clinical.db`: la chiave è nel Portachiavi del vecchio team di firma. In caso di file con chiave diversa
+  `ClinicalDatabase` solleva `DatabaseKeyMismatchException` e **non tocca il file**.
 - I file CAF sono leggibili da qualunque strumento audio (formato standard) se estratti dal contenitore
   (Xcode → Devices → Download Container, con l'app originale ancora firmata dal suo team).
 
