@@ -1,0 +1,15 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+
+# macOS
+.DS_Store
+
+# Dati clinici e registrazioni: mai nel repository
+*.db
+*.db-wal
+*.db-shm
+*.caf
