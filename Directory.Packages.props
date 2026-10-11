@@ -3,6 +3,18 @@
   <PropertyGroup>
     <MauiVersion>11.0.0-rc.1.26451.6</MauiVersion>
     <DotNetExtensionsVersion>11.0.0-rc.1.26425.128</DotNetExtensionsVersion>
+    <AspNetCoreVersion>11.0.0-rc.1.26425.128</AspNetCoreVersion>
+    <EfCoreVersion>11.0.0-rc.1.26425.128</EfCoreVersion>
+    <NpgsqlEfVersion>11.0.0-rc.1.1</NpgsqlEfVersion>
+  </PropertyGroup>
+  <!--
+    Ripiego per ambienti con solo l'SDK .NET 10 (-p:CsfNetTfm=net10.0): i pacchetti ASP.NET Core / EF Core 11
+    richiedono net11.0. Serve solo a compilare e testare; il prodotto è net11.0.
+  -->
+  <PropertyGroup Condition="'$(CsfNetTfm)' == 'net10.0'">
+    <AspNetCoreVersion>10.0.12</AspNetCoreVersion>
+    <EfCoreVersion>10.0.12</EfCoreVersion>
+    <NpgsqlEfVersion>10.0.3</NpgsqlEfVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
@@ -14,7 +26,14 @@
     <!-- SQLite cifrato: Microsoft.Data.Sqlite.Core (senza provider) + SQLite3 Multiple Ciphers in modalità SQLCipher v4. -->
     <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="$(DotNetExtensionsVersion)" />
     <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.4.0" />
+    <!-- Server -->
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.14" />
     <!-- Test -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetCoreVersion)" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 </Project>

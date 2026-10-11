@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    Backend ASP.NET Core 11: anagrafica pazienti, ingestione dei dati dall'app iOS, API per la dashboard 3D
+    (React + Three.js, in src/ClinicalSensorFusion.Dashboard, pubblicata in wwwroot).
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(CsfNetTfm)</TargetFramework>
+    <RootNamespace>ClinicalSensorFusion.Server</RootNamespace>
+    <UserSecretsId>clinical-sensor-fusion-server</UserSecretsId>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CA1515;CA1062;CA1812</NoWarn>
+    <DashboardDir>$(MSBuildThisFileDirectory)../ClinicalSensorFusion.Dashboard/</DashboardDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ClinicalSensorFusion.Core/ClinicalSensorFusion.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ClinicalSensorFusion.Server.Tests" />
+  </ItemGroup>
+
+  <!-- In publish la dashboard viene compilata con Vite e copiata in wwwroot. -->
+  <Target Name="BuildDashboard" BeforeTargets="ComputeFilesToPublish" Condition="'$(SkipDashboardBuild)' != 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(DashboardDir)" />
+    <Exec Command="npm run build" WorkingDirectory="$(DashboardDir)" />
+    <ItemGroup>
+      <DashboardFiles Include="wwwroot/**" />
+      <ResolvedFileToPublish Include="@(DashboardFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>%(DashboardFiles.Identity)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

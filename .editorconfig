@@ -27,3 +27,8 @@ dotnet_diagnostic.CA1032.severity = none
 dotnet_diagnostic.CA1819.severity = none
 # Nessun SynchronizationContext nel Core; nell'app MAUI ConfigureAwait(false) non si usa nei ViewModel.
 dotnet_diagnostic.CA2007.severity = none
+
+# Migrazioni EF Core: codice generato.
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

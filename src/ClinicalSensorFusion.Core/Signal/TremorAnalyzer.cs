@@ -14,6 +14,11 @@ public sealed record TremorResult(double DominantFrequencyHz, double BandPowerRa
 /// metodo di Welch: finestre di Hann sovrapposte al 50%, spettri di potenza mediati.
 /// </summary>
 /// <remarks>
+/// Lo spettro è la <b>somma degli spettri dei tre assi</b>, non lo spettro del modulo |a|: l'accelerazione
+/// utente ha media nulla e il modulo la raddrizzerebbe, spostando l'energia al doppio della frequenza
+/// (|sin(2πft)| oscilla a 2f). La somma per assi è invece invariante all'orientamento del telefono.
+/// </remarks>
+/// <remarks>
 /// La banda 3–12 Hz copre tremore parkinsoniano a riposo (4–6 Hz), essenziale (4–12 Hz) e fisiologico
 /// potenziato (8–12 Hz). È un indicatore di supporto, non uno strumento diagnostico: dipende da come il
 /// telefono è tenuto o fissato all'arto.
@@ -21,7 +26,7 @@ public sealed record TremorResult(double DominantFrequencyHz, double BandPowerRa
 public sealed class TremorAnalyzer
 {
     private const double StandardGravity = 9.80665;
-    private readonly List<float> _magnitude = [];
+    private readonly List<float>[] _axes = [[], [], []];
 
     public TremorAnalyzer(double sampleRateHz = 100, int windowSize = 512, double bandLowHz = 3, double bandHighHz = 12)
     {
@@ -44,17 +49,22 @@ public sealed class TremorAnalyzer
 
     public double BandHighHz { get; }
 
-    public int SampleCount => _magnitude.Count;
+    public int SampleCount => _axes[0].Count;
 
     /// <summary>Aggiunge un campione di accelerazione utente in g.</summary>
-    public void Add(float ax, float ay, float az) => _magnitude.Add(MathF.Sqrt(ax * ax + ay * ay + az * az));
+    public void Add(float ax, float ay, float az)
+    {
+        _axes[0].Add(ax);
+        _axes[1].Add(ay);
+        _axes[2].Add(az);
+    }
 
-    /// <summary>Aggiunge direttamente un campione scalare (g). Usato dai test e per segnali già proiettati.</summary>
-    public void AddScalar(float valueG) => _magnitude.Add(valueG);
+    /// <summary>Aggiunge un campione scalare (g) su un solo asse. Per segnali già proiettati.</summary>
+    public void AddScalar(float valueG) => Add(valueG, 0, 0);
 
     public TremorResult? Analyze()
     {
-        if (_magnitude.Count < WindowSize)
+        if (SampleCount < WindowSize)
         {
             return null;
         }
@@ -72,25 +82,28 @@ public sealed class TremorAnalyzer
 
         var buffer = new Complex[WindowSize];
         var windows = 0;
-        for (var start = 0; start + WindowSize <= _magnitude.Count; start += hop)
+        for (var start = 0; start + WindowSize <= SampleCount; start += hop)
         {
-            // Rimozione della media locale: la componente continua dominerebbe lo spettro.
-            var mean = 0.0;
-            for (var i = 0; i < WindowSize; i++)
+            foreach (var axis in _axes)
             {
-                mean += _magnitude[start + i];
-            }
+                // Rimozione della media locale: la componente continua dominerebbe lo spettro.
+                var mean = 0.0;
+                for (var i = 0; i < WindowSize; i++)
+                {
+                    mean += axis[start + i];
+                }
 
-            mean /= WindowSize;
-            for (var i = 0; i < WindowSize; i++)
-            {
-                buffer[i] = new Complex((_magnitude[start + i] - mean) * window[i], 0);
-            }
+                mean /= WindowSize;
+                for (var i = 0; i < WindowSize; i++)
+                {
+                    buffer[i] = new Complex((axis[start + i] - mean) * window[i], 0);
+                }
 
-            Fft.Forward(buffer);
-            for (var k = 0; k < bins; k++)
-            {
-                psd[k] += buffer[k].Magnitude * buffer[k].Magnitude;
+                Fft.Forward(buffer);
+                for (var k = 0; k < bins; k++)
+                {
+                    psd[k] += buffer[k].Magnitude * buffer[k].Magnitude;
+                }
             }
 
             windows++;

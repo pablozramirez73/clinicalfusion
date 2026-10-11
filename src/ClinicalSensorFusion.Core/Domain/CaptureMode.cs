@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace ClinicalSensorFusion.Core.Domain;
 
 /// <summary>Configurazione di acquisizione scelta dall'operatore all'avvio della rilevazione.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<CaptureMode>))]
 public enum CaptureMode
 {
     /// <summary>Fotocamera posteriore + LiDAR, MediaPipe Pose: postura, ROM articolare, cammino.</summary>

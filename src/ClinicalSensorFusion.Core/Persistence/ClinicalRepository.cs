@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Recording;
@@ -100,6 +101,79 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
             await AuditAsync(c, operatorId, "session.delete", id, ct).ConfigureAwait(false);
         }, ct);
+
+    /// <summary>Rilevazioni concluse non ancora inviate al server, dalla più vecchia.</summary>
+    public Task<IReadOnlyList<ClinicalSession>> ListUnsyncedSessionsAsync(CancellationToken ct = default) =>
+        database.RunAsync<IReadOnlyList<ClinicalSession>>(async c =>
+        {
+            await using var cmd = c.CreateCommand();
+            cmd.CommandText = $"SELECT {SessionColumns} FROM sessions WHERE ended_at IS NOT NULL AND synced_at IS NULL ORDER BY started_at;";
+            var list = new List<ClinicalSession>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                list.Add(ReadSession(reader));
+            }
+
+            return list;
+        }, ct);
+
+    public Task MarkSyncedAsync(string sessionId, DateTimeOffset at, CancellationToken ct = default) =>
+        database.RunAsync(async c =>
+        {
+            await using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE sessions SET synced_at = $at WHERE id = $id;";
+            cmd.Parameters.AddWithValue("$id", sessionId);
+            cmd.Parameters.AddWithValue("$at", Format(at));
+            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }, ct);
+
+    /// <summary>
+    /// Blocchi grezzi (payload compresso, non decodificato) per l'invio al server. Letti uno alla volta per
+    /// non caricare in memoria un'intera sessione (decine di MB) e per non tenere occupata la connessione
+    /// condivisa più del necessario.
+    /// </summary>
+    public async IAsyncEnumerable<SensorChunk> ReadRawChunksAsync(string sessionId, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var keys = await database.RunAsync(async c =>
+        {
+            await using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT kind, seq FROM sensor_chunks WHERE session_id = $session ORDER BY kind, seq;";
+            cmd.Parameters.AddWithValue("$session", sessionId);
+            var list = new List<(int Kind, int Seq)>();
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                list.Add((reader.GetInt32(0), reader.GetInt32(1)));
+            }
+
+            return list;
+        }, ct).ConfigureAwait(false);
+
+        foreach (var (kind, seq) in keys)
+        {
+            var chunk = await database.RunAsync(async c =>
+            {
+                await using var cmd = c.CreateCommand();
+                cmd.CommandText = """
+                    SELECT t_start, t_end, sample_count, payload FROM sensor_chunks
+                    WHERE session_id = $session AND kind = $kind AND seq = $seq;
+                    """;
+                cmd.Parameters.AddWithValue("$session", sessionId);
+                cmd.Parameters.AddWithValue("$kind", kind);
+                cmd.Parameters.AddWithValue("$seq", seq);
+                await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                return await reader.ReadAsync(ct).ConfigureAwait(false)
+                    ? new SensorChunk((SensorKind)kind, seq, reader.GetDouble(0), reader.GetDouble(1), reader.GetInt32(2), (byte[])reader[3])
+                    : null;
+            }, ct).ConfigureAwait(false);
+
+            if (chunk is not null)
+            {
+                yield return chunk;
+            }
+        }
+    }
 
     public Task AppendChunkAsync(string sessionId, SensorChunk chunk, CancellationToken cancellationToken = default) =>
         database.RunAsync(async c =>

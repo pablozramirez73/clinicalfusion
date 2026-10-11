@@ -84,3 +84,24 @@ public class AudioFeatureAccumulatorTests
         Assert.True(f.RmsDbfs < -150);
     }
 }
+
+public class TremorAxisTests
+{
+    [Fact]
+    public void Zero_mean_tremor_on_one_axis_is_not_reported_at_double_frequency()
+    {
+        // CoreMotion fornisce l'accelerazione utente senza gravità: un tremore a 5 Hz su un asse ha media nulla.
+        // Il modulo |a| lo raddrizzerebbe (|sin| oscilla a 10 Hz): l'analisi deve lavorare sui singoli assi.
+        var analyzer = new TremorAnalyzer(sampleRateHz: 100);
+        for (var i = 0; i < 3000; i++)
+        {
+            var t = i / 100.0;
+            analyzer.Add((float)(0.04 * Math.Sin(2 * Math.PI * 5 * t)), (float)(0.02 * Math.Sin(2 * Math.PI * 5 * t + 1)), 0);
+        }
+
+        var result = analyzer.Analyze()!;
+        Assert.InRange(result.DominantFrequencyHz, 4.8, 5.2);
+        // RMS totale = sqrt(0.04²/2 + 0.02²/2) g ≈ 0.0316 g ≈ 0.310 m/s².
+        Assert.InRange(result.BandRmsMs2, 0.27, 0.35);
+    }
+}

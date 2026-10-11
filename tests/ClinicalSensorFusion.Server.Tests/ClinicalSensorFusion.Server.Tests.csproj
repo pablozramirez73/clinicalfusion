@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test di integrazione: server reale (WebApplicationFactory) su PostgreSQL reale.
+    Connessione da CSF_TEST_POSTGRES (default: localhost, utente/password postgres); ogni classe di test
+    usa un database temporaneo dedicato, eliminato alla fine.
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(CsfNetTfm)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1707;CA2007;CA1515;CA1861;CA2234;CA1001;CA1849</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ClinicalSensorFusion.Server/ClinicalSensorFusion.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

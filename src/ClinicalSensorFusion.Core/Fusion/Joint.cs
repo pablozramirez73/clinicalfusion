@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace ClinicalSensorFusion.Core.Fusion;
 
 /// <summary>
 /// Angoli articolari calcolati. L'ordine dei valori è il layout del flusso <c>JointAngles</c>:
 /// NON riordinare.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<Joint>))]
 public enum Joint
 {
     LeftShoulderElevation,

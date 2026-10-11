@@ -69,6 +69,12 @@ internal static class Migrations
             entity_id     TEXT
         );
         """,
+
+        // v2 — sincronizzazione con il server.
+        """
+        ALTER TABLE sessions ADD COLUMN synced_at TEXT;
+        CREATE INDEX ix_sessions_unsynced ON sessions(ended_at) WHERE synced_at IS NULL;
+        """,
     ];
 
     public static int LatestVersion => Steps.Length;

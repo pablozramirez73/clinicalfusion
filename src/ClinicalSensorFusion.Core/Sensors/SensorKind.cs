@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ClinicalSensorFusion.Core.Sensors;
 
 /// <summary>
@@ -5,6 +7,7 @@ namespace ClinicalSensorFusion.Core.Sensors;
 /// Il layout di <see cref="SensorReading.Values"/> per ciascun flusso è documentato qui ed è
 /// parte del formato di archivio: NON cambiare l'ordine dei valori senza una migrazione.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<SensorKind>))]
 public enum SensorKind
 {
     /// <summary>CMDeviceMotion @100 Hz: [ax, ay, az (g, accelerazione utente), gx, gy, gz (rad/s),
