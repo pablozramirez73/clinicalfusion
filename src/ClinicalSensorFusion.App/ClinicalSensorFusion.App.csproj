@@ -10,8 +10,8 @@
     <!-- Nome dell'eseguibile come nell'app originale: ClinicalSensorFusion.app/ClinicalSensorFusion -->
     <AssemblyName>ClinicalSensorFusion</AssemblyName>
 
-    <ApplicationTitle>Clinical Sensor Fusion</ApplicationTitle>
-    <ApplicationId>com.lucaguelfi.clinicalsensorfusion</ApplicationId>
+    <ApplicationTitle>SensorFusion Clinic</ApplicationTitle>
+    <ApplicationId>com.lucaguelfi.sensorfusionclinic</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
@@ -39,6 +39,8 @@
   <ItemGroup>
     <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#0B3D5C" />
     <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#0B3D5C" BaseSize="128,128" />
+    <!-- Icone della barra delle schede (iOS le ricolora da sé: solo la forma conta). -->
+    <MauiImage Include="Resources/Images/*" />
     <!-- Modelli MediaPipe: copiati nel bundle in models/*.task (scaricarli con scripts/download-models.sh). -->
     <MauiAsset Include="Resources/Raw/**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     <!-- Manifest della privacy richiesto da App Store / TestFlight. -->

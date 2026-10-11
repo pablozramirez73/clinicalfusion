@@ -7,76 +7,132 @@
              x:Class="ClinicalSensorFusion.App.Views.CapturePage"
              x:DataType="vm:CaptureViewModel"
              Title="Acquisizione"
-             Shell.NavBarIsVisible="False">
-  <Grid RowDefinitions="5*,4*">
-    <!-- Anteprima: camera + profondità (Metal) con overlay dei punti MediaPipe -->
-    <Grid BackgroundColor="Black">
+             Shell.NavBarIsVisible="False"
+             SafeAreaEdges="None"
+             BackgroundColor="Black">
+  <Grid RowDefinitions="40*,60*" SafeAreaEdges="None">
+    <!-- Anteprima: camera + profondità (Metal) con overlay dei punti MediaPipe. Prosegue sotto il pannello. -->
+    <Grid BackgroundColor="Black" Margin="0,0,0,-28" SafeAreaEdges="None">
       <controls:CapturePreview DepthOverlayOpacity="{Binding DepthOpacity}" />
       <GraphicsView x:Name="OverlayView" Drawable="{Binding Overlay}" InputTransparent="True" />
 
-      <Border VerticalOptions="Start" Margin="12,48,12,0" Padding="10,6" BackgroundColor="#99000000" StrokeThickness="0"
-              StrokeShape="RoundRectangle 8" IsVisible="{Binding Caption, Converter={StaticResource IsNotNullOrEmpty}}">
-        <Label Text="{Binding Caption}" TextColor="White" FontSize="13" />
-      </Border>
+      <!-- Riga alta: stato dell'inferenza a sinistra, REC a destra -->
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Start" Margin="16,60,16,0" InputTransparent="True">
+        <Border Style="{StaticResource Hud}" HorizontalOptions="Start"
+                IsVisible="{Binding Caption, Converter={StaticResource IsNotNullOrEmpty}}">
+          <Label Text="{Binding Caption}" Style="{StaticResource HudText}" FontAttributes="None" LineBreakMode="TailTruncation" />
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Hud}" BackgroundColor="{StaticResource Danger}" IsVisible="{Binding IsRecording}">
+          <HorizontalStackLayout Spacing="6">
+            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="White" VerticalOptions="Center" />
+            <Label Text="REC" Style="{StaticResource HudText}" />
+            <Label Text="{Binding Elapsed}" Style="{StaticResource HudText}" />
+          </HorizontalStackLayout>
+        </Border>
+      </Grid>
 
-      <Border VerticalOptions="End" Margin="12" Padding="10,6" BackgroundColor="#CCB45309" StrokeThickness="0"
-              StrokeShape="RoundRectangle 8" IsVisible="{Binding Warning, Converter={StaticResource IsNotNullOrEmpty}}">
-        <Label Text="{Binding Warning}" TextColor="White" FontSize="13" />
-      </Border>
-
-      <Border HorizontalOptions="End" VerticalOptions="Start" Margin="12,92,12,0" Padding="10,4" StrokeThickness="0"
-              StrokeShape="RoundRectangle 8" BackgroundColor="{StaticResource Danger}" IsVisible="{Binding IsRecording}">
-        <Label Text="● REC" TextColor="White" FontAttributes="Bold" />
-      </Border>
-
-      <Button Text="Profondità" HorizontalOptions="Start" VerticalOptions="Start" Margin="12,92,0,0"
-              Style="{StaticResource SecondaryButton}" TextColor="White" BorderColor="White" Padding="10,4" MinimumHeightRequest="32"
-              Command="{Binding ToggleDepthCommand}" IsVisible="{Binding LidarAvailable}"
-              SemanticProperties.Hint="Mostra o nasconde la mappa di profondità LiDAR" />
+      <!-- Riga bassa: avviso e interruttore della mappa di profondità, sopra il bordo del pannello -->
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="End" Margin="16,0,16,44">
+        <Border Style="{StaticResource Hud}" StrokeShape="RoundRectangle 14" BackgroundColor="#E6B45309" HorizontalOptions="Start"
+                IsVisible="{Binding Warning, Converter={StaticResource IsNotNullOrEmpty}}">
+          <Label Text="{Binding Warning}" Style="{StaticResource HudText}" FontAttributes="None" />
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Hud}" Padding="10" VerticalOptions="End" IsVisible="{Binding LidarAvailable}"
+                SemanticProperties.Description="Profondità" SemanticProperties.Hint="Mostra o nasconde la mappa di profondità LiDAR">
+          <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding ToggleDepthCommand}" />
+          </Border.GestureRecognizers>
+          <Path Style="{StaticResource IconLayers}" Stroke="White" WidthRequest="20" HeightRequest="20" />
+        </Border>
+      </Grid>
     </Grid>
 
-    <ScrollView Grid.Row="1">
-      <VerticalStackLayout Padding="12" Spacing="8">
-        <Picker Title="Modalità" ItemsSource="{Binding Modes}" ItemDisplayBinding="{Binding Title, x:DataType=vm:CaptureModeOption}"
-                SelectedItem="{Binding SelectedMode}" IsEnabled="{Binding IsRecording, Converter={StaticResource InvertedBool}}" />
-        <Label Text="{Binding SelectedMode.Description}" Style="{StaticResource Muted}" />
+    <!-- Pannello di controllo -->
+    <Border Grid.Row="1" StrokeThickness="0" StrokeShape="RoundRectangle 28,28,0,0" SafeAreaEdges="None"
+            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+      <ScrollView>
+        <VerticalStackLayout Padding="20,20,20,24" Spacing="12">
+          <!-- Modalità -->
+          <FlexLayout BindableLayout.ItemsSource="{Binding Modes}" Direction="Row" Margin="-4,0">
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="vm:CaptureModeOption">
+                <Border FlexLayout.Grow="1" FlexLayout.Basis="0" Margin="4,0" Style="{StaticResource Tile}" Padding="8,10"
+                        SemanticProperties.Description="{Binding Title}">
+                  <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                      <Setter Property="Stroke" Value="{StaticResource Accent}" />
+                      <Setter Property="StrokeThickness" Value="2" />
+                      <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentSoftLight}, Dark={StaticResource AccentSoftDark}}" />
+                    </DataTrigger>
+                  </Border.Triggers>
+                  <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectModeCommand, Source={RelativeSource AncestorType={x:Type vm:CaptureViewModel}}, x:DataType=vm:CaptureViewModel}"
+                                          CommandParameter="{Binding .}" />
+                  </Border.GestureRecognizers>
+                  <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                    <controls:ModeBadge Mode="{Binding Mode}" Size="30" VerticalOptions="Center" />
+                    <Label Text="{Binding Title}" FontAttributes="Bold" VerticalOptions="Center" />
+                  </HorizontalStackLayout>
+                </Border>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
+          <Label Text="{Binding SelectedMode.Description}" Style="{StaticResource Muted}" Margin="2,-4,2,0" />
 
-        <Entry Placeholder="Codice soggetto (pseudonimo, non nome e cognome)" Text="{Binding SubjectCode}"
-               IsEnabled="{Binding IsRecording, Converter={StaticResource InvertedBool}}" ReturnType="Next" />
-        <Editor Placeholder="Note (facoltative)" Text="{Binding Notes}" AutoSize="TextChanges" MaximumHeightRequest="100" />
+          <controls:FormField Label="Codice soggetto">
+            <Entry Placeholder="Pseudonimo, non nome e cognome" Text="{Binding SubjectCode}"
+                   IsEnabled="{Binding IsRecording, Converter={StaticResource InvertedBool}}" ReturnType="Done"
+                   IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+          </controls:FormField>
+          <controls:FormField Label="Note (facoltative)">
+            <Editor Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="44" MaximumHeightRequest="100" />
+          </controls:FormField>
 
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-          <Button Text="Avvia rilevazione" Command="{Binding StartCommand}" />
-          <Button Grid.Column="1" Text="Termina" Style="{StaticResource DangerButton}" Command="{Binding StopCommand}" />
-        </Grid>
-        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+          <!-- Un solo pulsante principale: cambia con lo stato della registrazione -->
+          <Grid Margin="0,4,0,0">
+            <Button Text="Avvia rilevazione" Command="{Binding StartCommand}"
+                    IsVisible="{Binding IsRecording, Converter={StaticResource InvertedBool}}" />
+            <Button Text="Termina e salva" Style="{StaticResource DangerButton}" Command="{Binding StopCommand}"
+                    IsVisible="{Binding IsRecording}" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="White"
+                               HorizontalOptions="End" Margin="0,0,18,0" InputTransparent="True" />
+          </Grid>
 
-        <Label Text="Valori in tempo reale" Style="{StaticResource Section}" />
-        <FlexLayout BindableLayout.ItemsSource="{Binding Tiles}" Wrap="Wrap" JustifyContent="Start">
-          <BindableLayout.ItemTemplate>
-            <DataTemplate x:DataType="vm:MetricTile">
-              <Border Style="{StaticResource Card}" Margin="0,0,8,8" Padding="10,6" WidthRequest="112">
-                <VerticalStackLayout>
-                  <Label Text="{Binding Name}" Style="{StaticResource Muted}" FontSize="12" />
-                  <Label Text="{Binding Value}" FontSize="17" FontAttributes="Bold" />
-                </VerticalStackLayout>
-              </Border>
-            </DataTemplate>
-          </BindableLayout.ItemTemplate>
-        </FlexLayout>
+          <Label Text="Valori in tempo reale" Style="{StaticResource Section}" />
+          <FlexLayout BindableLayout.ItemsSource="{Binding Tiles}" Wrap="Wrap" Direction="Row" Margin="-4,0">
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="vm:MetricTile">
+                <Grid FlexLayout.Basis="33.33%" Padding="4">
+                  <Border Style="{StaticResource Tile}">
+                    <VerticalStackLayout Spacing="2">
+                      <Label Text="{Binding Name}" Style="{StaticResource MetricName}" />
+                      <Label Text="{Binding Value}" Style="{StaticResource MetricValue}" />
+                    </VerticalStackLayout>
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
 
-        <Label Text="Sensori" Style="{StaticResource Section}" />
-        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sensors}" Spacing="2">
-          <BindableLayout.ItemTemplate>
-            <DataTemplate x:DataType="svc:SensorStatus">
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                <Label Text="●" TextColor="{Binding Running, Converter={StaticResource StatusColor}}" />
-                <Label Grid.Column="1" Text="{Binding Name}" />
-              </Grid>
-            </DataTemplate>
-          </BindableLayout.ItemTemplate>
+          <Label Text="Sensori" Style="{StaticResource Section}" />
+          <FlexLayout BindableLayout.ItemsSource="{Binding Sensors}" Wrap="Wrap" Direction="Row" Margin="-3,0">
+            <BindableLayout.EmptyView>
+              <Label Text="I sensori compaiono all'avvio dell'anteprima." Style="{StaticResource Muted}" Margin="5,0" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="svc:SensorStatus">
+                <Border Style="{StaticResource Tile}" StrokeShape="RoundRectangle 999" Padding="10,6" Margin="3">
+                  <HorizontalStackLayout Spacing="6">
+                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center"
+                             Color="{Binding Running, Converter={StaticResource StatusColor}}" />
+                    <Label Text="{Binding Name}" FontSize="13" />
+                  </HorizontalStackLayout>
+                </Border>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
         </VerticalStackLayout>
-      </VerticalStackLayout>
-    </ScrollView>
+      </ScrollView>
+    </Border>
   </Grid>
 </ContentPage>

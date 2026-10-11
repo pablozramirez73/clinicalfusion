@@ -18,6 +18,19 @@ public sealed record AudioItem(string Id, string Title, string Details, string P
 
 public sealed record AnalysisItem(string When, string Model, string Response);
 
+/// <summary>Stato dell'invio di una rilevazione al server clinico, come lo vede l'operatore.</summary>
+public enum SyncState
+{
+    /// <summary>Rilevazione incompleta: niente da inviare.</summary>
+    Unavailable,
+
+    /// <summary>Server o chiave del dispositivo non impostati.</summary>
+    NotConfigured,
+    Pending,
+    Sending,
+    Sent,
+}
+
 /// <summary>Dettaglio di una rilevazione: indicatori, audio, analisi con il modello linguistico.</summary>
 /// <remarks>
 /// Volutamente non IDisposable: è registrato come transient e il container DI di MAUI trattiene fino alla
@@ -30,8 +43,12 @@ public sealed partial class SessionDetailViewModel(
     OllamaClient ollama,
     IAppSettings settings,
     IAudioPlayback playback,
+    SyncService sync,
     IDialogService dialogs) : ObservableObject, IQueryAttributable
 {
+    /// <summary>Parametro di navigazione: la pagina si apre subito dopo la fine di un'acquisizione.</summary>
+    public const string JustRecordedKey = "JustRecorded";
+
     private ClinicalSession? _session;
     private CancellationTokenSource? _analysisCts;
 
@@ -45,7 +62,23 @@ public sealed partial class SessionDetailViewModel(
     public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Subtitle { get; set; } = string.Empty;
+    public partial CaptureMode Mode { get; set; }
+
+    [ObservableProperty]
+    public partial string ModeText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string WhenText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string DurationText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string OperatorName { get; set; } = string.Empty;
+
+    /// <summary>Falso se la rilevazione è stata interrotta prima del calcolo degli indicatori.</summary>
+    [ObservableProperty]
+    public partial bool HasSummary { get; set; }
 
     [ObservableProperty]
     public partial string? Notes { get; set; }
@@ -61,15 +94,38 @@ public sealed partial class SessionDetailViewModel(
     [NotifyCanExecuteChangedFor(nameof(CancelAnalysisCommand))]
     public partial bool IsAnalyzing { get; set; }
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSyncAvailable), nameof(IsSyncNotConfigured), nameof(IsSyncPending), nameof(IsSyncSending), nameof(IsSyncSent))]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    public partial SyncState SyncState { get; set; }
+
+    /// <summary>Riga sotto il titolo della scheda: quando è stata inviata, oppure cosa succede inviandola.</summary>
+    [ObservableProperty]
+    public partial string SyncText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string? SyncError { get; set; }
+
+    public bool IsSyncAvailable => SyncState != SyncState.Unavailable;
+
+    public bool IsSyncNotConfigured => SyncState == SyncState.NotConfigured;
+
+    public bool IsSyncPending => SyncState == SyncState.Pending;
+
+    public bool IsSyncSending => SyncState == SyncState.Sending;
+
+    public bool IsSyncSent => SyncState == SyncState.Sent;
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("SessionId", out var id) && id is string sessionId)
         {
-            _ = LoadAsync(sessionId);
+            var justRecorded = query.TryGetValue(JustRecordedKey, out var flag) && flag is true;
+            _ = LoadAsync(sessionId, justRecorded);
         }
     }
 
-    private async Task LoadAsync(string id)
+    private async Task LoadAsync(string id, bool justRecorded)
     {
         try
         {
@@ -82,7 +138,13 @@ public sealed partial class SessionDetailViewModel(
 
             var c = CultureInfo.CurrentCulture;
             Title = _session.SubjectCode;
-            Subtitle = $"{_session.StartedAt.ToLocalTime().ToString("f", c)} · {ClinicalPromptBuilder.Describe(_session.Mode)} · {_session.OperatorName}";
+            Mode = _session.Mode;
+            var mode = ClinicalPromptBuilder.Describe(_session.Mode);
+            ModeText = mode.Length > 0 ? char.ToUpper(mode[0], c) + mode[1..] : mode;
+            WhenText = _session.StartedAt.ToLocalTime().ToString("f", c);
+            DurationText = _session.Duration is { } d ? d.ToString(@"mm\:ss", c) : "incompleta";
+            OperatorName = _session.OperatorName;
+            HasSummary = _session.Summary is not null;
             Notes = _session.Notes;
 
             Summary.Clear();
@@ -104,12 +166,89 @@ public sealed partial class SessionDetailViewModel(
             }
 
             await LoadAnalysesAsync();
+            RefreshSyncState();
+
+            // A fine acquisizione l'invio parte da solo, se l'operatore lo ha scelto nelle Impostazioni.
+            if (justRecorded && sync.AutoSync && SyncState == SyncState.Pending)
+            {
+                await SendToServerAsync();
+            }
         }
         catch (Exception ex)
         {
             await dialogs.AlertAsync("Errore", ex.Message);
         }
     }
+
+    private void RefreshSyncState()
+    {
+        SyncError = null;
+        if (_session?.EndedAt is null)
+        {
+            SyncState = SyncState.Unavailable;
+        }
+        else if (!sync.IsConfigured)
+        {
+            SyncState = SyncState.NotConfigured;
+            SyncText = "Imposta indirizzo e chiave del dispositivo per inviare la rilevazione e vedere i grafici nella dashboard.";
+        }
+        else if (_session.SyncedAt is { } at)
+        {
+            SyncState = SyncState.Sent;
+            SyncText = $"Inviata il {at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)}. I grafici sono nella dashboard.";
+        }
+        else
+        {
+            SyncState = SyncState.Pending;
+            SyncText = "Non ancora inviata. Il server riceve indicatori, dati dei sensori, audio e analisi e ne ricava i grafici.";
+        }
+    }
+
+    private bool CanSendToServer() => SyncState is SyncState.Pending or SyncState.Sent;
+
+    /// <summary>Invia (o reinvia) questa rilevazione al server clinico, che ne costruisce i grafici.</summary>
+    [RelayCommand(CanExecute = nameof(CanSendToServer))]
+    private async Task SendToServerAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var previous = SyncState;
+        SyncState = SyncState.Sending;
+        SyncError = null;
+        try
+        {
+            var report = await sync.SyncSessionAsync(_session.Id);
+            if (report.Errors.Count > 0)
+            {
+                SyncError = string.Join(" ", report.Errors);
+                SyncState = previous;
+                return;
+            }
+
+            _session.SyncedAt = DateTimeOffset.UtcNow;
+            RefreshSyncState();
+        }
+        catch (Exception ex)
+        {
+            SyncError = ex is OperationCanceledException ? "Il server non ha risposto in tempo." : ex.Message;
+            SyncState = previous;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenDashboardAsync()
+    {
+        if (_session is not null && sync.DashboardUrlFor(_session.Id) is { } url)
+        {
+            await Launcher.Default.OpenAsync(url);
+        }
+    }
+
+    [RelayCommand]
+    private static Task OpenSettingsAsync() => Shell.Current.GoToAsync("//settings");
 
     private async Task LoadAnalysesAsync()
     {

@@ -31,6 +31,14 @@ public static class MauiProgram
 #endif
             });
 
+#if IOS
+        // I campi di testo nativi hanno un bordo proprio: lo toglie, il riquadro lo disegna FormField.
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
+            handler.PlatformView.BorderStyle = UIKit.UITextBorderStyle.None);
+        Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
+            handler.PlatformView.BorderStyle = UIKit.UITextBorderStyle.None);
+#endif
+
 #if DEBUG
         builder.Logging.AddDebug().SetMinimumLevel(LogLevel.Debug);
 #endif

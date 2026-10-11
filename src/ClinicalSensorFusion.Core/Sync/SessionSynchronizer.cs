@@ -31,7 +31,7 @@ public sealed class SessionSynchronizer(
         {
             try
             {
-                var (c, a) = await SyncSessionAsync(server, session, audioPathResolver, ct).ConfigureAwait(false);
+                var (c, a) = await UploadAsync(server, session, audioPathResolver, ct).ConfigureAwait(false);
                 sessions++;
                 chunks += c;
                 audioFiles += a;
@@ -52,7 +52,36 @@ public sealed class SessionSynchronizer(
         return new SyncReport(sessions, chunks, audioFiles, errors);
     }
 
-    private async Task<(int Chunks, int Audio)> SyncSessionAsync(
+    /// <summary>
+    /// Invia una sola rilevazione, anche se già sincronizzata: l'API è idempotente, quindi il reinvio serve
+    /// ad aggiornare il server (per esempio con le analisi IA aggiunte dopo il primo invio).
+    /// </summary>
+    public async Task<SyncReport> SyncSessionAsync(Uri server, string sessionId, Func<AudioRecording, string> audioPathResolver, CancellationToken ct = default)
+    {
+        var session = await repository.GetSessionAsync(sessionId, ct).ConfigureAwait(false);
+        if (session is null)
+        {
+            return new SyncReport(0, 0, 0, ["Rilevazione non trovata."]);
+        }
+
+        if (session.EndedAt is null)
+        {
+            return new SyncReport(0, 0, 0, ["La rilevazione è incompleta: non può essere inviata."]);
+        }
+
+        try
+        {
+            var (chunks, audio) = await UploadAsync(server, session, audioPathResolver, ct).ConfigureAwait(false);
+            return new SyncReport(1, chunks, audio, []);
+        }
+        catch (Exception ex) when (ex is SyncException or HttpRequestException or IOException)
+        {
+            logger.LogWarning(ex, "Invio della sessione {SessionId} fallito.", session.Id);
+            return new SyncReport(0, 0, 0, [ex.Message]);
+        }
+    }
+
+    private async Task<(int Chunks, int Audio)> UploadAsync(
         Uri server, ClinicalSession session, Func<AudioRecording, string> audioPathResolver, CancellationToken ct)
     {
         var audio = await repository.ListAudioRecordingsAsync(session.Id, ct).ConfigureAwait(false);

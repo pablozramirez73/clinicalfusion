@@ -16,16 +16,15 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
 
     public bool IsConfigured => TryGetServer(out _);
 
+    /// <summary>Invio automatico al termine di una rilevazione (scelta dell'operatore nelle Impostazioni).</summary>
+    public bool AutoSync => settings.AutoSync;
+
+    /// <summary>Invia tutte le rilevazioni concluse non ancora sincronizzate.</summary>
     public async Task<SyncReport> SyncNowAsync(CancellationToken ct = default)
     {
-        if (!TryGetServer(out var server))
+        if (await CheckConfigurationAsync() is { } problem)
         {
-            return new SyncReport(0, 0, 0, ["Server clinico non configurato nelle Impostazioni."]);
-        }
-
-        if (string.IsNullOrEmpty(await secureStorage.GetAsync(ApiKeyStorageKey)))
-        {
-            return new SyncReport(0, 0, 0, ["Chiave del dispositivo mancante nelle Impostazioni."]);
+            return problem;
         }
 
         if (!await _gate.WaitAsync(0, ct))
@@ -35,6 +34,7 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
 
         try
         {
+            TryGetServer(out var server);
             return await synchronizer.SyncPendingAsync(server!, AppPaths.Audio, ct);
         }
         finally
@@ -43,29 +43,46 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
         }
     }
 
-    /// <summary>Invio in background dopo una rilevazione: gli errori si registrano, non interrompono l'operatore.</summary>
-    public void SyncInBackground()
+    /// <summary>Invia una sola rilevazione; se è in corso un altro invio aspetta il proprio turno.</summary>
+    public async Task<SyncReport> SyncSessionAsync(string sessionId, CancellationToken ct = default)
     {
-        if (!settings.AutoSync || !IsConfigured)
+        if (await CheckConfigurationAsync() is { } problem)
         {
-            return;
+            return problem;
         }
 
-        _ = Task.Run(async () =>
+        await _gate.WaitAsync(ct);
+        try
         {
-            try
+            TryGetServer(out var server);
+            var report = await synchronizer.SyncSessionAsync(server!, sessionId, AppPaths.Audio, ct);
+            if (report.Errors.Count > 0)
             {
-                var report = await SyncNowAsync();
-                if (report.Errors.Count > 0)
-                {
-                    logger.LogWarning("Sincronizzazione automatica incompleta: {Errors}", string.Join("; ", report.Errors));
-                }
+                logger.LogWarning("Invio della rilevazione {SessionId} incompleto: {Errors}", sessionId, string.Join("; ", report.Errors));
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Sincronizzazione automatica fallita.");
-            }
-        });
+
+            return report;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>Pagina della dashboard con i grafici della rilevazione; null se il server non è configurato.</summary>
+    public Uri? DashboardUrlFor(string sessionId) =>
+        TryGetServer(out var server) ? new Uri(server!, $"sessions/{Uri.EscapeDataString(sessionId)}") : null;
+
+    private async Task<SyncReport?> CheckConfigurationAsync()
+    {
+        if (!IsConfigured)
+        {
+            return new SyncReport(0, 0, 0, ["Server clinico non configurato nelle Impostazioni."]);
+        }
+
+        return string.IsNullOrEmpty(await secureStorage.GetAsync(ApiKeyStorageKey))
+            ? new SyncReport(0, 0, 0, ["Chiave del dispositivo mancante nelle Impostazioni."])
+            : null;
     }
 
     private bool TryGetServer(out Uri? server)

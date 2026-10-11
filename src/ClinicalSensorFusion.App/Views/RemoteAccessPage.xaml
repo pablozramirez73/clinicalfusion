@@ -9,8 +9,10 @@
     <ToolbarItem Text="Esci" Command="{Binding LogoutCommand}" />
     <ToolbarItem Text="Fatto" Command="{Binding DoneCommand}" />
   </ContentPage.ToolbarItems>
-  <Grid RowDefinitions="Auto,*">
-    <Label Text="Completare il login; quando compare l'elenco dei modelli toccare «Fatto»." Style="{StaticResource Muted}" Margin="12,8" />
+  <Grid RowDefinitions="Auto,*" RowSpacing="10" Padding="0,8,0,0">
+    <Border Style="{StaticResource BannerInfo}" Margin="20,0">
+      <Label Text="Completa il login; quando compare l'elenco dei modelli tocca «Fatto»." Style="{StaticResource BannerInfoText}" />
+    </Border>
     <WebView Grid.Row="1" Source="{Binding Url}" />
   </Grid>
 </ContentPage>

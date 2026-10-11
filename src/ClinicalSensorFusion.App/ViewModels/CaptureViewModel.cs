@@ -11,7 +11,17 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ClinicalSensorFusion.App.ViewModels;
 
-public sealed record CaptureModeOption(CaptureMode Mode, string Title, string Description);
+public sealed partial class CaptureModeOption(CaptureMode mode, string title, string description) : ObservableObject
+{
+    public CaptureMode Mode { get; } = mode;
+
+    public string Title { get; } = title;
+
+    public string Description { get; } = description;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+}
 
 public sealed partial class MetricTile(string name) : ObservableObject
 {
@@ -30,7 +40,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly CaptureCoordinator _coordinator;
     private readonly MauiAppSettings _settings;
     private readonly IDialogService _dialogs;
-    private readonly SyncService _sync;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -44,9 +53,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly MetricTile _light = new("Luce");
     private readonly MetricTile _thermal = new("Temperatura");
 
-    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs, SyncService sync)
+    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs)
     {
-        _sync = sync;
         _engine = engine;
         _coordinator = coordinator;
         _settings = settings;
@@ -81,6 +89,10 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial CaptureModeOption SelectedMode { get; set; }
 
+    /// <summary>Tempo trascorso, mostrato accanto all'indicatore REC sull'anteprima.</summary>
+    [ObservableProperty]
+    public partial string Elapsed { get; set; } = "00:00";
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     public partial string SubjectCode { get; set; } = string.Empty;
@@ -91,6 +103,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SelectModeCommand))]
     public partial bool IsRecording { get; set; }
 
     [ObservableProperty]
@@ -127,7 +140,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         if (!await _engine.RequestPermissionsAsync(_settings.RecordLocation))
         {
-            Warning = "Servono i permessi per fotocamera e microfono (Impostazioni iOS → Clinical Sensor Fusion).";
+            Warning = "Servono i permessi per fotocamera e microfono (Impostazioni iOS → SensorFusion Clinic).";
             return;
         }
 
@@ -156,6 +169,11 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     async partial void OnSelectedModeChanged(CaptureModeOption value)
     {
+        foreach (var option in Modes)
+        {
+            option.IsSelected = ReferenceEquals(option, value);
+        }
+
         if (_previewActive && !IsRecording)
         {
             await StartPreviewAsync();
@@ -199,8 +217,12 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             SubjectCode = string.Empty;
             Notes = null;
             RefreshSensors();
-            _sync.SyncInBackground();
-            await Shell.Current.GoToAsync(nameof(SessionDetailPage), new Dictionary<string, object> { ["SessionId"] = session.Id });
+            await Shell.Current.GoToAsync(nameof(SessionDetailPage), new Dictionary<string, object>
+            {
+                ["SessionId"] = session.Id,
+                // Il dettaglio propone (o avvia, se automatico) l'invio al server clinico.
+                [SessionDetailViewModel.JustRecordedKey] = true,
+            });
         }
         catch (Exception ex)
         {
@@ -211,6 +233,12 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             IsBusy = false;
         }
     }
+
+    // La modalità non si cambia a registrazione avviata: i flussi sono già aperti per quella scelta.
+    private bool CanSelectMode() => !IsRecording;
+
+    [RelayCommand(CanExecute = nameof(CanSelectMode))]
+    private void SelectMode(CaptureModeOption option) => SelectedMode = option;
 
     [RelayCommand]
     private void ToggleDepth() => DepthOpacity = DepthOpacity > 0 ? 0 : 0.35;
@@ -266,6 +294,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     {
         var c = CultureInfo.CurrentCulture;
         _elapsed.Value = IsRecording ? TimeSpan.FromSeconds(_coordinator.Elapsed).ToString(@"mm\:ss", c) : "—";
+        Elapsed = IsRecording ? _elapsed.Value : "00:00";
         if (live is null)
         {
             return;

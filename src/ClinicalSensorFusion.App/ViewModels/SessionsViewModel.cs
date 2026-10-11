@@ -9,7 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ClinicalSensorFusion.App.ViewModels;
 
-public sealed record SessionListItem(string Id, string Subject, string When, string Details, bool Completed);
+public sealed record SessionListItem(string Id, string Subject, CaptureMode Mode, string When, string Details, bool Completed, bool Synced);
 
 /// <summary>Elenco delle rilevazioni con ricerca per codice soggetto.</summary>
 public sealed partial class SessionsViewModel(
@@ -36,9 +36,12 @@ public sealed partial class SessionsViewModel(
         try
         {
             var report = await sync.SyncNowAsync();
-            SyncStatus = report.Errors.Count == 0
-                ? $"Inviate {report.Sessions} rilevazioni ({report.Chunks} blocchi, {report.AudioFiles} audio)."
-                : string.Join(" ", report.Errors);
+            SyncStatus = report switch
+            {
+                { Errors.Count: > 0 } => string.Join(" ", report.Errors),
+                { Sessions: 0 } => "Nessuna rilevazione da inviare: il server è già aggiornato.",
+                _ => $"Inviate {report.Sessions} rilevazioni ({report.Chunks} blocchi, {report.AudioFiles} audio).",
+            };
         }
         catch (Exception ex)
         {
@@ -48,6 +51,9 @@ public sealed partial class SessionsViewModel(
         {
             IsSyncing = false;
         }
+
+        // L'elenco mostra quali rilevazioni risultano inviate.
+        await LoadAsync();
     }
 
     public ObservableCollection<SessionListItem> Sessions { get; } = [];
@@ -63,6 +69,10 @@ public sealed partial class SessionsViewModel(
 
     [ObservableProperty]
     public partial bool IsEmpty { get; set; }
+
+    /// <summary>Sottotitolo dell'intestazione: quante rilevazioni mostra l'elenco.</summary>
+    [ObservableProperty]
+    public partial string CountText { get; set; } = string.Empty;
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -83,7 +93,7 @@ public sealed partial class SessionsViewModel(
                 Sessions.Add(ToItem(s));
             }
 
-            IsEmpty = Sessions.Count == 0;
+            RefreshCount();
         }
         catch (DatabaseKeyMismatchException)
         {
@@ -114,26 +124,60 @@ public sealed partial class SessionsViewModel(
 
         await coordinator.DeleteAsync(item.Id);
         Sessions.Remove(item);
+        RefreshCount();
+    }
+
+    [RelayCommand]
+    private static Task NewCaptureAsync() => Shell.Current.GoToAsync("//capture");
+
+    private void RefreshCount()
+    {
         IsEmpty = Sessions.Count == 0;
+        CountText = Sessions.Count switch
+        {
+            0 => string.IsNullOrWhiteSpace(SearchText) ? "Archivio cifrato su questo dispositivo" : "Nessun risultato",
+            1 => "1 rilevazione",
+            var n => string.Create(CultureInfo.CurrentCulture, $"{n} rilevazioni"),
+        };
     }
 
     partial void OnSearchTextChanged(string value) => LoadCommand.Execute(null);
 
     private static SessionListItem ToItem(ClinicalSession s)
     {
-        var duration = s.Duration is { } d ? d.ToString(@"mm\:ss", CultureInfo.CurrentCulture) : "incompleta";
-        var mode = s.Mode switch
-        {
-            CaptureMode.BodyLidar => "Corpo",
-            CaptureMode.HandsLidar => "Mani",
-            CaptureMode.FaceTrueDepth => "Volto",
-            _ => s.Mode.ToString(),
-        };
+        // Senza durata la rilevazione è incompleta: lo dice già il chip dell'elenco.
+        var details = s.Duration is { } d
+            ? $"{ModeLabel(s.Mode)} · {d.ToString(@"mm\:ss", CultureInfo.CurrentCulture)} · {s.OperatorName}"
+            : $"{ModeLabel(s.Mode)} · {s.OperatorName}";
         return new SessionListItem(
             s.Id,
             s.SubjectCode,
-            s.StartedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
-            $"{mode} · {duration} · {s.OperatorName}",
-            s.EndedAt is not null);
+            s.Mode,
+            FriendlyDate(s.StartedAt.ToLocalTime()),
+            details,
+            s.EndedAt is not null,
+            s.SyncedAt is not null);
+    }
+
+    internal static string ModeLabel(CaptureMode mode) => mode switch
+    {
+        CaptureMode.BodyLidar => "Corpo",
+        CaptureMode.HandsLidar => "Mani",
+        CaptureMode.FaceTrueDepth => "Volto",
+        _ => mode.ToString(),
+    };
+
+    /// <summary>"Oggi, 14:32" / "Ieri, 09:10" / "12 ott, 14:32": più leggibile della data completa in un elenco.</summary>
+    private static string FriendlyDate(DateTimeOffset local)
+    {
+        var c = CultureInfo.CurrentCulture;
+        var days = (DateTimeOffset.Now.Date - local.Date).Days;
+        var day = days switch
+        {
+            0 => "Oggi",
+            1 => "Ieri",
+            _ => local.ToString(local.Year == DateTimeOffset.Now.Year ? "d MMM" : "d MMM yyyy", c),
+        };
+        return $"{day}, {local.ToString("t", c)}";
     }
 }

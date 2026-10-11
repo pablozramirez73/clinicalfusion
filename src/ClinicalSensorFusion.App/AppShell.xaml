@@ -5,11 +5,11 @@
        x:Class="ClinicalSensorFusion.App.AppShell"
        Shell.FlyoutBehavior="Disabled">
   <TabBar>
-    <ShellContent Title="Rilevazioni" Icon="{FontImageSource Glyph='☰', Color={StaticResource Primary}, Size=22}"
+    <ShellContent Title="Rilevazioni" Icon="tab_sessions.png"
                   ContentTemplate="{DataTemplate views:SessionsPage}" Route="sessions" />
-    <ShellContent Title="Acquisisci" Icon="{FontImageSource Glyph='◉', Color={StaticResource Primary}, Size=22}"
+    <ShellContent Title="Acquisisci" Icon="tab_capture.png"
                   ContentTemplate="{DataTemplate views:CapturePage}" Route="capture" />
-    <ShellContent Title="Impostazioni" Icon="{FontImageSource Glyph='⚙', Color={StaticResource Primary}, Size=22}"
+    <ShellContent Title="Impostazioni" Icon="tab_settings.png"
                   ContentTemplate="{DataTemplate views:SettingsPage}" Route="settings" />
   </TabBar>
 </Shell>

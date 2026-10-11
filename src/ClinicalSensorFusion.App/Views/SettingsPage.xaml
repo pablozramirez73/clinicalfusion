@@ -2,69 +2,152 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             xmlns:controls="clr-namespace:ClinicalSensorFusion.App.Controls"
              x:Class="ClinicalSensorFusion.App.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
-             Title="Impostazioni">
-  <ScrollView>
-    <VerticalStackLayout Padding="12" Spacing="8">
-      <Label Text="Operatore" Style="{StaticResource Section}" />
-      <Border Style="{StaticResource Card}">
-        <VerticalStackLayout Spacing="6">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Placeholder="Identificativo operatore" Text="{Binding OperatorId}" />
-            <Button Grid.Column="1" Text="Genera" Style="{StaticResource SecondaryButton}" Command="{Binding GenerateOperatorIdCommand}" />
+             Title="Impostazioni"
+             Shell.NavBarIsVisible="False"
+             SafeAreaEdges="Container">
+  <Grid RowDefinitions="*,Auto">
+    <ScrollView>
+      <VerticalStackLayout Padding="20,12,20,16" Spacing="12">
+        <Label Text="Impostazioni" Style="{StaticResource LargeTitle}" SemanticProperties.HeadingLevel="Level1" />
+
+        <!-- Operatore -->
+        <Border Style="{StaticResource Card}">
+          <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                <Path Style="{StaticResource IconPerson}" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Operatore" Style="{StaticResource Headline}" />
+                <Label Text="Ogni rilevazione e ogni analisi vengono associate all'operatore." Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+              <controls:FormField Label="Identificativo">
+                <Entry Placeholder="Es. A1B2C3D4" Text="{Binding OperatorId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+              </controls:FormField>
+              <Button Grid.Column="1" Text="Genera" Style="{StaticResource SecondaryButton}" HeightRequest="48" VerticalOptions="End"
+                      Command="{Binding GenerateOperatorIdCommand}" />
+            </Grid>
+            <controls:FormField Label="Nome">
+              <Entry Placeholder="Nome e cognome dell'operatore" Text="{Binding OperatorName}" />
+            </controls:FormField>
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Server Ollama -->
+        <Border Style="{StaticResource Card}">
+          <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                <Path Style="{StaticResource IconServer}" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Server Ollama" Style="{StaticResource Headline}" />
+                <Label Text="Il modello linguistico che commenta gli indicatori." Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+            </Grid>
+            <controls:FormField Label="Indirizzo">
+              <Entry Placeholder="192.168.1.20 o https://ai.esempio.it" Text="{Binding OllamaServer}"
+                     Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+            </controls:FormField>
+            <Grid>
+              <Button Text="Verifica ed elenca i modelli" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
+              <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" HorizontalOptions="End" Margin="0,0,14,0"
+                                 InputTransparent="True" />
+            </Grid>
+            <Border Style="{StaticResource BannerInfo}" IsVisible="{Binding ConnectionStatus, Converter={StaticResource IsNotNullOrEmpty}}">
+              <Label Text="{Binding ConnectionStatus}" Style="{StaticResource BannerInfoText}" />
+            </Border>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <controls:FormField Label="Modello">
+                <Picker Title="Scegli" ItemsSource="{Binding Models}" SelectedItem="{Binding OllamaModel}" />
+              </controls:FormField>
+              <controls:FormField Grid.Column="1" Label="Lingua della risposta">
+                <Picker Title="Scegli" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
+              </controls:FormField>
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Server clinico -->
+        <Border Style="{StaticResource Card}">
+          <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                <Path Style="{StaticResource IconUpload}" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Server clinico" Style="{StaticResource Headline}" />
+                <Label Text="Riceve le rilevazioni e ne ricava i grafici della dashboard. Vanno al server codice soggetto, operatore, indicatori, dati dei sensori, audio e analisi."
+                       Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+            </Grid>
+            <controls:FormField Label="Indirizzo">
+              <Entry Placeholder="https://clinica.esempio.it" Text="{Binding SyncServer}"
+                     Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+            </controls:FormField>
+            <controls:FormField Label="Chiave del dispositivo">
+              <Entry Text="{Binding SyncApiKey}" IsPassword="True" />
+            </controls:FormField>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                <Label Text="Invio automatico" FontAttributes="Bold" />
+                <Label Text="Invia ogni rilevazione appena termina. Se è spento, l'invio si avvia a mano dal dettaglio." Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="1" IsToggled="{Binding AutoSync}" VerticalOptions="Center"
+                      SemanticProperties.Description="Invia automaticamente a fine rilevazione" />
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Accesso remoto -->
+        <Border Style="{StaticResource Card}">
+          <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                <Path Style="{StaticResource IconCloud}" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Accesso remoto" Style="{StaticResource Headline}" />
+                <Label Text="Per un server dietro Cloudflare Access: credenziali di servizio (consigliato) oppure accesso interattivo."
+                       Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+            </Grid>
+            <controls:FormField Label="CF-Access-Client-Id">
+              <Entry Text="{Binding CloudflareClientId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+            </controls:FormField>
+            <controls:FormField Label="CF-Access-Client-Secret">
+              <Entry Text="{Binding CloudflareClientSecret}" IsPassword="True" />
+            </controls:FormField>
+            <Button Text="Accedi nella WebView" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Privacy -->
+        <Border Style="{StaticResource Card}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Center">
+              <Path Style="{StaticResource IconShield}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+              <Label Text="Posizione GPS" Style="{StaticResource Headline}" />
+              <Label Text="Registrala durante le rilevazioni a domicilio." Style="{StaticResource Muted}" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="2" IsToggled="{Binding RecordLocation}" VerticalOptions="Center"
+                    SemanticProperties.Description="Registra la posizione GPS durante le rilevazioni" />
           </Grid>
-          <Entry Placeholder="Nome operatore" Text="{Binding OperatorName}" />
-          <Label Text="Ogni rilevazione e ogni analisi vengono associate all'operatore." Style="{StaticResource Muted}" />
-        </VerticalStackLayout>
-      </Border>
+        </Border>
+      </VerticalStackLayout>
+    </ScrollView>
 
-      <Label Text="Server Ollama" Style="{StaticResource Section}" />
-      <Border Style="{StaticResource Card}">
-        <VerticalStackLayout Spacing="6">
-          <Entry Placeholder="Indirizzo (es. 192.168.1.20 o https://ai.esempio.it)" Text="{Binding OllamaServer}"
-                 Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
-          <Button Text="Verifica connessione ed elenca modelli" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
-          <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" />
-          <Label Text="{Binding ConnectionStatus}" Style="{StaticResource Muted}" IsVisible="{Binding ConnectionStatus, Converter={StaticResource IsNotNullOrEmpty}}" />
-          <Picker Title="Modello" ItemsSource="{Binding Models}" SelectedItem="{Binding OllamaModel}" />
-          <Picker Title="Lingua della risposta" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
-        </VerticalStackLayout>
-      </Border>
-
-      <Label Text="Accesso remoto (Cloudflare Access)" Style="{StaticResource Section}" />
-      <Border Style="{StaticResource Card}">
-        <VerticalStackLayout Spacing="6">
-          <Label Text="Per un server raggiungibile da Internet dietro Cloudflare Access: accesso interattivo nella WebView oppure credenziali di servizio (consigliato)." Style="{StaticResource Muted}" />
-          <Button Text="Accedi nella WebView" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />
-          <Entry Placeholder="CF-Access-Client-Id" Text="{Binding CloudflareClientId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
-          <Entry Placeholder="CF-Access-Client-Secret" Text="{Binding CloudflareClientSecret}" IsPassword="True" />
-        </VerticalStackLayout>
-      </Border>
-
-      <Label Text="Server clinico (anagrafica e dashboard)" Style="{StaticResource Section}" />
-      <Border Style="{StaticResource Card}">
-        <VerticalStackLayout Spacing="6">
-          <Entry Placeholder="Indirizzo (es. https://clinica.esempio.it)" Text="{Binding SyncServer}"
-                 Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
-          <Entry Placeholder="Chiave del dispositivo" Text="{Binding SyncApiKey}" IsPassword="True" />
-          <Grid ColumnDefinitions="*,Auto">
-            <Label Text="Invia automaticamente a fine rilevazione" VerticalOptions="Center" />
-            <Switch Grid.Column="1" IsToggled="{Binding AutoSync}" />
-          </Grid>
-          <Label Text="Al server vanno codice soggetto, indicatori, dati dei sensori, audio e analisi. L'identità del paziente è solo sul server." Style="{StaticResource Muted}" />
-        </VerticalStackLayout>
-      </Border>
-
-      <Label Text="Privacy" Style="{StaticResource Section}" />
-      <Border Style="{StaticResource Card}">
-        <Grid ColumnDefinitions="*,Auto">
-          <Label Text="Registra la posizione GPS durante le rilevazioni" VerticalOptions="Center" />
-          <Switch Grid.Column="1" IsToggled="{Binding RecordLocation}" />
-        </Grid>
-      </Border>
-
-      <Button Text="Salva" Command="{Binding SaveCommand}" Margin="0,8" />
-    </VerticalStackLayout>
-  </ScrollView>
+    <!-- Salvataggio sempre raggiungibile -->
+    <Grid Grid.Row="1" Padding="20,10,20,12"
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+      <Button Text="Salva" Command="{Binding SaveCommand}" />
+    </Grid>
+  </Grid>
 </ContentPage>

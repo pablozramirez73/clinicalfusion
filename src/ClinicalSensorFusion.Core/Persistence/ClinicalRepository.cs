@@ -63,7 +63,7 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
         {
             await using var cmd = c.CreateCommand();
             cmd.CommandText = $"""
-                SELECT {SessionColumns} FROM sessions
+                SELECT {SessionColumns}, synced_at FROM sessions
                 WHERE $subject IS NULL OR subject_code LIKE $subject ESCAPE '\'
                 ORDER BY started_at DESC LIMIT $limit;
                 """;
@@ -85,7 +85,7 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
         database.RunAsync(async c =>
         {
             await using var cmd = c.CreateCommand();
-            cmd.CommandText = $"SELECT {SessionColumns} FROM sessions WHERE id = $id;";
+            cmd.CommandText = $"SELECT {SessionColumns}, synced_at FROM sessions WHERE id = $id;";
             cmd.Parameters.AddWithValue("$id", id);
             await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             return await reader.ReadAsync(ct).ConfigureAwait(false) ? ReadSession(reader) : null;
@@ -107,7 +107,7 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
         database.RunAsync<IReadOnlyList<ClinicalSession>>(async c =>
         {
             await using var cmd = c.CreateCommand();
-            cmd.CommandText = $"SELECT {SessionColumns} FROM sessions WHERE ended_at IS NOT NULL AND synced_at IS NULL ORDER BY started_at;";
+            cmd.CommandText = $"SELECT {SessionColumns}, synced_at FROM sessions WHERE ended_at IS NOT NULL AND synced_at IS NULL ORDER BY started_at;";
             var list = new List<ClinicalSession>();
             await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
@@ -318,6 +318,7 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
         Notes = r.IsDBNull(7) ? null : r.GetString(7),
         DeviceModel = r.IsDBNull(8) ? null : r.GetString(8),
         Summary = r.IsDBNull(9) ? null : JsonSerializer.Deserialize(r.GetString(9), CsfJsonContext.Default.SessionSummary),
+        SyncedAt = r.IsDBNull(10) ? null : Parse(r.GetString(10)),
     };
 
     private static async Task AuditAsync(SqliteConnection c, string operatorId, string action, string? entityId, CancellationToken ct)

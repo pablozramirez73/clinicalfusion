@@ -27,6 +27,9 @@ public sealed class ClinicalSession
 
     public SessionSummary? Summary { get; set; }
 
+    /// <summary>Quando la rilevazione è stata ricevuta per intero dal server clinico; null se non ancora inviata.</summary>
+    public DateTimeOffset? SyncedAt { get; set; }
+
     public TimeSpan? Duration => EndedAt is { } end ? end - StartedAt : null;
 
     public static string NewId() => Guid.NewGuid().ToString("N");
