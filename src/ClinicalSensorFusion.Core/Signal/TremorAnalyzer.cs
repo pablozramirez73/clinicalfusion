@@ -1,0 +1,130 @@
+using System.Numerics;
+
+namespace ClinicalSensorFusion.Core.Signal;
+
+/// <summary>Esito dell'analisi del tremore.</summary>
+/// <param name="DominantFrequencyHz">Frequenza del picco spettrale nella banda del tremore.</param>
+/// <param name="BandPowerRatio">Potenza nella banda del tremore / potenza totale 0.5–20 Hz (0..1).</param>
+/// <param name="BandRmsMs2">Ampiezza RMS dell'accelerazione nella banda (m/s²).</param>
+/// <param name="Windows">Finestre mediate (affidabilità della stima).</param>
+public sealed record TremorResult(double DominantFrequencyHz, double BandPowerRatio, double BandRmsMs2, int Windows);
+
+/// <summary>
+/// Stima del tremore dall'accelerometro (accelerazione utente, gravità già rimossa da CoreMotion) con il
+/// metodo di Welch: finestre di Hann sovrapposte al 50%, spettri di potenza mediati.
+/// </summary>
+/// <remarks>
+/// La banda 3–12 Hz copre tremore parkinsoniano a riposo (4–6 Hz), essenziale (4–12 Hz) e fisiologico
+/// potenziato (8–12 Hz). È un indicatore di supporto, non uno strumento diagnostico: dipende da come il
+/// telefono è tenuto o fissato all'arto.
+/// </remarks>
+public sealed class TremorAnalyzer
+{
+    private const double StandardGravity = 9.80665;
+    private readonly List<float> _magnitude = [];
+
+    public TremorAnalyzer(double sampleRateHz = 100, int windowSize = 512, double bandLowHz = 3, double bandHighHz = 12)
+    {
+        if (windowSize <= 0 || (windowSize & (windowSize - 1)) != 0)
+        {
+            throw new ArgumentException("windowSize deve essere una potenza di 2.", nameof(windowSize));
+        }
+
+        SampleRateHz = sampleRateHz;
+        WindowSize = windowSize;
+        BandLowHz = bandLowHz;
+        BandHighHz = bandHighHz;
+    }
+
+    public double SampleRateHz { get; }
+
+    public int WindowSize { get; }
+
+    public double BandLowHz { get; }
+
+    public double BandHighHz { get; }
+
+    public int SampleCount => _magnitude.Count;
+
+    /// <summary>Aggiunge un campione di accelerazione utente in g.</summary>
+    public void Add(float ax, float ay, float az) => _magnitude.Add(MathF.Sqrt(ax * ax + ay * ay + az * az));
+
+    /// <summary>Aggiunge direttamente un campione scalare (g). Usato dai test e per segnali già proiettati.</summary>
+    public void AddScalar(float valueG) => _magnitude.Add(valueG);
+
+    public TremorResult? Analyze()
+    {
+        if (_magnitude.Count < WindowSize)
+        {
+            return null;
+        }
+
+        var hop = WindowSize / 2;
+        var bins = WindowSize / 2 + 1;
+        var psd = new double[bins];
+        var window = new double[WindowSize];
+        var windowPower = 0.0;
+        for (var i = 0; i < WindowSize; i++)
+        {
+            window[i] = 0.5 * (1 - Math.Cos(2 * Math.PI * i / (WindowSize - 1)));
+            windowPower += window[i] * window[i];
+        }
+
+        var buffer = new Complex[WindowSize];
+        var windows = 0;
+        for (var start = 0; start + WindowSize <= _magnitude.Count; start += hop)
+        {
+            // Rimozione della media locale: la componente continua dominerebbe lo spettro.
+            var mean = 0.0;
+            for (var i = 0; i < WindowSize; i++)
+            {
+                mean += _magnitude[start + i];
+            }
+
+            mean /= WindowSize;
+            for (var i = 0; i < WindowSize; i++)
+            {
+                buffer[i] = new Complex((_magnitude[start + i] - mean) * window[i], 0);
+            }
+
+            Fft.Forward(buffer);
+            for (var k = 0; k < bins; k++)
+            {
+                psd[k] += buffer[k].Magnitude * buffer[k].Magnitude;
+            }
+
+            windows++;
+        }
+
+        var df = SampleRateHz / WindowSize;
+        double band = 0, total = 0, peakPower = -1, peakFreq = double.NaN;
+        for (var k = 1; k < bins; k++)
+        {
+            var f = k * df;
+            // PSD unilatera normalizzata (unità g²/Hz), media sulle finestre.
+            var p = psd[k] / (windows * windowPower * SampleRateHz) * (k == bins - 1 ? 1 : 2);
+            if (f >= 0.5 && f <= 20)
+            {
+                total += p;
+            }
+
+            if (f >= BandLowHz && f <= BandHighHz)
+            {
+                band += p;
+                if (p > peakPower)
+                {
+                    peakPower = p;
+                    peakFreq = f;
+                }
+            }
+        }
+
+        if (total <= 0)
+        {
+            return new TremorResult(double.NaN, 0, 0, windows);
+        }
+
+        var bandRmsG = Math.Sqrt(band * df);
+        return new TremorResult(peakFreq, band / total, bandRmsG * StandardGravity, windows);
+    }
+}

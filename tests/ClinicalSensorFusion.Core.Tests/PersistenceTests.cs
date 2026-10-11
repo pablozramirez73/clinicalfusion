@@ -1,0 +1,159 @@
+using System.Security.Cryptography;
+using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Persistence;
+using ClinicalSensorFusion.Core.Recording;
+using ClinicalSensorFusion.Core.Sensors;
+using ClinicalSensorFusion.Core.Signal;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace ClinicalSensorFusion.Core.Tests;
+
+internal sealed class FixedKeyProvider(byte[] key) : IDatabaseKeyProvider
+{
+    public Task<byte[]> GetOrCreateKeyAsync(CancellationToken cancellationToken = default) => Task.FromResult((byte[])key.Clone());
+}
+
+public sealed class PersistenceTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "csf-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
+
+    private string DbPath => Path.Combine(_dir, ClinicalDatabase.FileName);
+
+    private ClinicalDatabase Open(byte[]? key = null) =>
+        new(DbPath, new FixedKeyProvider(key ?? _key), NullLogger<ClinicalDatabase>.Instance);
+
+    private static ClinicalSession NewSession() => new()
+    {
+        Id = ClinicalSession.NewId(),
+        SubjectCode = "PZ-001",
+        OperatorId = "op1",
+        OperatorName = "Operatore Uno",
+        Mode = CaptureMode.BodyLidar,
+        StartedAt = DateTimeOffset.UtcNow,
+        DeviceModel = "iPhone13,3",
+    };
+
+    [Fact]
+    public async Task Database_file_is_encrypted_and_requires_the_right_key()
+    {
+        await using (var db = Open())
+        {
+            var repo = new ClinicalRepository(db);
+            await repo.CreateSessionAsync(NewSession(), TestContext.Current.CancellationToken);
+        }
+
+        var header = new byte[16];
+        await using (var f = File.OpenRead(DbPath))
+        {
+            await f.ReadExactlyAsync(header, TestContext.Current.CancellationToken);
+        }
+
+        Assert.NotEqual("SQLite format 3\0"u8.ToArray(), header);
+
+        await using var wrong = Open(RandomNumberGenerator.GetBytes(32));
+        await Assert.ThrowsAsync<DatabaseKeyMismatchException>(() =>
+            new ClinicalRepository(wrong).ListSessionsAsync(ct: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Session_round_trip_with_summary_chunks_audio_and_analysis()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = Open();
+        var repo = new ClinicalRepository(db);
+        var session = NewSession();
+        await repo.CreateSessionAsync(session, ct);
+
+        var recorder = new SessionRecorder(session, repo, NullLogger<SessionRecorder>.Instance, flushSeconds: 0.5);
+        recorder.Start();
+        for (var i = 0; i < 300; i++)
+        {
+            var t = i / 100.0;
+            Assert.True(recorder.TryWrite(new SensorReading(SensorKind.Motion, t, new float[16])));
+            if (i % 10 == 0)
+            {
+                var angles = new float[JointAngleCalculator.JointCount + 2];
+                Array.Fill(angles, float.NaN);
+                angles[(int)Joint.LeftKneeFlexion] = 10 + i / 10f;
+                angles[^2] = 0;
+                angles[^1] = 2.1f;
+                recorder.TryWrite(new SensorReading(SensorKind.JointAngles, t, angles));
+            }
+        }
+
+        recorder.TryWrite(new SensorReading(SensorKind.Pedometer, 3, [12, 8.5f, 1.8f, 0, 0]));
+        var audio = new AudioFeatures(3, -30, -6, 900, 0.5, 0);
+        var summary = await recorder.CompleteAsync(3.0, audio);
+        session.EndedAt = session.StartedAt.AddSeconds(3);
+        session.Summary = summary;
+        await repo.CompleteSessionAsync(session, ct);
+
+        Assert.Equal(300, summary.SampleCounts[SensorKind.Motion]);
+        Assert.Equal(10, summary.JointRanges[Joint.LeftKneeFlexion].Min, 1e-6);
+        Assert.Equal(39, summary.JointRanges[Joint.LeftKneeFlexion].Max, 1e-6);
+        Assert.Equal(1.0, summary.LidarCoverage);
+        Assert.Equal(2.1, summary.MedianSubjectDistanceMeters!.Value, 1e-6);
+        Assert.Equal(12, summary.Gait!.Steps);
+        Assert.Equal(108, summary.Gait.CadenceStepsPerMinute!.Value, 1e-3);
+
+        var motion = await repo.ReadStreamAsync(session.Id, SensorKind.Motion, ct);
+        Assert.Equal(300, motion.Count);
+        Assert.True(motion.Zip(motion.Skip(1)).All(p => p.First.Timestamp < p.Second.Timestamp));
+
+        var recording = new AudioRecording { Id = AudioRecording.NewId(), SessionId = session.Id, CreatedAt = DateTimeOffset.UtcNow, DurationSeconds = 3, Features = audio };
+        await repo.AddAudioRecordingAsync(recording, ct);
+        Assert.Equal(32, recording.Id.Length);
+        Assert.Equal(Path.Combine("audio", recording.Id, "audio.caf"), recording.RelativePath);
+
+        await repo.AddAnalysisAsync(new AiAnalysis
+        {
+            Id = Guid.NewGuid().ToString("N"), SessionId = session.Id, CreatedAt = DateTimeOffset.UtcNow,
+            Model = "gemma4:e4b-mlx", Language = "Italiano", OperatorId = "op1", Prompt = "p", Response = "r",
+        }, ct);
+
+        var loaded = await repo.GetSessionAsync(session.Id, ct);
+        Assert.NotNull(loaded?.Summary);
+        Assert.Equal(summary.JointRanges[Joint.LeftKneeFlexion], loaded.Summary.JointRanges[Joint.LeftKneeFlexion]);
+        Assert.Single(await repo.ListAudioRecordingsAsync(session.Id, ct));
+        Assert.Single(await repo.ListAnalysesAsync(session.Id, ct));
+        Assert.Single(await repo.ListSessionsAsync("pz-0", ct: ct));
+        Assert.Empty(await repo.ListSessionsAsync("%", ct: ct)); // il carattere jolly è trattato come testo
+
+        await repo.DeleteSessionAsync(session.Id, "op1", ct);
+        Assert.Empty(await repo.ReadStreamAsync(session.Id, SensorKind.Motion, ct));
+        Assert.Empty(await repo.ListAnalysesAsync(session.Id, ct));
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_dir, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+    }
+}
+
+public class SensorChunkCodecTests
+{
+    [Fact]
+    public void Round_trip_preserves_variable_length_samples()
+    {
+        var input = new List<SensorReading>
+        {
+            new(SensorKind.HandLandmarks, 0.1, [1, 2, 3]),
+            new(SensorKind.HandLandmarks, 0.2, []),
+            new(SensorKind.HandLandmarks, 0.3, [float.NaN, -1.5f]),
+        };
+        var output = SensorChunkCodec.Decode(SensorKind.HandLandmarks, SensorChunkCodec.Encode(input));
+        Assert.Equal(3, output.Count);
+        Assert.Equal(input[0].Values, output[0].Values);
+        Assert.Empty(output[1].Values);
+        Assert.True(float.IsNaN(output[2].Values[0]));
+        Assert.Equal(0.3, output[2].Timestamp);
+    }
+}

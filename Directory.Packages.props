@@ -1,0 +1,20 @@
+<Project>
+  <!-- Versioni centralizzate (Central Package Management). Allineate a .NET 11 RC1 / MAUI 11 RC1. -->
+  <PropertyGroup>
+    <MauiVersion>11.0.0-rc.1.26451.6</MauiVersion>
+    <DotNetExtensionsVersion>11.0.0-rc.1.26425.128</DotNetExtensionsVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="$(DotNetExtensionsVersion)" />
+    <!-- SQLite cifrato: Microsoft.Data.Sqlite.Core (senza provider) + SQLite3 Multiple Ciphers in modalità SQLCipher v4. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.4.0" />
+    <!-- Test -->
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+</Project>
