@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             x:Class="ClinicalSensorFusion.App.Views.RemoteAccessPage"
+             x:DataType="vm:RemoteAccessViewModel"
+             Title="Accesso remoto">
+  <ContentPage.ToolbarItems>
+    <ToolbarItem Text="Esci" Command="{Binding LogoutCommand}" />
+    <ToolbarItem Text="Fatto" Command="{Binding DoneCommand}" />
+  </ContentPage.ToolbarItems>
+  <Grid RowDefinitions="Auto,*">
+    <Label Text="Completare il login; quando compare l'elenco dei modelli toccare «Fatto»." Style="{StaticResource Muted}" Margin="12,8" />
+    <WebView Grid.Row="1" Source="{Binding Url}" />
+  </Grid>
+</ContentPage>

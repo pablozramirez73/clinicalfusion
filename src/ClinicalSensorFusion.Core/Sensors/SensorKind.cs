@@ -45,9 +45,11 @@ public enum SensorKind
     /// seguiti da [sorgente 3D (0 = LiDAR, 1 = MediaPipe world), distanza del soggetto (m)].</summary>
     JointAngles = 22,
 
-    /// <summary>MediaPipe Hands, fino a 2 mani × 21 punti × [x, y, z relativo], preceduti da [numero mani].</summary>
+    /// <summary>MediaPipe Hands: [n mani, poi per mano: lato (0 = sx, 1 = dx), profondità LiDAR del polso (m),
+    /// 21 punti × [x, y (normalizzati, orientamento sensore), z relativo]].</summary>
     HandLandmarks = 23,
 
-    /// <summary>Blendshape facciali (ARKit TrueDepth), 52 coefficienti 0..1 nell'ordine ARKit.</summary>
+    /// <summary>Blendshape facciali (ARKit TrueDepth): 52 coefficienti 0..1 in ordine alfabetico dei nomi ARKit
+    /// (eyeBlinkLeft, jawOpen, ...).</summary>
     FaceBlendshapes = 24,
 }

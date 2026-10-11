@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="456" height="456" viewBox="0 0 456 456">
+  <!-- Tre onde concentriche (sensori) attorno a una croce (clinica). -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round">
+    <path d="M118 148a150 150 0 0 0 0 160"/>
+    <path d="M338 148a150 150 0 0 1 0 160"/>
+    <path d="M150 176a100 100 0 0 0 0 104"/>
+    <path d="M306 176a100 100 0 0 1 0 104"/>
+  </g>
+  <path d="M208 168h40v40h40v40h-40v40h-40v-40h-40v-40h40z" fill="#4FD1C5"/>
+</svg>

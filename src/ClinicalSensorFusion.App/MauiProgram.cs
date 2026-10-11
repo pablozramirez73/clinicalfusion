@@ -1,0 +1,86 @@
+using ClinicalSensorFusion.App.Controls;
+using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.App.ViewModels;
+using ClinicalSensorFusion.App.Views;
+using ClinicalSensorFusion.Core.Ai;
+using ClinicalSensorFusion.Core.Persistence;
+using ClinicalSensorFusion.Core.Settings;
+using CommunityToolkit.Maui;
+using Microsoft.Extensions.Logging;
+#if IOS
+using ClinicalSensorFusion.App.Platforms.iOS.Rendering;
+using ClinicalSensorFusion.App.Platforms.iOS.Security;
+using ClinicalSensorFusion.App.Platforms.iOS.Services;
+#endif
+
+namespace ClinicalSensorFusion.App;
+
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .UseMauiCommunityToolkit()
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if IOS
+                handlers.AddHandler<CapturePreview, CapturePreviewHandler>();
+#endif
+            });
+
+#if DEBUG
+        builder.Logging.AddDebug().SetMinimumLevel(LogLevel.Debug);
+#endif
+
+        var services = builder.Services;
+
+        // Impostazioni e sicurezza
+        services.AddSingleton(Preferences.Default);
+        services.AddSingleton(SecureStorage.Default);
+        services.AddSingleton<MauiAppSettings>();
+        services.AddSingleton<IAppSettings>(sp => sp.GetRequiredService<MauiAppSettings>());
+
+        // Persistenza: un'unica connessione cifrata per tutta l'app.
+        services.AddSingleton(sp => new ClinicalDatabase(
+            AppPaths.Database,
+            sp.GetRequiredService<IDatabaseKeyProvider>(),
+            sp.GetRequiredService<ILogger<ClinicalDatabase>>()));
+        services.AddSingleton<ClinicalRepository>();
+
+        // Modello linguistico. Timeout ampio: un modello locale può impiegare minuti su prompt lunghi;
+        // l'annullamento è affidato al CancellationToken della UI.
+        services.AddTransient<CloudflareAccessHandler>();
+        services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
+            .AddHttpMessageHandler<CloudflareAccessHandler>();
+
+        // Acquisizione
+        services.AddSingleton<CaptureCoordinator>();
+        services.AddSingleton<IDialogService, ShellDialogService>();
+
+#if IOS
+        services.AddSingleton<IDatabaseKeyProvider, KeychainKeyProvider>();
+        services.AddSingleton<ICaptureEngine, IosCaptureEngine>();
+        services.AddSingleton<IWebSessionBridge, IosWebSessionBridge>();
+        services.AddSingleton<IAudioPlayback, IosAudioPlayback>();
+#endif
+
+        // UI
+        services.AddSingleton<AppShell>();
+        services.AddTransient<SessionsViewModel>();
+        services.AddTransient<SessionsPage>();
+        // Singleton: una sola schermata di acquisizione, il cui stato (registrazione in corso) deve
+        // sopravvivere al cambio di scheda. Evita anche che il container trattenga istanze IDisposable transient.
+        services.AddSingleton<CaptureViewModel>();
+        services.AddSingleton<CapturePage>();
+        services.AddTransient<SessionDetailViewModel>();
+        services.AddTransient<SessionDetailPage>();
+        services.AddTransient<SettingsViewModel>();
+        services.AddTransient<SettingsPage>();
+        services.AddTransient<RemoteAccessViewModel>();
+        services.AddTransient<RemoteAccessPage>();
+
+        return builder.Build();
+    }
+}

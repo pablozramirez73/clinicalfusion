@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             xmlns:domain="clr-namespace:ClinicalSensorFusion.Core.Domain;assembly=ClinicalSensorFusion.Core"
+             x:Class="ClinicalSensorFusion.App.Views.SessionDetailPage"
+             x:DataType="vm:SessionDetailViewModel"
+             Title="{Binding Title}">
+  <ContentPage.ToolbarItems>
+    <ToolbarItem Text="Condividi" Command="{Binding ShareSummaryCommand}" />
+  </ContentPage.ToolbarItems>
+
+  <ScrollView>
+    <VerticalStackLayout Padding="12" Spacing="10">
+      <Label Text="{Binding Subtitle}" Style="{StaticResource Muted}" />
+      <Border Style="{StaticResource Card}" IsVisible="{Binding Notes, Converter={StaticResource IsNotNullOrEmpty}}">
+        <Label Text="{Binding Notes}" />
+      </Border>
+
+      <!-- Indicatori -->
+      <VerticalStackLayout BindableLayout.ItemsSource="{Binding Summary}" Spacing="10">
+        <BindableLayout.ItemTemplate>
+          <DataTemplate x:DataType="vm:SummaryGroup">
+            <VerticalStackLayout>
+              <Label Text="{Binding Section}" Style="{StaticResource Section}" />
+              <Border Style="{StaticResource Card}">
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="6">
+                  <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="domain:SummaryRow">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label Text="{Binding Label}" />
+                        <Label Grid.Column="1" Text="{Binding Value}" FontAttributes="Bold" HorizontalTextAlignment="End"
+                               TextColor="{Binding Warning, Converter={StaticResource WarningColor}}" />
+                      </Grid>
+                    </DataTemplate>
+                  </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+              </Border>
+            </VerticalStackLayout>
+          </DataTemplate>
+        </BindableLayout.ItemTemplate>
+      </VerticalStackLayout>
+
+      <!-- Audio -->
+      <Label Text="Registrazioni audio" Style="{StaticResource Section}" />
+      <VerticalStackLayout BindableLayout.ItemsSource="{Binding Audio}" Spacing="6">
+        <BindableLayout.EmptyView>
+          <Label Text="Nessuna registrazione." Style="{StaticResource Muted}" />
+        </BindableLayout.EmptyView>
+        <BindableLayout.ItemTemplate>
+          <DataTemplate x:DataType="vm:AudioItem">
+            <Border Style="{StaticResource Card}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <VerticalStackLayout>
+                  <Label Text="{Binding Title}" FontAttributes="Bold" />
+                  <Label Text="{Binding Details}" Style="{StaticResource Muted}" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="▶︎ / ■" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding PlayCommand, Source={RelativeSource AncestorType={x:Type vm:SessionDetailViewModel}}, x:DataType=vm:SessionDetailViewModel}"
+                        CommandParameter="{Binding .}" SemanticProperties.Description="Riproduci o ferma" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </BindableLayout.ItemTemplate>
+      </VerticalStackLayout>
+
+      <!-- Modello linguistico -->
+      <Label Text="Analisi con IA (Ollama)" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="8">
+          <Label Style="{StaticResource Muted}"
+                 Text="Al modello vengono inviati solo gli indicatori numerici, senza codice soggetto né nome operatore. Il testo generato è di supporto e non sostituisce la valutazione clinica." />
+          <Entry Placeholder="Domanda specifica (facoltativa)" Text="{Binding Question}" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Text="Analizza" Command="{Binding AnalyzeCommand}" />
+            <Button Grid.Column="1" Text="Interrompi" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAnalysisCommand}" />
+          </Grid>
+          <ActivityIndicator IsRunning="{Binding IsAnalyzing}" IsVisible="{Binding IsAnalyzing}" />
+          <Label Text="{Binding AnalysisText}" IsVisible="{Binding AnalysisText, Converter={StaticResource IsNotNullOrEmpty}}" />
+        </VerticalStackLayout>
+      </Border>
+
+      <VerticalStackLayout BindableLayout.ItemsSource="{Binding Analyses}" Spacing="8">
+        <BindableLayout.ItemTemplate>
+          <DataTemplate x:DataType="vm:AnalysisItem">
+            <Border Style="{StaticResource Card}">
+              <VerticalStackLayout Spacing="4">
+                <Label Text="{Binding When}" FontAttributes="Bold" />
+                <Label Text="{Binding Model}" Style="{StaticResource Muted}" />
+                <Label Text="{Binding Response}" />
+              </VerticalStackLayout>
+            </Border>
+          </DataTemplate>
+        </BindableLayout.ItemTemplate>
+      </VerticalStackLayout>
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>

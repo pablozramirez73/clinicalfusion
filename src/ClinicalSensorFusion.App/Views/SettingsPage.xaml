@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             x:Class="ClinicalSensorFusion.App.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="Impostazioni">
+  <ScrollView>
+    <VerticalStackLayout Padding="12" Spacing="8">
+      <Label Text="Operatore" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="6">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Placeholder="Identificativo operatore" Text="{Binding OperatorId}" />
+            <Button Grid.Column="1" Text="Genera" Style="{StaticResource SecondaryButton}" Command="{Binding GenerateOperatorIdCommand}" />
+          </Grid>
+          <Entry Placeholder="Nome operatore" Text="{Binding OperatorName}" />
+          <Label Text="Ogni rilevazione e ogni analisi vengono associate all'operatore." Style="{StaticResource Muted}" />
+        </VerticalStackLayout>
+      </Border>
+
+      <Label Text="Server Ollama" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="6">
+          <Entry Placeholder="Indirizzo (es. 192.168.1.20 o https://ai.esempio.it)" Text="{Binding OllamaServer}"
+                 Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+          <Button Text="Verifica connessione ed elenca modelli" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
+          <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" />
+          <Label Text="{Binding ConnectionStatus}" Style="{StaticResource Muted}" IsVisible="{Binding ConnectionStatus, Converter={StaticResource IsNotNullOrEmpty}}" />
+          <Picker Title="Modello" ItemsSource="{Binding Models}" SelectedItem="{Binding OllamaModel}" />
+          <Picker Title="Lingua della risposta" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
+        </VerticalStackLayout>
+      </Border>
+
+      <Label Text="Accesso remoto (Cloudflare Access)" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="6">
+          <Label Text="Per un server raggiungibile da Internet dietro Cloudflare Access: accesso interattivo nella WebView oppure credenziali di servizio (consigliato)." Style="{StaticResource Muted}" />
+          <Button Text="Accedi nella WebView" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />
+          <Entry Placeholder="CF-Access-Client-Id" Text="{Binding CloudflareClientId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+          <Entry Placeholder="CF-Access-Client-Secret" Text="{Binding CloudflareClientSecret}" IsPassword="True" />
+        </VerticalStackLayout>
+      </Border>
+
+      <Label Text="Privacy" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <Grid ColumnDefinitions="*,Auto">
+          <Label Text="Registra la posizione GPS durante le rilevazioni" VerticalOptions="Center" />
+          <Switch Grid.Column="1" IsToggled="{Binding RecordLocation}" />
+        </Grid>
+      </Border>
+
+      <Button Text="Salva" Command="{Binding SaveCommand}" Margin="0,8" />
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>

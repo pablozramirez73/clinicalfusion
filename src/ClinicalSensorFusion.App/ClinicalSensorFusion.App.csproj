@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Solo iOS: LiDAR, TrueDepth e ARKit non hanno equivalenti sulle altre piattaforme MAUI. -->
+    <TargetFramework>net11.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>ClinicalSensorFusion.App</RootNamespace>
+    <!-- Nome dell'eseguibile come nell'app originale: ClinicalSensorFusion.app/ClinicalSensorFusion -->
+    <AssemblyName>ClinicalSensorFusion</AssemblyName>
+
+    <ApplicationTitle>Clinical Sensor Fusion</ApplicationTitle>
+    <ApplicationId>com.lucaguelfi.clinicalsensorfusion</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <!--
+      Runtime CoreCLR su iOS (come l'app originale: libcoreclr + ReadyToRun) invece di Mono.
+      In .NET 11 è opt-in: se la toolchain installata non lo supporta, rimuovere la riga torna a Mono AOT.
+    -->
+    <UseMonoRuntime>false</UseMonoRuntime>
+
+    <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
+    <!-- Accesso diretto ai buffer di profondità e audio senza copie intermedie. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CA1515;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <MtouchLink>SdkOnly</MtouchLink>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#0B3D5C" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#0B3D5C" BaseSize="128,128" />
+    <!-- Modelli MediaPipe: copiati nel bundle in models/*.task (scaricarli con scripts/download-models.sh). -->
+    <MauiAsset Include="Resources/Raw/**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Manifest della privacy richiesto da App Store / TestFlight. -->
+    <BundleResource Include="Platforms/iOS/PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="CommunityToolkit.Maui" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ClinicalSensorFusion.Core/ClinicalSensorFusion.Core.csproj" />
+    <ProjectReference Include="../ClinicalSensorFusion.MediaPipe/ClinicalSensorFusion.MediaPipe.csproj" />
+  </ItemGroup>
+
+  <Target Name="CheckMediaPipeModels" BeforeTargets="Build">
+    <Warning Condition="!Exists('Resources/Raw/models/pose_landmarker_full.task')"
+             Text="Modelli MediaPipe assenti: eseguire scripts/download-models.sh, altrimenti la visione non si avvia." />
+  </Target>
+</Project>

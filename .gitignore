@@ -13,3 +13,4 @@ obj/
 *.db-wal
 *.db-shm
 *.caf
+src/ClinicalSensorFusion.App/Resources/Raw/models/*.task

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Binding .NET (Native Library Interop) del bridge Swift MediaPipeBridge, che incorpora
+    MediaPipe Tasks Vision (Pose / Hands / Face Landmarker) di Google.
+    Il framework nativo si compila con native/MediaPipeBridge/build.sh (solo macOS);
+    il target BuildMediaPipeBridge lo lancia automaticamente se l'xcframework manca.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net11.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <IsBindingProject>true</IsBindingProject>
+    <NoBindingEmbedding>true</NoBindingEmbedding>
+    <RootNamespace>ClinicalSensorFusion.MediaPipe</RootNamespace>
+    <MediaPipeBridgeDir>$(MSBuildThisFileDirectory)../../native/MediaPipeBridge/</MediaPipeBridgeDir>
+    <MediaPipeBridgeFramework>$(MediaPipeBridgeDir)build/MediaPipeBridge.xcframework</MediaPipeBridgeFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+    <ObjcBindingCoreSource Include="StructsAndEnums.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NativeReference Include="$(MediaPipeBridgeFramework)">
+      <Kind>Framework</Kind>
+      <SmartLink>false</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+
+  <Target Name="BuildMediaPipeBridge" BeforeTargets="PrepareForBuild" Condition="!Exists('$(MediaPipeBridgeFramework)')">
+    <Error Condition="!$([MSBuild]::IsOSPlatform('OSX'))"
+           Text="MediaPipeBridge.xcframework mancante: va compilato su macOS con native/MediaPipeBridge/build.sh." />
+    <Exec Command="&quot;$(MediaPipeBridgeDir)build.sh&quot;" />
+  </Target>
+</Project>

@@ -123,3 +123,26 @@ public class DepthFusionTests
         Assert.Equal(2f, near.SubjectDistance, 1e-4f);
     }
 }
+
+public class SummaryReportTests
+{
+    [Fact]
+    public void Rows_are_localized_and_flag_quality_issues()
+    {
+        var summary = new Domain.SessionSummary
+        {
+            DurationSeconds = 75,
+            LidarCoverage = 0.4,
+            JointRanges = new() { [Joint.LeftKneeFlexion] = new JointRange(5, 95, 40, 300) },
+            DroppedSamples = 3,
+            SampleCounts = new() { [Sensors.SensorKind.Motion] = 7500 },
+        };
+
+        var rows = Domain.SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        Assert.Contains(rows, r => r.Label == "Durata" && r.Value == "01:15");
+        Assert.Contains(rows, r => r.Label == "Copertura LiDAR" && r.Warning);
+        Assert.Contains(rows, r => r.Label == "Flessione ginocchio sx" && r.Value == "5°–95° (ROM 90°)");
+        Assert.Contains(rows, r => r.Label == "Campioni persi" && r.Warning);
+        Assert.Contains(rows, r => r.Value == "7.500 campioni");
+    }
+}

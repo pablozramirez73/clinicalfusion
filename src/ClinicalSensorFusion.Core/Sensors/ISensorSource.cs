@@ -4,8 +4,9 @@ namespace ClinicalSensorFusion.Core.Sensors;
 /// Sorgente di dati sensoriali di piattaforma (iOS: CoreMotion, ARKit, AVAudioEngine, ...).
 /// Le implementazioni pubblicano i campioni su un <see cref="ISensorSink"/> e non devono mai
 /// bloccare il thread del sensore: il sink è non bloccante per contratto.
+/// Una sorgente si usa per una sola registrazione: <c>Start → Stop → Dispose</c> (rilascia gli oggetti nativi).
 /// </summary>
-public interface ISensorSource
+public interface ISensorSource : IDisposable
 {
     /// <summary>Nome leggibile mostrato nella schermata di stato dei sensori.</summary>
     string DisplayName { get; }

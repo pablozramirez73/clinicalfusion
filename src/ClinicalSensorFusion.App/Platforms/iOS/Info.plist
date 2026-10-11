@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>UIDeviceFamily</key>
+  <array>
+    <integer>1</integer>
+  </array>
+  <key>UIRequiredDeviceCapabilities</key>
+  <array>
+    <string>arm64</string>
+    <string>arkit</string>
+  </array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <!-- Solo verticale: la fusione assume l'orientamento verticale per mappare immagine, profondità e overlay. -->
+    <string>UIInterfaceOrientationPortrait</string>
+  </array>
+  <key>UIStatusBarStyle</key>
+  <string>UIStatusBarStyleLightContent</string>
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <false/>
+  <key>XSAppIconAssets</key>
+  <string>Assets.xcassets/appicon.appiconset</string>
+
+  <!-- Testi dei permessi (mostrati da iOS al primo utilizzo). -->
+  <key>NSCameraUsageDescription</key>
+  <string>La fotocamera e il LiDAR servono a stimare postura e movimenti del paziente durante la rilevazione.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Il microfono registra voce e suoni respiratori per l'analisi acustica della rilevazione.</string>
+  <key>NSMotionUsageDescription</key>
+  <string>I sensori di movimento misurano tremore, passi e variazioni di quota durante la rilevazione.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>La posizione è registrata solo se attivata nelle impostazioni, per contestualizzare le rilevazioni a domicilio.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>L'app si collega al server Ollama sulla rete locale per l'analisi dei dati con il modello linguistico.</string>
+
+  <!-- Ollama in LAN è in HTTP (porta 11434): consentito solo verso indirizzi locali, non verso Internet. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+
+  <!-- I dati clinici non devono finire nell'app File né nei backup in chiaro. -->
+  <key>UIFileSharingEnabled</key>
+  <false/>
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <false/>
+</dict>
+</plist>
