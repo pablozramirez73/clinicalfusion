@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Test di integrazione: server reale (WebApplicationFactory) su PostgreSQL reale.
-    Connessione da CSF_TEST_POSTGRES (default: localhost, utente/password postgres); ogni classe di test
+    Connessione da CSF_TEST_POSTGRES (default: localhost, utente postgres senza password); ogni classe di test
     usa un database temporaneo dedicato, eliminato alla fine.
   -->
   <PropertyGroup>

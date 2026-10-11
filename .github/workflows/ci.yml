@@ -16,13 +16,14 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: postgres
+          # Database effimero del job: autenticazione trust, nessuna credenziale.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      CSF_TEST_POSTGRES: Host=localhost;Username=postgres;Password=postgres
+      CSF_TEST_POSTGRES: Host=localhost;Username=postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

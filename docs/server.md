@@ -50,10 +50,14 @@ dell'archivio audio, cifratura del volume dati, DPIA (GDPR art. 35) per dati san
 ## 4. Avvio in sviluppo
 
 ```bash
-docker compose up -d                                   # PostgreSQL 16 (o un'istanza locale)
+docker compose up -d                                   # PostgreSQL 16 locale, senza password (solo 127.0.0.1)
 cd src/ClinicalSensorFusion.Dashboard && npm ci && npm run build && cd -   # dashboard in wwwroot
 dotnet run --project src/ClinicalSensorFusion.Server --launch-profile http
 ```
+
+Con un PostgreSQL già installato che richiede una password, impostarla fuori dal repository:
+`dotnet user-secrets set ConnectionStrings:Clinical "Host=localhost;Database=clinical_dev;Username=…;Password=…" --project src/ClinicalSensorFusion.Server`.
+Il repository non contiene credenziali del database (anche CI e docker-compose usano l'autenticazione `trust` su istanze effimere/locali).
 
 Apri http://localhost:5180 — utente `demo`, password `clinica2026`. In sviluppo (`appsettings.Development.json`)
 il database `clinical_dev` viene popolato con **6 pazienti fittizi** e ~30 rilevazioni sintetiche

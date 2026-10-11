@@ -13,7 +13,8 @@ public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifeti
 {
     public const string DeviceKey = "test-device-key-0123456789";
     public const string UserName = "dottoressa";
-    public const string Password = "Una password lunga e sicura!";
+    /// <summary>Generata a ogni esecuzione: nessuna credenziale fissa nel repository.</summary>
+    public static readonly string Password = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
 
     private static readonly string PasswordHash = DashboardUserService.HashPassword(Password);
 
@@ -24,7 +25,7 @@ public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifeti
     public bool SeedDemo { get; init; }
 
     private static string AdminConnectionString =>
-        Environment.GetEnvironmentVariable("CSF_TEST_POSTGRES") ?? "Host=localhost;Username=postgres;Password=postgres";
+        Environment.GetEnvironmentVariable("CSF_TEST_POSTGRES") ?? "Host=localhost;Username=postgres";
 
     public string ConnectionString => new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = _database }.ConnectionString;
 
