@@ -30,6 +30,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly CaptureCoordinator _coordinator;
     private readonly MauiAppSettings _settings;
     private readonly IDialogService _dialogs;
+    private readonly SyncService _sync;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -43,8 +44,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly MetricTile _light = new("Luce");
     private readonly MetricTile _thermal = new("Temperatura");
 
-    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs)
+    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs, SyncService sync)
     {
+        _sync = sync;
         _engine = engine;
         _coordinator = coordinator;
         _settings = settings;
@@ -197,6 +199,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             SubjectCode = string.Empty;
             Notes = null;
             RefreshSensors();
+            _sync.SyncInBackground();
             await Shell.Current.GoToAsync(nameof(SessionDetailPage), new Dictionary<string, object> { ["SessionId"] = session.Id });
         }
         catch (Exception ex)

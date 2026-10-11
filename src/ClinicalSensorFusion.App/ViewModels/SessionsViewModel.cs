@@ -15,8 +15,41 @@ public sealed record SessionListItem(string Id, string Subject, string When, str
 public sealed partial class SessionsViewModel(
     ClinicalRepository repository,
     CaptureCoordinator coordinator,
+    SyncService sync,
     IDialogService dialogs) : ObservableObject
 {
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SyncCommand))]
+    public partial bool IsSyncing { get; set; }
+
+    [ObservableProperty]
+    public partial string? SyncStatus { get; set; }
+
+    private bool CanSync() => !IsSyncing;
+
+    /// <summary>Invia al server clinico le rilevazioni non ancora sincronizzate.</summary>
+    [RelayCommand(CanExecute = nameof(CanSync))]
+    private async Task SyncAsync()
+    {
+        IsSyncing = true;
+        SyncStatus = "Invio in corso…";
+        try
+        {
+            var report = await sync.SyncNowAsync();
+            SyncStatus = report.Errors.Count == 0
+                ? $"Inviate {report.Sessions} rilevazioni ({report.Chunks} blocchi, {report.AudioFiles} audio)."
+                : string.Join(" ", report.Errors);
+        }
+        catch (Exception ex)
+        {
+            SyncStatus = ex.Message;
+        }
+        finally
+        {
+            IsSyncing = false;
+        }
+    }
+
     public ObservableCollection<SessionListItem> Sessions { get; } = [];
 
     [ObservableProperty]

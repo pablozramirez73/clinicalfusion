@@ -42,6 +42,20 @@
         </VerticalStackLayout>
       </Border>
 
+      <Label Text="Server clinico (anagrafica e dashboard)" Style="{StaticResource Section}" />
+      <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="6">
+          <Entry Placeholder="Indirizzo (es. https://clinica.esempio.it)" Text="{Binding SyncServer}"
+                 Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+          <Entry Placeholder="Chiave del dispositivo" Text="{Binding SyncApiKey}" IsPassword="True" />
+          <Grid ColumnDefinitions="*,Auto">
+            <Label Text="Invia automaticamente a fine rilevazione" VerticalOptions="Center" />
+            <Switch Grid.Column="1" IsToggled="{Binding AutoSync}" />
+          </Grid>
+          <Label Text="Al server vanno codice soggetto, indicatori, dati dei sensori, audio e analisi. L'identità del paziente è solo sul server." Style="{StaticResource Muted}" />
+        </VerticalStackLayout>
+      </Border>
+
       <Label Text="Privacy" Style="{StaticResource Section}" />
       <Border Style="{StaticResource Card}">
         <Grid ColumnDefinitions="*,Auto">

@@ -5,7 +5,10 @@
              x:Class="ClinicalSensorFusion.App.Views.SessionsPage"
              x:DataType="vm:SessionsViewModel"
              Title="Rilevazioni">
-  <Grid RowDefinitions="Auto,Auto,*" Padding="12,8">
+  <ContentPage.ToolbarItems>
+    <ToolbarItem Text="Sincronizza" Command="{Binding SyncCommand}" />
+  </ContentPage.ToolbarItems>
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="12,8">
     <SearchBar Placeholder="Cerca per codice soggetto" Text="{Binding SearchText}" />
 
     <Border Grid.Row="1" Style="{StaticResource Card}" IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNull}}"
@@ -13,7 +16,10 @@
       <Label Text="{Binding ErrorMessage}" TextColor="#991B1B" />
     </Border>
 
-    <RefreshView Grid.Row="2" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+    <Label Grid.Row="2" Text="{Binding SyncStatus}" Style="{StaticResource Muted}" Margin="4,4"
+           IsVisible="{Binding SyncStatus, Converter={StaticResource IsNotNullOrEmpty}}" />
+
+    <RefreshView Grid.Row="3" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
       <CollectionView ItemsSource="{Binding Sessions}" SelectionMode="None">
         <CollectionView.EmptyView>
           <VerticalStackLayout Padding="24" Spacing="8" HorizontalOptions="Center" VerticalOptions="Center">

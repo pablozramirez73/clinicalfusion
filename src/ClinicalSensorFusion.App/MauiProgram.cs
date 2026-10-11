@@ -5,6 +5,7 @@ using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Settings;
+using ClinicalSensorFusion.Core.Sync;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 #if IOS
@@ -54,6 +55,13 @@ public static class MauiProgram
         services.AddTransient<CloudflareAccessHandler>();
         services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
             .AddHttpMessageHandler<CloudflareAccessHandler>();
+
+        // Sincronizzazione con il server clinico.
+        services.AddTransient<DeviceApiKeyHandler>();
+        services.AddHttpClient<ClinicalSyncClient>(client => client.Timeout = TimeSpan.FromMinutes(5))
+            .AddHttpMessageHandler<DeviceApiKeyHandler>();
+        services.AddTransient<SessionSynchronizer>();
+        services.AddSingleton<SyncService>();
 
         // Acquisizione
         services.AddSingleton<CaptureCoordinator>();

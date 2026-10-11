@@ -7,6 +7,8 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
 {
     private const string RecordLocationKey = "capture.location";
     private const string DepthOverlayKey = "capture.depth_overlay";
+    private const string SyncServerKey = "sync.server";
+    private const string AutoSyncKey = "sync.auto";
 
     public string OllamaServer
     {
@@ -43,6 +45,20 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(RecordLocationKey, false);
         set => preferences.Set(RecordLocationKey, value);
+    }
+
+    /// <summary>Indirizzo del server clinico (es. https://clinica.esempio.it).</summary>
+    public string SyncServer
+    {
+        get => preferences.Get(SyncServerKey, string.Empty);
+        set => preferences.Set(SyncServerKey, value?.Trim() ?? string.Empty);
+    }
+
+    /// <summary>Invio automatico al termine di ogni rilevazione.</summary>
+    public bool AutoSync
+    {
+        get => preferences.Get(AutoSyncKey, true);
+        set => preferences.Set(AutoSyncKey, value);
     }
 
     public bool ShowDepthOverlay

@@ -44,6 +44,15 @@ public sealed partial class SettingsViewModel(
     public partial bool RecordLocation { get; set; }
 
     [ObservableProperty]
+    public partial string SyncServer { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string? SyncApiKey { get; set; }
+
+    [ObservableProperty]
+    public partial bool AutoSync { get; set; }
+
+    [ObservableProperty]
     public partial string? ConnectionStatus { get; set; }
 
     [ObservableProperty]
@@ -57,6 +66,9 @@ public sealed partial class SettingsViewModel(
         OllamaModel = settings.OllamaModel;
         OllamaLanguage = settings.OllamaLanguage;
         RecordLocation = settings.RecordLocation;
+        SyncServer = settings.SyncServer;
+        AutoSync = settings.AutoSync;
+        SyncApiKey = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey);
         CloudflareClientId = await secureStorage.GetAsync(SettingsKeys.CloudflareClientId);
         CloudflareClientSecret = await secureStorage.GetAsync(SettingsKeys.CloudflareClientSecret);
         if (!Models.Contains(OllamaModel))
@@ -85,7 +97,17 @@ public sealed partial class SettingsViewModel(
         settings.OllamaServer = OllamaServer;
         settings.OllamaModel = OllamaModel;
         settings.OllamaLanguage = OllamaLanguage;
+        if (!string.IsNullOrWhiteSpace(SyncServer) &&
+            (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps && !syncUri.IsLoopback && !IsPrivateHost(syncUri.Host)))
+        {
+            await dialogs.AlertAsync("Impostazioni", "Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale).");
+            return;
+        }
+
         settings.RecordLocation = RecordLocation;
+        settings.SyncServer = SyncServer;
+        settings.AutoSync = AutoSync;
+        await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
         await SaveSecretAsync(SettingsKeys.CloudflareClientId, CloudflareClientId);
         await SaveSecretAsync(SettingsKeys.CloudflareClientSecret, CloudflareClientSecret);
         await dialogs.AlertAsync("Impostazioni", "Salvate.");
@@ -146,6 +168,10 @@ public sealed partial class SettingsViewModel(
             OperatorId = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         }
     }
+
+    private static bool IsPrivateHost(string host) =>
+        System.Net.IPAddress.TryParse(host, out var ip) && ip.GetAddressBytes() is [10, ..] or [192, 168, ..] or [172, >= 16 and <= 31, ..]
+        || host.EndsWith(".local", StringComparison.OrdinalIgnoreCase);
 
     private async Task SaveSecretAsync(string key, string? value)
     {

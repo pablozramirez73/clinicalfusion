@@ -150,7 +150,7 @@ reinstallata; le entitlement sono vuote proprio per restare compatibili con il p
 ## 9. Cosa è verificato e cosa no
 
 Verificato in questo repository:
-- Core: compilato e **35 test** superati (fusione, orientamento, FFT, tremore, audio, cifratura reale del DB
+- Core: compilato e **38 test** superati (fusione, orientamento, FFT, tremore per assi con soglia di significatività, audio, cifratura reale del DB
   con chiave errata rifiutata, registratore → DB → riepilogo, client Ollama con streaming, prompt senza identificativi).
 - Codice iOS dell'app: controllo dei tipi contro gli assembly di riferimento **iOS 26.1** e MAUI iOS;
   XAML con binding compilati validati dal generatore MAUI.
