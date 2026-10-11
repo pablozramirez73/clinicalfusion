@@ -41,6 +41,12 @@ internal sealed class ArCaptureController : ARSessionDelegate
 
     public bool IsRunning { get; private set; }
 
+    /// <summary>Richiesta dell'operatore di usare la profondità LiDAR; vale dal prossimo <see cref="Run"/>.</summary>
+    public bool UseLidar { get; set; }
+
+    /// <summary>La sessione in corso sta producendo la mappa di profondità.</summary>
+    public bool IsLidarActive { get; private set; }
+
     /// <summary>Sink della registrazione in corso (null in anteprima).</summary>
     public (ISensorSink Sink, SensorClock Clock)? Recording { get; set; }
 
@@ -76,9 +82,12 @@ internal sealed class ArCaptureController : ARSessionDelegate
 
     public static bool FaceTrackingSupported => ARFaceTrackingConfiguration.IsSupported;
 
+    private PreviewFrame? _preview;
+
     public void Run(CaptureMode mode)
     {
         ARConfiguration configuration;
+        var lidar = false;
         if (mode == CaptureMode.FaceTrueDepth)
         {
             if (!FaceTrackingSupported)
@@ -91,30 +100,34 @@ internal sealed class ArCaptureController : ARSessionDelegate
         else
         {
             var world = new ARWorldTrackingConfiguration { LightEstimationEnabled = true };
-            if (LidarSupported)
+            // Il LiDAR si accende solo se l'operatore lo chiede, e solo in modalità corpo (angoli articolari
+            // in metri reali). Altrimenti basta MediaPipe e si evita il costo della profondità a ogni fotogramma.
+            if (mode == CaptureMode.BodyLidar && UseLidar && LidarSupported)
             {
                 // sceneDepth "grezza" e non smoothedSceneDepth: lo smoothing temporale introduce ritardo
                 // sui movimenti rapidi degli arti, falsando le escursioni massime.
                 world.FrameSemantics = ARFrameSemantics.SceneDepth;
-            }
-            else
-            {
-                _logger.LogWarning("LiDAR non disponibile: si useranno le coordinate 3D stimate da MediaPipe.");
+                lidar = true;
             }
 
             configuration = world;
         }
 
         Mode = mode;
+        IsLidarActive = lidar;
         _vision.Configure(mode);
         Session.Run(configuration, ARSessionRunOptions.ResetTracking | ARSessionRunOptions.RemoveExistingAnchors);
         IsRunning = true;
     }
 
+    /// <summary>Ultimo fotogramma da disegnare; chi lo prende ne diventa proprietario. Null se non ce n'è uno nuovo.</summary>
+    public PreviewFrame? TakePreviewFrame() => Interlocked.Exchange(ref _preview, null);
+
     public void Pause()
     {
         Session.Pause();
         IsRunning = false;
+        IsLidarActive = false;
     }
 
     public override void DidUpdateFrame(ARSession session, ARFrame frame)
@@ -132,13 +145,27 @@ internal sealed class ArCaptureController : ARSessionDelegate
                 WriteFrameStreams(frame, rec, depth);
             }
 
+            // CapturedImage crea a ogni lettura un riferimento indipendente allo stesso buffer:
+            // uno va all'inferenza, uno al renderer, ciascuno con il proprio ciclo di vita.
+            if (frame.CapturedImage is not { } image)
+            {
+                return;
+            }
+
+            var displayTransform = frame.GetDisplayTransform(UIInterfaceOrientation.Portrait, Viewport);
+            if (frame.CapturedImage is { } previewImage)
+            {
+                var preview = new PreviewFrame { Image = previewImage, Depth = depthData?.DepthMap, DisplayTransform = displayTransform };
+                Interlocked.Exchange(ref _preview, preview)?.Dispose();
+            }
+
             var job = new ArFrameJob
             {
-                Image = frame.CapturedImage,
+                Image = image,
                 Timestamp = frame.Timestamp,
                 Depth = depth,
                 Intrinsics = ArFrameReader.Intrinsics(frame.Camera),
-                DisplayTransform = frame.GetDisplayTransform(UIInterfaceOrientation.Portrait, Viewport),
+                DisplayTransform = displayTransform,
                 FrontCamera = front,
             };
             _vision.TrySubmit(job);

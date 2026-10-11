@@ -4,7 +4,7 @@ import Foundation
 /// oggetti Objective-C per fotogramma (il volto da solo ha 478 punti) e la relativa pressione sul GC .NET.
 ///
 /// Layout di ogni punto: `[x, y, z, visibility, presence]` (`valuesPerLandmark` = 5).
-/// - `*Landmarks`: x, y normalizzati 0…1 sull'immagine **orientata**; z relativo (scala ≈ x).
+/// - `*Landmarks`: x, y normalizzati 0…1 sull'immagine **originale** (quella del sensore, non ruotata); z relativo (scala ≈ x).
 /// - `*WorldLandmarks`: metri, origine al centro delle anche (pose) o della mano.
 /// - `faceBlendshapes`: 52 coefficienti 0…1 per volto, nell'ordine del modello MediaPipe.
 @objc(CSFVisionResult)

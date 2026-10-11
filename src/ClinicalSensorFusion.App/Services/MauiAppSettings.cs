@@ -7,6 +7,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
 {
     private const string RecordLocationKey = "capture.location";
     private const string DepthOverlayKey = "capture.depth_overlay";
+    private const string UseLidarKey = "capture.use_lidar";
     private const string SyncServerKey = "sync.server";
     private const string AutoSyncKey = "sync.auto";
 
@@ -59,6 +60,13 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(AutoSyncKey, true);
         set => preferences.Set(AutoSyncKey, value);
+    }
+
+    /// <summary>Profondità LiDAR in modalità corpo. Spenta per impostazione predefinita: si accende quando serve.</summary>
+    public bool UseLidar
+    {
+        get => preferences.Get(UseLidarKey, false);
+        set => preferences.Set(UseLidarKey, value);
     }
 
     public bool ShowDepthOverlay

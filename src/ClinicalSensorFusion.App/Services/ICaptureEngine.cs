@@ -16,6 +16,12 @@ public interface ICaptureEngine
 {
     bool IsLidarSupported { get; }
 
+    /// <summary>
+    /// Profondità LiDAR accesa su richiesta dell'operatore (solo modalità corpo). Spenta, gli angoli
+    /// usano la stima 3D di MediaPipe. Ha effetto al prossimo avvio dell'anteprima.
+    /// </summary>
+    bool UseLidar { get; set; }
+
     bool IsFaceTrackingSupported { get; }
 
     bool IsRecording { get; }

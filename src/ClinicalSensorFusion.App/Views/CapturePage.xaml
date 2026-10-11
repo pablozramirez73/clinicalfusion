@@ -37,7 +37,7 @@
                 IsVisible="{Binding Warning, Converter={StaticResource IsNotNullOrEmpty}}">
           <Label Text="{Binding Warning}" Style="{StaticResource HudText}" FontAttributes="None" />
         </Border>
-        <Border Grid.Column="1" Style="{StaticResource Hud}" Padding="10" VerticalOptions="End" IsVisible="{Binding LidarAvailable}"
+        <Border Grid.Column="1" Style="{StaticResource Hud}" Padding="10" VerticalOptions="End" IsVisible="{Binding ShowDepthToggle}"
                 SemanticProperties.Description="Profondità" SemanticProperties.Hint="Mostra o nasconde la mappa di profondità LiDAR">
           <Border.GestureRecognizers>
             <TapGestureRecognizer Command="{Binding ToggleDepthCommand}" />
@@ -78,6 +78,18 @@
             </BindableLayout.ItemTemplate>
           </FlexLayout>
           <Label Text="{Binding SelectedMode.Description}" Style="{StaticResource Muted}" Margin="2,-4,2,0" />
+
+          <!-- LiDAR: spento di norma, si accende solo quando servono misure in metri -->
+          <Border Style="{StaticResource Tile}" Padding="14,10" IsVisible="{Binding ShowLidarOption}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label Text="LiDAR" FontAttributes="Bold" />
+                <Label Text="Angoli e distanza in metri reali. Spento, li stima MediaPipe." Style="{StaticResource Muted}" FontSize="12" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="1" IsToggled="{Binding UseLidar}" IsEnabled="{Binding CanChangeLidar}" VerticalOptions="Center"
+                      SemanticProperties.Description="Usa il LiDAR per la profondità" />
+            </Grid>
+          </Border>
 
           <controls:FormField Label="Codice soggetto">
             <Entry Placeholder="Pseudonimo, non nome e cognome" Text="{Binding SubjectCode}"

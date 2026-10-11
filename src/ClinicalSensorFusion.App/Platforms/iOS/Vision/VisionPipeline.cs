@@ -151,7 +151,10 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     {
 
         // Camera posteriore in verticale: immagine da ruotare di 90° orari. Frontale: 90° antiorari.
-        var orientation = job.FrontCamera ? ImageOrientation.Left : ImageOrientation.Right;
+        // La rotazione serve solo all'inferenza (i modelli vogliono il soggetto dritto): MediaPipe su iOS
+        // restituisce comunque i punti nel sistema dell'immagine originale, cioè quello del sensore, lo
+        // stesso di profondità LiDAR, intrinseci e displayTransform. Nessuna conversione, quindi.
+        const ImageOrientation orientation = ImageOrientation.Up;
         var uiOrientation = job.FrontCamera ? UIImageOrientation.Left : UIImageOrientation.Right;
 
         using var result = engine.Detect(job.Image, uiOrientation, (nint)(job.Timestamp * 1000), out var error);

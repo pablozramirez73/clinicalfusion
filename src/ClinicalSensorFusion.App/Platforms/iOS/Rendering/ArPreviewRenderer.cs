@@ -124,21 +124,17 @@ internal sealed class ArPreviewRenderer : NSObject, IMTKViewDelegate
 
     public void Draw(MTKView view)
     {
-        using var frame = _capture.Session.CurrentFrame;
-        if (frame is null || view.CurrentRenderPassDescriptor is not { } pass || view.CurrentDrawable is not { } drawable)
+        _capture.Viewport = view.Bounds.Size;
+
+        // Nessun fotogramma nuovo dall'ultimo disegno: la vista continua a mostrare il precedente.
+        using var frame = _capture.TakePreviewFrame();
+        if (frame is null || frame.Image.PlaneCount < 2 ||
+            view.CurrentRenderPassDescriptor is not { } pass || view.CurrentDrawable is not { } drawable)
         {
             return;
         }
 
-        var viewport = view.Bounds.Size;
-        _capture.Viewport = viewport;
-
-        using var image = frame.CapturedImage;
-        if (image.PlaneCount < 2)
-        {
-            return;
-        }
-
+        var image = frame.Image;
         var y = CreateTexture(image, MTLPixelFormat.R8Unorm, 0);
         var cbcr = CreateTexture(image, MTLPixelFormat.RG8Unorm, 1);
         if (y?.Texture is not { } yTexture || cbcr?.Texture is not { } cbcrTexture)
@@ -149,14 +145,13 @@ internal sealed class ArPreviewRenderer : NSObject, IMTKViewDelegate
         }
 
         CVMetalTexture? depth = null;
-        using var depthData = frame.SceneDepth;
-        if (_capture.DepthOverlayOpacity > 0 && depthData?.DepthMap is { } depthMap)
+        if (_capture.DepthOverlayOpacity > 0 && frame.Depth is { } depthMap)
         {
             depth = CreateTexture(depthMap, MTLPixelFormat.R32Float, 0);
         }
 
         // Trasformazione inversa: dalle coordinate della vista a quelle dell'immagine (per campionare le texture).
-        var toImage = frame.GetDisplayTransform(UIInterfaceOrientation.Portrait, viewport).Invert();
+        var toImage = frame.DisplayTransform.Invert();
         var uniforms = new Uniforms
         {
             A = (float)toImage.A,

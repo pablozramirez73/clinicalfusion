@@ -36,6 +36,12 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
 
     public bool IsLidarSupported => ArCaptureController.LidarSupported;
 
+    public bool UseLidar
+    {
+        get => Ar.UseLidar;
+        set => Ar.UseLidar = value;
+    }
+
     public bool IsFaceTrackingSupported => ArCaptureController.FaceTrackingSupported;
 
     public bool IsRecording { get; private set; }
@@ -48,7 +54,7 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
         var list = new List<SensorStatus>
         {
             new(mode == CaptureMode.FaceTrueDepth ? "Fotocamera TrueDepth" : "Fotocamera posteriore", true, Ar.IsRunning),
-            new("LiDAR", IsLidarSupported, Ar.IsRunning && mode != CaptureMode.FaceTrueDepth && IsLidarSupported),
+            new("LiDAR", IsLidarSupported, Ar.IsRunning && Ar.IsLidarActive),
             new($"MediaPipe {ModeModel(mode)}", _vision.IsReady, Ar.IsRunning && _vision.IsReady),
         };
 

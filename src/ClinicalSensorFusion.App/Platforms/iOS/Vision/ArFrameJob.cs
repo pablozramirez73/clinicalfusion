@@ -28,3 +28,25 @@ internal sealed class ArFrameJob : IDisposable
 
     public void Dispose() => Image.Dispose();
 }
+
+/// <summary>
+/// Ciò che serve al renderer per disegnare un fotogramma. Lo prepara il delegato di ARKit sulla propria
+/// coda: il renderer (thread principale) non tocca mai l'ARFrame, perché .NET usa un solo oggetto gestito
+/// per ogni ARFrame nativo e il rilascio da un thread lo invaliderebbe sotto i piedi dell'altro.
+/// </summary>
+internal sealed class PreviewFrame : IDisposable
+{
+    public required CVPixelBuffer Image { get; init; }
+
+    /// <summary>Mappa di profondità LiDAR (null se la modalità non la usa).</summary>
+    public CVPixelBuffer? Depth { get; init; }
+
+    /// <summary>Da coordinate normalizzate dell'immagine a coordinate normalizzate della vista.</summary>
+    public required CGAffineTransform DisplayTransform { get; init; }
+
+    public void Dispose()
+    {
+        Image.Dispose();
+        Depth?.Dispose();
+    }
+}

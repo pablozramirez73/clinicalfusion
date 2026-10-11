@@ -62,11 +62,12 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         Modes =
         [
-            new(CaptureMode.BodyLidar, "Corpo", "Postura, escursione articolare e cammino (LiDAR + MediaPipe Pose)"),
-            new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (LiDAR + MediaPipe Hands)"),
+            new(CaptureMode.BodyLidar, "Corpo", "Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)"),
+            new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (MediaPipe Hands)"),
             new(CaptureMode.FaceTrueDepth, "Volto", "Mimica facciale (TrueDepth + MediaPipe Face)"),
         ];
         SelectedMode = Modes[0];
+        UseLidar = settings.UseLidar;
         DepthOpacity = settings.ShowDepthOverlay ? 0.35 : 0;
         Tiles = [_elapsed, _knee, _elbow, _distance, _audio, _steps, _altitude, _light, _thermal];
 
@@ -86,7 +87,21 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     public bool LidarAvailable => _engine.IsLidarSupported;
 
+    /// <summary>L'interruttore del LiDAR ha senso solo in modalità corpo, su un iPhone che lo monta.</summary>
+    public bool ShowLidarOption => LidarAvailable && SelectedMode.Mode == CaptureMode.BodyLidar;
+
+    /// <summary>La mappa di profondità si può sovrapporre solo se il LiDAR è acceso.</summary>
+    public bool ShowDepthToggle => ShowLidarOption && UseLidar;
+
+    public bool CanChangeLidar => !IsRecording;
+
+    /// <summary>Profondità LiDAR: spenta di norma, l'operatore la accende quando gli servono misure in metri.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDepthToggle))]
+    public partial bool UseLidar { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLidarOption), nameof(ShowDepthToggle))]
     public partial CaptureModeOption SelectedMode { get; set; }
 
     /// <summary>Tempo trascorso, mostrato accanto all'indicatore REC sull'anteprima.</summary>
@@ -104,6 +119,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     [NotifyCanExecuteChangedFor(nameof(SelectModeCommand))]
+    [NotifyPropertyChangedFor(nameof(CanChangeLidar))]
     public partial bool IsRecording { get; set; }
 
     [ObservableProperty]
@@ -128,10 +144,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         if (!_settings.IsOperatorConfiguredSafe())
         {
             Warning = "Configurare l'operatore nelle Impostazioni prima di acquisire.";
-        }
-        else if (!_engine.IsLidarSupported)
-        {
-            Warning = "LiDAR non presente: gli angoli useranno la stima 3D di MediaPipe (meno accurata).";
         }
         else
         {
@@ -174,6 +186,18 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             option.IsSelected = ReferenceEquals(option, value);
         }
 
+        if (_previewActive && !IsRecording)
+        {
+            await StartPreviewAsync();
+        }
+    }
+
+    async partial void OnUseLidarChanged(bool value)
+    {
+        _settings.UseLidar = value;
+        _engine.UseLidar = value;
+
+        // La profondità si attiva con la configurazione della sessione: serve riavviare l'anteprima.
         if (_previewActive && !IsRecording)
         {
             await StartPreviewAsync();
