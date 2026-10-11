@@ -27,7 +27,8 @@ for platform in "iOS" "iOS Simulator"; do
     -quiet
 done
 
-xcodebuild -create-xcframework \
+# -allow-internal-distribution: senza library evolution non ci sono .swiftinterface e la creazione fallirebbe.
+xcodebuild -create-xcframework -allow-internal-distribution \
   -framework "$OUT/iOS.xcarchive/Products/Library/Frameworks/MediaPipeBridge.framework" \
   -framework "$OUT/iOS_Simulator.xcarchive/Products/Library/Frameworks/MediaPipeBridge.framework" \
   -output "$OUT/MediaPipeBridge.xcframework"

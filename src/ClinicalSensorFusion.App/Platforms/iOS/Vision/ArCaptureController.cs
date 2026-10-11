@@ -186,7 +186,7 @@ internal sealed class ArCaptureController : ARSessionDelegate
     /// <summary>Coefficienti in ordine alfabetico della chiave: ordine stabile tra versioni di iOS.</summary>
     private static float[] BlendShapeValues(NSDictionary shapes)
     {
-        var keys = shapes.Keys.Select(k => k.ToString()).Order(StringComparer.Ordinal).ToArray();
+        var keys = shapes.Keys.Select(k => k.ToString() ?? string.Empty).Order(StringComparer.Ordinal).ToArray();
         var values = new float[keys.Length];
         for (var i = 0; i < keys.Length; i++)
         {

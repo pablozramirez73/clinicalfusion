@@ -25,6 +25,25 @@
   <key>XSAppIconAssets</key>
   <string>Assets.xcassets/appicon.appiconset</string>
 
+  <!-- Ciclo di vita a scene (richiesto da iOS 27): una sola finestra, gestita da SceneDelegate. -->
+  <key>UIApplicationSceneManifest</key>
+  <dict>
+    <key>UIApplicationSupportsMultipleScenes</key>
+    <false/>
+    <key>UISceneConfigurations</key>
+    <dict>
+      <key>UIWindowSceneSessionRoleApplication</key>
+      <array>
+        <dict>
+          <key>UISceneConfigurationName</key>
+          <string>__MAUI_DEFAULT_SCENE_CONFIGURATION__</string>
+          <key>UISceneDelegateClassName</key>
+          <string>SceneDelegate</string>
+        </dict>
+      </array>
+    </dict>
+  </dict>
+
   <!-- Testi dei permessi (mostrati da iOS al primo utilizzo). -->
   <key>NSCameraUsageDescription</key>
   <string>La fotocamera e il LiDAR servono a stimare postura e movimenti del paziente durante la rilevazione.</string>
