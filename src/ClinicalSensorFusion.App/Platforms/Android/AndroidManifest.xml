@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Destinazione Android 16 (API 36); il minimo resta Android 11. -->
+  <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="36" />
+
   <!--
     allowBackup="false" e regole di estrazione vuote: archivio clinico, audio e chiave non devono finire nei
     backup di Google né nel trasferimento a un altro telefono (come su iOS: mai nei backup in chiaro).

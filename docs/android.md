@@ -17,6 +17,7 @@ TrueDepth, e questa versione non li sostituisce con altro.
 | Distanza del soggetto, copertura LiDAR | misurate | non disponibili (NaN) |
 | Blendshape del volto | ARKit TrueDepth, 52 coefficienti | MediaPipe Face, riordinate nel layout ARKit; `tongueOut` = NaN |
 | MediaPipe | bridge Swift, pod 0.10.21, GPU Metal | facciata Java, Maven 0.10.35, GPU OpenGL con ripiego su CPU |
+| Dove gira l'inferenza | sempre GPU | mostrato nello stato dei sensori: «MediaPipe Pose · GPU» oppure «· CPU» |
 | IMU 100 Hz | CMDeviceMotion | accelerazione lineare + gravità + giroscopio + vettore di rotazione + magnetometro |
 | Barometro | CMAltimeter | `TYPE_PRESSURE` (quota relativa dalla prima lettura) |
 | Pedometro | passi, distanza, cadenza, piani | solo passi (`TYPE_STEP_COUNTER`) |
@@ -72,7 +73,7 @@ Come su iOS, a .NET si lega solo una facciata piccola: la libreria di Google arr
 ## 4. Build
 
 Prerequisiti: .NET 11 con `dotnet workload install maui-android`, JDK 21, Android SDK (piattaforma 37).
-Android minimo: 11 (API 30).
+Android minimo: 11 (API 30); destinazione: Android 16 (API 36), dichiarata nel manifest.
 
 ```bash
 ./scripts/download-models.sh

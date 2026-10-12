@@ -52,7 +52,7 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
         var list = new List<SensorStatus>
         {
             new(mode == CaptureMode.FaceTrueDepth ? "Fotocamera frontale" : "Fotocamera posteriore", true, Camera.IsRunning),
-            new($"MediaPipe {ModeModel(mode)}", _vision.IsReady, Camera.IsRunning && _vision.IsReady),
+            new($"MediaPipe {ModeModel(mode)} · {(_vision.IsGpu ? "GPU" : "CPU")}", _vision.IsReady, Camera.IsRunning && _vision.IsReady),
         };
 
         if (IsRecording)

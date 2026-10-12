@@ -41,6 +41,9 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
 
     public bool IsReady => _engine is not null;
 
+    /// <summary>Vero se l'inferenza gira sulla GPU; falso se il motore ha dovuto ripiegare sulla CPU.</summary>
+    public bool IsGpu { get; private set; }
+
     public string? LastError { get; private set; }
 
     /// <summary>Carica solo il modello MediaPipe necessario alla modalità.</summary>
@@ -56,6 +59,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             Release();
             _mode = mode;
             _engine = CreateEngine(mode);
+            IsGpu = _engine?.IsGpu == true;
         }
     }
 
@@ -130,6 +134,13 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         if (result is null)
         {
             return;
+        }
+
+        // Il ripiego sulla CPU può avvenire anche al primo fotogramma, non solo alla creazione.
+        if (IsGpu != result.IsGpu)
+        {
+            IsGpu = result.IsGpu;
+            logger.LogWarning("MediaPipe: inferenza su {Device}.", IsGpu ? "GPU" : "CPU (GPU non utilizzabile)");
         }
 
         var recording = Recording;
