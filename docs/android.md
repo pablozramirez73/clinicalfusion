@@ -36,8 +36,8 @@ dashboard come una iOS. Le differenze da tenere presenti in analisi:
   gli angoli rispetto alla verticale coincidono con iOS, l'imbardata assoluta no.
 - **Luce ambientale.** Lux misurati contro lumen stimati: i valori dei due sistemi non sono confrontabili.
 - **Stato termico.** Le sette classi di Android sono riportate alle quattro di iOS (0 nominale … 3 critico).
-- **Coordinate dei punti.** MediaPipe su Android lavora sull'immagine ruotata dritta; prima di archiviarli i punti
-  2D tornano nel sistema del sensore, come su iOS.
+- **Coordinate dei punti.** Come su iOS, MediaPipe usa la rotazione solo per l'inferenza e restituisce i punti nel
+  sistema del sensore: così sono archiviati, e solo l'overlay li raddrizza per la vista.
 
 ## 2. Struttura
 

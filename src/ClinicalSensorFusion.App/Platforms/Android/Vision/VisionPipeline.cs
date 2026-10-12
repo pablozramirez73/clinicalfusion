@@ -17,8 +17,8 @@ namespace ClinicalSensorFusion.App.Platforms.Android.Vision;
 /// <list type="bullet">
 /// <item>senza LiDAR i punti 3D sono sempre i <i>world landmarks</i> di MediaPipe ("stima 3D");</item>
 /// <item>senza TrueDepth le blendshape del volto vengono da MediaPipe Face, riordinate nel layout ARKit;</item>
-/// <item>MediaPipe su Android restituisce i punti sull'immagine già ruotata dritta: per l'archivio si
-/// riportano nel sistema del sensore, come su iOS.</item>
+/// <item>come su iOS, MediaPipe usa la rotazione solo per l'inferenza e restituisce i punti nel sistema
+/// del sensore (immagine orizzontale): così vanno in archivio, mentre per l'overlay si raddrizzano.</item>
 /// </list>
 /// </remarks>
 internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposable
@@ -184,9 +184,8 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             var pose3d = new float[PoseLandmark.Count * 3];
             for (var i = 0; i < PoseLandmark.Count; i++)
             {
-                var (x, y) = view.ToSensor(raw[i * Values], raw[(i * Values) + 1]);
-                pose2d[i * 3] = x;
-                pose2d[(i * 3) + 1] = y;
+                pose2d[i * 3] = raw[i * Values];
+                pose2d[(i * 3) + 1] = raw[(i * Values) + 1];
                 pose2d[(i * 3) + 2] = raw[(i * Values) + 3];
                 pose3d[i * 3] = world[i].X;
                 pose3d[(i * 3) + 1] = world[i].Y;
@@ -230,9 +229,8 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
                 for (var i = 0; i < HandLandmark.Count; i++)
                 {
                     var o = ((h * HandLandmark.Count) + i) * Values;
-                    var (x, y) = view.ToSensor(raw[o], raw[o + 1]);
-                    values.Add(x);
-                    values.Add(y);
+                    values.Add(raw[o]);
+                    values.Add(raw[o + 1]);
                     values.Add(raw[o + 2]);
                 }
             }
@@ -302,8 +300,8 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     }
 
     /// <summary>
-    /// Passaggi di coordinate di un fotogramma: immagine dritta (quella di MediaPipe) → sensore, per
-    /// l'archivio, e immagine dritta → vista di anteprima, per l'overlay.
+    /// Passaggi di coordinate di un fotogramma. MediaPipe restituisce i punti nel sistema del sensore:
+    /// per l'archivio restano così, per l'overlay si portano sull'immagine dritta e poi sulla vista di anteprima.
     /// </summary>
     private readonly struct ViewMapping
     {
@@ -340,10 +338,9 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             }
         }
 
-        public (float X, float Y) ToSensor(float u, float v) => OrientationMapper.ToSensor(u, v, _orientation);
-
-        public OverlayPoint ToView(float u, float v, bool valid, OverlayPointKind kind)
+        public OverlayPoint ToView(float x, float y, bool valid, OverlayPointKind kind)
         {
+            var (u, v) = OrientationMapper.ToOriented(x, y, _orientation);
             if (_mirrored)
             {
                 u = 1 - u;

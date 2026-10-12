@@ -5,8 +5,8 @@ package com.lucaguelfi.csf.vision;
  * oggetti Java (e relativi wrapper .NET) a ogni fotogramma: il volto da solo ha 478 punti.
  *
  * Layout di ogni punto: [x, y, z, visibility, presence] (VALUES_PER_LANDMARK = 5).
- * - *Landmarks: x, y normalizzati 0..1 sull'immagine RUOTATA dritta (a differenza di iOS, dove MediaPipe
- *   li riporta sull'immagine del sensore); z relativo (scala circa x).
+ * - *Landmarks: x, y normalizzati 0..1 sull'immagine ORIGINALE (quella del sensore, non ruotata: la
+ *   rotazione serve solo all'inferenza); z relativo (scala circa x).
  * - *WorldLandmarks: metri, origine al centro delle anche (pose) o della mano.
  * - faceBlendshapes: coefficienti 0..1 del primo volto, con i nomi in faceBlendshapeNames.
  */
