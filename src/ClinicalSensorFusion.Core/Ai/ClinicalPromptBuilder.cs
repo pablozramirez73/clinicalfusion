@@ -81,8 +81,8 @@ public static class ClinicalPromptBuilder
 
     public static string Describe(CaptureMode mode) => mode switch
     {
-        CaptureMode.BodyLidar => "corpo intero, fotocamera posteriore con LiDAR e MediaPipe Pose",
-        CaptureMode.HandsLidar => "mani, fotocamera posteriore con LiDAR e MediaPipe Hands",
+        CaptureMode.BodyLidar => "corpo intero, fotocamera posteriore con MediaPipe Pose (LiDAR se attivato)",
+        CaptureMode.HandsLidar => "mani, fotocamera posteriore con MediaPipe Hands",
         CaptureMode.FaceTrueDepth => "volto, fotocamera frontale TrueDepth con MediaPipe Face e blendshape ARKit",
         _ => mode.ToString(),
     };

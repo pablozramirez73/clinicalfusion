@@ -174,6 +174,11 @@ public sealed partial class SessionDetailViewModel(
             Summary.Clear();
             if (_session.Summary is { } summary)
             {
+                // Prima degli indicatori: quanto ci si può fidare della misura e del documento che parte per il server.
+                Summary.Add(new SummaryGroup(MeasurementReliability.Section, MeasurementReliability.Assess(summary, c).Factors));
+                var payload = await sync.InspectPayloadAsync(_session);
+                Summary.Add(new SummaryGroup(ClinicalSensorFusion.Core.Sync.PayloadReport.Section, payload.ToRows(c)));
+
                 foreach (var group in SummaryReport.Build(summary, c).GroupBy(r => r.Section))
                 {
                     Summary.Add(new SummaryGroup(group.Key, [.. group]));

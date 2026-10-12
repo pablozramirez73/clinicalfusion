@@ -69,6 +69,10 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
         }
     }
 
+    /// <summary>Controllo del payload JSON che verrebbe inviato per questa rilevazione (non richiede il server).</summary>
+    public Task<PayloadReport> InspectPayloadAsync(ClinicalSensorFusion.Core.Domain.ClinicalSession session, CancellationToken ct = default) =>
+        synchronizer.InspectPayloadAsync(session, ct);
+
     /// <summary>Pagina della dashboard con i grafici della rilevazione; null se il server non è configurato.</summary>
     public Uri? DashboardUrlFor(string sessionId) =>
         TryGetServer(out var server) ? new Uri(server!, $"sessions/{Uri.EscapeDataString(sessionId)}") : null;

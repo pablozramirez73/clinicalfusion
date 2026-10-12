@@ -33,6 +33,9 @@ public sealed record SessionSummary
     /// </summary>
     public int? SitToStandCount { get; init; }
 
+    /// <summary>Tocchi pollice–indice rilevati in modalità mani (null se nessuno).</summary>
+    public FingerTapSeries? FingerTaps { get; init; }
+
     /// <summary>Esito del test standardizzato scelto dall'operatore (null per una rilevazione libera).</summary>
     public TestOutcome? Test { get; init; }
 

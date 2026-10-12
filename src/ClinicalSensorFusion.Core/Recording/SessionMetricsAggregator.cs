@@ -29,6 +29,7 @@ public sealed class SessionMetricsAggregator
     private readonly Dictionary<SensorKind, long> _counts = [];
     private readonly TremorAnalyzer _tremor = new();
     private readonly List<float> _distances = [];
+    private readonly FingerTapAnalyzer _fingerTaps = new();
 
     private double _elapsed;
     private float[]? _lastAngles;
@@ -80,6 +81,9 @@ public sealed class SessionMetricsAggregator
                 break;
             case SensorKind.AudioLevel when v.Length >= 1:
                 _lastAudio = v[0];
+                break;
+            case SensorKind.HandLandmarks:
+                _fingerTaps.Add(r.Timestamp, v);
                 break;
             case SensorKind.JointAngles:
                 // Layout: angoli × JointCount, poi [sorgente (0=LiDAR,1=MediaPipe), distanza soggetto].
@@ -187,6 +191,7 @@ public sealed class SessionMetricsAggregator
             Audio = audio,
             MedianSubjectDistanceMeters = medianDistance,
             SitToStandCount = _poseFrames > 0 ? _sitToStand : null,
+            FingerTaps = _fingerTaps.Build(),
             SampleCounts = new Dictionary<SensorKind, long>(_counts),
             DroppedSamples = dropped,
         };

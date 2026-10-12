@@ -22,6 +22,7 @@ public sealed class CaptureCoordinator(
     private ClinicalSession? _session;
     private SensorClock? _clock;
     private ClinicalTest? _test;
+    private double? _testStart;
 
     public bool IsRecording => _session is not null;
 
@@ -30,6 +31,12 @@ public sealed class CaptureCoordinator(
     public LiveMetrics? Live => _recorder?.Live;
 
     public double Elapsed => _clock?.Now ?? 0;
+
+    /// <summary>Secondi dal «Via» del test; null finché la guida vocale non l'ha dato.</summary>
+    public double? TestElapsed => _testStart is { } start && _clock is { } clock ? clock.Now - start : null;
+
+    /// <summary>Segna il «Via»: da qui si misura il tempo del test (la spiegazione che lo precede non conta).</summary>
+    public void MarkTestStart() => _testStart ??= _clock?.Now;
 
     /// <param name="test">Test standardizzato da eseguire; null per una rilevazione libera.</param>
     public async Task<ClinicalSession> StartAsync(string subjectCode, CaptureMode mode, string? notes, bool includeLocation, ClinicalTest? test = null)
@@ -77,6 +84,7 @@ public sealed class CaptureCoordinator(
         _recorder = recorder;
         _clock = clock;
         _test = test;
+        _testStart = null;
         return session;
     }
 
@@ -85,13 +93,14 @@ public sealed class CaptureCoordinator(
         var session = _session ?? throw new InvalidOperationException("Nessuna rilevazione in corso.");
         var recorder = _recorder!;
         var duration = _clock!.Now;
+        var testSeconds = _testStart is { } start ? duration - start : (double?)null;
 
         // Prima si fermano le sorgenti (niente più scritture), poi si svuota il registratore.
         var audio = await engine.StopRecordingAsync();
         var summary = await recorder.CompleteAsync(duration, audio?.Features);
 
         session.EndedAt = DateTimeOffset.UtcNow;
-        session.Summary = _test is { } test ? summary with { Test = ClinicalTests.Evaluate(test, summary) } : summary;
+        session.Summary = _test is { } test ? summary with { Test = ClinicalTests.Evaluate(test, summary, testSeconds) } : summary;
         await repository.CompleteSessionAsync(session);
         if (audio is not null)
         {
@@ -103,6 +112,7 @@ public sealed class CaptureCoordinator(
         _recorder = null;
         _clock = null;
         _test = null;
+        _testStart = null;
         return session;
     }
 

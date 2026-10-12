@@ -81,18 +81,34 @@ public sealed class SessionSynchronizer(
         }
     }
 
+    /// <summary>
+    /// Il documento JSON della rilevazione così come viene inviato al server (metadati, riepilogo, indice
+    /// dell'audio, analisi). Pubblico perché l'app ne controlla l'integrità prima dell'invio.
+    /// </summary>
+    public async Task<SessionUpload> BuildUploadAsync(ClinicalSession session, CancellationToken ct = default)
+    {
+        var audio = await repository.ListAudioRecordingsAsync(session.Id, ct).ConfigureAwait(false);
+        var analyses = await repository.ListAnalysesAsync(session.Id, ct).ConfigureAwait(false);
+        return new SessionUpload(
+            session.Id, session.SubjectCode, session.OperatorId, session.OperatorName, session.Mode,
+            session.StartedAt, session.EndedAt, session.Notes, session.DeviceModel, session.Summary,
+            [.. audio.Select(a => new AudioUpload(a.Id, a.CreatedAt, a.DurationSeconds, a.Features))],
+            [.. analyses.Select(a => new AnalysisUpload(a.Id, a.CreatedAt, a.Model, a.Language, a.OperatorId, a.Prompt, a.Response))]);
+    }
+
+    /// <summary>Controllo del payload JSON di una rilevazione e dei dati dei sensori che lo accompagnano.</summary>
+    public async Task<PayloadReport> InspectPayloadAsync(ClinicalSession session, CancellationToken ct = default)
+    {
+        var upload = await BuildUploadAsync(session, ct).ConfigureAwait(false);
+        var (chunks, samples, bytes) = await repository.GetChunkStatsAsync(session.Id, ct).ConfigureAwait(false);
+        return PayloadReport.Inspect(upload, new ChunkStats(chunks, samples, bytes));
+    }
+
     private async Task<(int Chunks, int Audio)> UploadAsync(
         Uri server, ClinicalSession session, Func<AudioRecording, string> audioPathResolver, CancellationToken ct)
     {
         var audio = await repository.ListAudioRecordingsAsync(session.Id, ct).ConfigureAwait(false);
-        var analyses = await repository.ListAnalysesAsync(session.Id, ct).ConfigureAwait(false);
-
-        await client.UploadSessionAsync(server, new SessionUpload(
-            session.Id, session.SubjectCode, session.OperatorId, session.OperatorName, session.Mode,
-            session.StartedAt, session.EndedAt, session.Notes, session.DeviceModel, session.Summary,
-            [.. audio.Select(a => new AudioUpload(a.Id, a.CreatedAt, a.DurationSeconds, a.Features))],
-            [.. analyses.Select(a => new AnalysisUpload(a.Id, a.CreatedAt, a.Model, a.Language, a.OperatorId, a.Prompt, a.Response))]),
-            ct).ConfigureAwait(false);
+        await client.UploadSessionAsync(server, await BuildUploadAsync(session, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
 
         var sent = 0;
         var batch = new List<ChunkUpload>();

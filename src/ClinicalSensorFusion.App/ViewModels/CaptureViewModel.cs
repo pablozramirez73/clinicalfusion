@@ -45,6 +45,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly IDialogService _dialogs;
     private readonly ISpeechGuide _speech;
     private CancellationTokenSource? _guideCts;
+    private int _nextCue;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -72,7 +73,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (MediaPipe Hands)"),
             new(CaptureMode.FaceTrueDepth, "Volto", "Mimica facciale (TrueDepth + MediaPipe Face)"),
         ];
-        Tests = [new TestOption(null, "Rilevazione libera"), .. ClinicalTests.All.Select(t => new TestOption(t, t.Name))];
         SelectedTest = Tests[0];
         SelectedMode = Modes[0];
         UseLidar = settings.UseLidar;
@@ -89,18 +89,30 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     public IReadOnlyList<CaptureModeOption> Modes { get; }
 
-    /// <summary>Test funzionali standardizzati (CDC STEADI, core set ANPT/APTA), tutti in modalità corpo.</summary>
-    public IReadOnlyList<TestOption> Tests { get; }
+    /// <summary>
+    /// Test standardizzati della modalità scelta (corpo: CDC STEADI e core set ANPT/APTA; mani: finger
+    /// tapping MDS-UPDRS), preceduti dalla rilevazione libera.
+    /// </summary>
+    public IReadOnlyList<TestOption> Tests { get; private set; } = [new TestOption(null, "Rilevazione libera")];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint))]
     public partial TestOption SelectedTest { get; set; }
 
-    public ClinicalTest? Test => ShowTests ? SelectedTest.Test : null;
+    public ClinicalTest? Test => ShowTests ? SelectedTest?.Test : null;
+
+    // Quando l'elenco cambia il selettore azzera la scelta: si torna alla rilevazione libera.
+    partial void OnSelectedTestChanged(TestOption value)
+    {
+        if (value is null)
+        {
+            SelectedTest = Tests[0];
+        }
+    }
 
     public bool HasTest => Test is not null;
 
-    public bool ShowTests => SelectedMode.Mode == CaptureMode.BodyLidar;
+    public bool ShowTests => Tests.Count > 1;
 
     public bool CanChooseTest => !IsRecording;
 
@@ -150,10 +162,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(CanChangeLidar), nameof(CanChooseTest), nameof(RecordHint))]
     public partial bool IsRecording { get; set; }
 
-    /// <summary>La guida vocale sta parlando o contando alla rovescia: la registrazione non è ancora partita.</summary>
+    /// <summary>La voce sta spiegando l'esame o contando alla rovescia: si registra già, il tempo del test parte al «Via».</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordHint))]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     public partial bool IsGuiding { get; set; }
 
     /// <summary>Conto alla rovescia mostrato sul pulsante durante la guida ("3", "2", "1").</summary>
@@ -163,9 +174,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     /// <summary>Che cosa fa il pulsante rosso in questo momento.</summary>
     public string RecordHint => (IsRecording, IsGuiding, HasTest) switch
     {
+        (true, true, _) => "La voce sta spiegando l'esame · tocca per terminare",
         (true, _, _) => "Tocca per terminare",
-        (_, true, _) => "Guida vocale in corso · tocca per annullare",
-        (_, _, true) => "Avvia con guida vocale",
+        (_, _, true) => "Avvia: la voce guida il paziente",
         _ => "Avvia la rilevazione",
     };
 
@@ -229,6 +240,12 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     async partial void OnSelectedModeChanged(CaptureModeOption value)
     {
+        // Ogni modalità ha i suoi test: l'elenco cambia e si riparte dalla rilevazione libera.
+        Tests = [new TestOption(null, "Rilevazione libera"), .. ClinicalTests.For(value.Mode).Select(t => new TestOption(t, t.Name))];
+        OnPropertyChanged(nameof(Tests));
+        SelectedTest = Tests[0];
+        OnPropertyChanged(nameof(ShowTests));
+
         foreach (var option in Modes)
         {
             option.IsSelected = ReferenceEquals(option, value);
@@ -254,12 +271,10 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     partial void OnDepthOpacityChanged(double value) => _settings.ShowDepthOverlay = value > 0;
 
-    private bool CanStart() => !IsRecording && !IsBusy && !IsGuiding && !string.IsNullOrWhiteSpace(SubjectCode);
+    private bool CanStart() => !IsRecording && !IsBusy && !string.IsNullOrWhiteSpace(SubjectCode);
 
     /// <summary>
-    /// Pulsante rosso sotto l'anteprima. Con un test selezionato legge la guida al paziente, conta alla
-    /// rovescia e avvia la registrazione sul «Via»; senza test avvia subito. Durante la guida la annulla,
-    /// durante la registrazione la termina.
+    /// Pulsante rosso sotto l'anteprima: avvia la rilevazione (e con essa la guida vocale) oppure la termina.
     /// </summary>
     [RelayCommand]
     private async Task RecordButtonAsync()
@@ -274,12 +289,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (IsGuiding)
-        {
-            _guideCts?.Cancel();
-            return;
-        }
-
         if (IsBusy)
         {
             return;
@@ -291,17 +300,28 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (Test is not { } test)
-        {
-            await StartAsync();
-            return;
-        }
+        await StartAsync();
+    }
 
+    /// <summary>
+    /// Voce che dirige il paziente, a registrazione già avviata: spiega l'esame, conta alla rovescia e dà il
+    /// «Via», da cui parte il tempo del test. Parte dopo l'avvio perché solo allora l'audio dell'app esce
+    /// dall'altoparlante anche con il telefono in silenzioso.
+    /// </summary>
+    private async Task RunGuideAsync(ClinicalTest? test, CaptureMode mode)
+    {
         using var cts = new CancellationTokenSource();
         _guideCts = cts;
+        _nextCue = 0;
         IsGuiding = true;
         try
         {
+            if (test is null)
+            {
+                await _speech.SpeakAsync(FreeCaptureGuide(mode), cts.Token);
+                return;
+            }
+
             await _speech.SpeakAsync(test.AudioGuide, cts.Token);
             await _speech.SpeakAsync("Pronti?", cts.Token);
             foreach (var (digit, word) in new[] { ("3", "Tre"), ("2", "Due"), ("1", "Uno") })
@@ -316,6 +336,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
+            // Rilevazione chiusa mentre la voce parlava.
             return;
         }
         catch (Exception ex)
@@ -327,11 +348,24 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         {
             GuideCountdown = string.Empty;
             IsGuiding = false;
-            _guideCts = null;
+            if (ReferenceEquals(_guideCts, cts))
+            {
+                _guideCts = null;
+            }
         }
 
-        await StartAsync();
+        if (test is not null && IsRecording)
+        {
+            _coordinator.MarkTestStart();
+        }
     }
+
+    private static string FreeCaptureGuide(CaptureMode mode) => mode switch
+    {
+        CaptureMode.HandsLidar => "Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore.",
+        CaptureMode.FaceTrueDepth => "Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore.",
+        _ => "Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore.",
+    };
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
@@ -342,6 +376,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             await _coordinator.StartAsync(SubjectCode, SelectedMode.Mode, Notes, _settings.RecordLocation, Test);
             IsRecording = true;
             RefreshSensors();
+
+            // Non si aspetta la fine della voce: l'operatore deve poter terminare in qualunque momento.
+            _ = RunGuideAsync(Test, SelectedMode.Mode);
         }
         catch (Exception ex)
         {
@@ -359,6 +396,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private async Task StopAsync()
     {
         IsBusy = true;
+        _guideCts?.Cancel();
         try
         {
             var session = await _coordinator.StopAsync();
@@ -454,20 +492,34 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private void UpdateTiles(LiveMetrics? live)
     {
         var c = CultureInfo.CurrentCulture;
-        _elapsed.Value = IsRecording ? TimeSpan.FromSeconds(_coordinator.Elapsed).ToString(@"mm\:ss", c) : "—";
-        Elapsed = IsRecording ? _elapsed.Value : "00:00";
+        // Con un test il tempo che conta è quello dal «Via», non dall'inizio della registrazione.
+        var test = IsRecording ? Test : null;
+        var seconds = test is null ? _coordinator.Elapsed : _coordinator.TestElapsed;
+        var time = seconds is { } value ? TimeSpan.FromSeconds(value).ToString(@"mm\:ss", c) : "—";
+        _elapsed.Value = IsRecording ? time : "—";
+        Elapsed = !IsRecording ? "00:00" : seconds is null ? "guida" : time;
 
-        // I test a durata fissa (30 secondi, 6 minuti, 10 secondi) si chiudono da soli allo scadere.
-        if (IsRecording && Test?.AutoStopSeconds is { } limit)
+        if (test is not null && seconds is { } sinceStart)
         {
-            Elapsed = $"{_elapsed.Value} / {TimeSpan.FromSeconds(limit).ToString(@"mm\:ss", c)}";
-            if (_coordinator.Elapsed >= limit && StopCommand.CanExecute(null))
+            // Frasi previste durante il test (tempo residuo, incoraggiamenti).
+            if (_nextCue < test.Cues.Count && sinceStart >= test.Cues[_nextCue].AtSeconds)
             {
-                // Avvisa il paziente: l'operatore può essere lontano dal telefono.
-                _ = SpeakQuietlyAsync("Stop. Il test è finito.");
-                StopCommand.Execute(null);
+                _ = SpeakQuietlyAsync(test.Cues[_nextCue++].Text);
+            }
+
+            // I test a durata fissa (30 secondi, 6 minuti, 10 secondi) si chiudono da soli allo scadere.
+            if (test.AutoStopSeconds is { } limit)
+            {
+                Elapsed = $"{time} / {TimeSpan.FromSeconds(limit).ToString(@"mm\:ss", c)}";
+                if (sinceStart >= limit && StopCommand.CanExecute(null))
+                {
+                    // Avvisa il paziente: l'operatore può essere lontano dal telefono.
+                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    StopCommand.Execute(null);
+                }
             }
         }
+
         if (live is null)
         {
             return;

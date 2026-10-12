@@ -1,4 +1,5 @@
 using System.Globalization;
+using ClinicalSensorFusion.Core.Signal;
 
 namespace ClinicalSensorFusion.Core.Domain;
 
@@ -9,6 +10,9 @@ public enum TestResultKind
     Repetitions,
     MetersPerSecond,
     Meters,
+
+    /// <summary>Tocchi al secondo.</summary>
+    Hertz,
 }
 
 /// <summary>
@@ -17,7 +21,8 @@ public enum TestResultKind
 /// </summary>
 /// <param name="AudioGuide">
 /// Testo letto ad alta voce al paziente prima del via: spiega con calma che cosa fare. Il conto alla
-/// rovescia e il «Via» li aggiunge l'app.
+/// rovescia e il «Via» li aggiunge l'app. La registrazione è già in corso mentre viene letta: il tempo del
+/// test si conta dal «Via».
 /// </param>
 /// <param name="AutoStopSeconds">Durata fissa del test: la registrazione si ferma da sola allo scadere.</param>
 public sealed record ClinicalTest(
@@ -32,7 +37,17 @@ public sealed record ClinicalTest(
     double? AutoStopSeconds,
     TestResultKind ResultKind,
     string Reference,
-    string Source);
+    string Source)
+{
+    /// <summary>Frasi dette durante il test, a un certo numero di secondi dal «Via» (incoraggiamenti, tempo residuo).</summary>
+    public IReadOnlyList<TestCue> Cues { get; init; } = [];
+
+    /// <summary>Modalità di acquisizione in cui il test si esegue.</summary>
+    public CaptureMode Mode { get; init; } = CaptureMode.BodyLidar;
+}
+
+/// <summary>Frase pronunciata durante un test, <paramref name="AtSeconds"/> secondi dopo il «Via».</summary>
+public sealed record TestCue(double AtSeconds, string Text);
 
 /// <summary>Esito di un test, salvato nel riepilogo della rilevazione.</summary>
 /// <param name="Value">Punteggio; null se non ricavabile dai dati (per esempio pedometro assente).</param>
@@ -55,6 +70,7 @@ public sealed record TestOutcome(
             TestResultKind.Repetitions => string.Format(culture, "{0:F0} alzate", v),
             TestResultKind.MetersPerSecond => string.Format(culture, "{0:F2} m/s", v),
             TestResultKind.Meters => string.Format(culture, "{0:F0} m", v),
+            TestResultKind.Hertz => string.Format(culture, "{0:F1} tocchi/s", v),
             _ => v.ToString(culture),
         };
 }
@@ -63,6 +79,7 @@ public sealed record TestOutcome(
 /// Catalogo dei test. Protocolli e soglie vengono da due fonti professionali:
 /// CDC STEADI (valutazione del rischio di caduta: TUG, 30-Second Chair Stand, 4-Stage Balance Test) e
 /// il "core set" dell'Academy of Neurologic Physical Therapy / APTA (5TSTS, 10MWT, 6MWT).
+/// Per le mani: Finger Tapping, item 3.4 della MDS-UPDRS (Movement Disorder Society).
 /// Le soglie sono riportate come nelle fonti: servono a orientare, non sostituiscono la valutazione clinica.
 /// </summary>
 public static class ClinicalTests
@@ -104,7 +121,14 @@ public static class ClinicalTests
         + "senza aiutarsi con le braccia. Le dirò io quando fermarsi.",
         30, TestResultKind.Repetitions,
         "Sotto la media (uomini / donne): 60–64 anni < 14 / < 12 · 65–69 < 12 / < 11 · 70–74 < 12 / < 10 · 75–79 < 11 / < 10 · 80–84 < 10 / < 9 · 85–89 < 8 / < 8 · 90–94 < 7 / < 4.",
-        Cdc);
+        Cdc)
+    {
+        Cues =
+        [
+            new(15, "Continui così, è a metà."),
+            new(25, "Ancora cinque secondi."),
+        ],
+    };
 
     public static readonly ClinicalTest TandemStance = new(
         "tandem", "Tandem 10 s", "Equilibrio in tandem (4-Stage Balance Test)",
@@ -122,7 +146,13 @@ public static class ClinicalTests
         + "Tenga la posizione finché non le dico stop.",
         10, TestResultKind.Seconds,
         "Tandem tenuto meno di 10 s: rischio di caduta aumentato nell'anziano.",
-        Cdc);
+        Cdc)
+    {
+        Cues =
+        [
+            new(5, "Bene, ancora cinque secondi."),
+        ],
+    };
 
     public static readonly ClinicalTest FiveTimesSitToStand = new(
         "5tsts", "5TSTS", "Five Times Sit to Stand (5TSTS)",
@@ -174,20 +204,61 @@ public static class ClinicalTests
         + "Può rallentare o fermarsi a riposare se ne ha bisogno, e riprendere appena riesce. Le dirò io quando sono passati i sei minuti.",
         360, TestResultKind.Meters,
         "Medie negli anziani autonomi (uomini / donne): 60–69 anni 572 / 538 m · 70–79 527 / 471 m · 80–89 417 / 392 m.",
-        Anpt);
+        Anpt)
+    {
+        Cues =
+        [
+            new(60, "Sta andando bene. Mancano cinque minuti."),
+            new(120, "Continui così. Mancano quattro minuti."),
+            new(180, "Sta andando bene. È a metà."),
+            new(240, "Continui così. Mancano solo due minuti."),
+            new(300, "Sta andando bene. Manca un minuto."),
+        ],
+    };
 
-    /// <summary>Tutti i test si eseguono in modalità corpo (scheletro MediaPipe e sensori di movimento).</summary>
+    public static readonly ClinicalTest FingerTapping = new(
+        "ftap", "Finger Tapping", "Finger Tapping (MDS-UPDRS 3.4)",
+        "Velocità e ampiezza del movimento fine: tocco ripetuto dell'indice sul pollice (bradicinesia).",
+        "Una mano alla volta. iPhone fisso a 30–40 cm, con pollice e indice visti di lato e tutta la mano nell'inquadratura.",
+        [
+            "Mostra tu il movimento, poi smetti: il paziente non deve copiarti durante la prova.",
+            "Il paziente tiene la mano ferma davanti alla fotocamera, pollice e indice ben visibili.",
+            "Avvia la rilevazione: dopo il «Via» tocca l'indice sul pollice 10 volte, più veloce e più ampio che può.",
+            "Termina dopo il decimo tocco. Ripeti con l'altra mano in una nuova rilevazione.",
+        ],
+        "Tocchi l'indice sul pollice dieci volte, più velocemente e più ampiamente che può.",
+        "Test del tocco delle dita. Tenga la mano ferma davanti al telefono, con il pollice e l'indice ben visibili. "
+        + "Al mio via tocchi la punta dell'indice sulla punta del pollice dieci volte di seguito, "
+        + "più velocemente che può e aprendo le dita il più possibile ogni volta.",
+        null, TestResultKind.Hertz,
+        "Nella MDS-UPDRS il clinico assegna un punteggio da 0 a 4 valutando velocità, ampiezza, esitazioni, arresti e riduzione progressiva dell'ampiezza. L'app misura queste grandezze, non assegna il punteggio.",
+        "MDS-UPDRS Parte III, item 3.4 — Movement Disorder Society")
+    {
+        Mode = CaptureMode.HandsLidar,
+    };
+
     public static IReadOnlyList<ClinicalTest> All { get; } =
-        [TimedUpAndGo, ChairStand30, FiveTimesSitToStand, TandemStance, TenMeterWalk, SixMinuteWalk];
+        [TimedUpAndGo, ChairStand30, FiveTimesSitToStand, TandemStance, TenMeterWalk, SixMinuteWalk, FingerTapping];
+
+    /// <summary>Test eseguibili in una modalità di acquisizione (corpo: test funzionali; mani: finger tapping).</summary>
+    public static IReadOnlyList<ClinicalTest> For(CaptureMode mode) => [.. All.Where(t => t.Mode == mode)];
 
     public static ClinicalTest? Find(string? id) => All.FirstOrDefault(t => t.Id == id);
 
     /// <summary>Ricava il punteggio del test dal riepilogo della rilevazione appena conclusa.</summary>
-    public static TestOutcome Evaluate(ClinicalTest test, SessionSummary summary)
+    /// <param name="testSeconds">
+    /// Secondi trascorsi dal «Via» alla fine. La registrazione comincia prima, mentre la voce spiega il test:
+    /// quel tratto non conta. Null se la rilevazione è stata chiusa prima del «Via».
+    /// </param>
+    public static TestOutcome Evaluate(ClinicalTest test, SessionSummary summary, double? testSeconds)
     {
-        var seconds = summary.DurationSeconds;
         TestOutcome Outcome(double? value, bool flag, string interpretation, bool estimated = false) =>
             new(test.Id, test.Name, test.ResultKind, value, estimated, flag, interpretation);
+
+        if (testSeconds is not { } seconds)
+        {
+            return Outcome(null, false, "Rilevazione terminata prima del «Via»: nessun punteggio.");
+        }
 
         switch (test.Id)
         {
@@ -229,6 +300,37 @@ public static class ClinicalTests
                 };
                 return Outcome(speed, speed < 0.7,
                     speed < 0.7 ? category + " Sotto 0,7 m/s: rischio aumentato di eventi avversi nell'anziano." : category);
+
+            case "ftap":
+                // Contano solo i tocchi dopo il «Via»: prima la voce sta ancora spiegando.
+                var taps = FingerTapMetrics.From(
+                    summary.FingerTaps ?? new FingerTapSeries([], []),
+                    summary.DurationSeconds - seconds);
+                if (taps.Taps == 0)
+                {
+                    return Outcome(null, false, "Nessun tocco rilevato: controlla che pollice e indice siano ben visibili di lato.", estimated: true);
+                }
+
+                var parts = new List<string> { string.Create(CultureInfo.InvariantCulture, $"Tocchi rilevati: {taps.Taps}.") };
+                if (taps.MeanAmplitude is { } amplitude)
+                {
+                    parts.Add(string.Create(CultureInfo.InvariantCulture, $"Ampiezza media: {amplitude * 100:F0}% della lunghezza del palmo."));
+                }
+
+                if (taps.AmplitudeDecrement is { } decrement)
+                {
+                    parts.Add(decrement > 0.05
+                        ? string.Create(CultureInfo.InvariantCulture, $"Ampiezza in calo del {decrement * 100:F0}% tra i primi e gli ultimi tre tocchi.")
+                        : "Ampiezza mantenuta dall'inizio alla fine.");
+                }
+
+                if (taps.IntervalVariability is { } variability)
+                {
+                    parts.Add(string.Create(CultureInfo.InvariantCulture, $"Irregolarità del ritmo: {variability * 100:F0}%."));
+                }
+
+                parts.Add("Misure automatiche dai punti della mano: da verificare a vista.");
+                return Outcome(taps.FrequencyHz, false, string.Join(" ", parts), estimated: true);
 
             case "6mwt":
                 var distance = summary.Gait is { } gait && double.IsFinite(gait.DistanceMeters) ? gait.DistanceMeters : (double?)null;

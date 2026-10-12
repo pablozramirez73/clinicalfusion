@@ -70,12 +70,9 @@
                     <Setter Property="HeightRequest" Value="30" />
                     <Setter Property="StrokeShape" Value="RoundRectangle 7" />
                   </DataTrigger>
-                  <DataTrigger TargetType="Border" Binding="{Binding IsGuiding}" Value="True">
-                    <Setter Property="Opacity" Value="0.55" />
-                  </DataTrigger>
                 </Border.Triggers>
               </Border>
-              <Label Text="{Binding GuideCountdown}" TextColor="White" FontSize="26" FontAttributes="Bold"
+              <Label Text="{Binding GuideCountdown}" TextColor="White" FontSize="16" FontAttributes="Bold"
                      HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
             </Grid>
           </Border>

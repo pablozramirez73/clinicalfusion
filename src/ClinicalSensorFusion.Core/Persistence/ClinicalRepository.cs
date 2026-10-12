@@ -128,6 +128,18 @@ public sealed class ClinicalRepository(ClinicalDatabase database) : ISensorChunk
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }, ct);
 
+    /// <summary>Numero di blocchi, campioni e byte compressi salvati per una rilevazione.</summary>
+    public Task<(int Chunks, long Samples, long Bytes)> GetChunkStatsAsync(string sessionId, CancellationToken ct = default) =>
+        database.RunAsync(async c =>
+        {
+            await using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*), COALESCE(SUM(sample_count), 0), COALESCE(SUM(LENGTH(payload)), 0) FROM sensor_chunks WHERE session_id = $session;";
+            cmd.Parameters.AddWithValue("$session", sessionId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            await reader.ReadAsync(ct).ConfigureAwait(false);
+            return (reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2));
+        }, ct);
+
     /// <summary>
     /// Blocchi grezzi (payload compresso, non decodificato) per l'invio al server. Letti uno alla volta per
     /// non caricare in memoria un'intera sessione (decine di MB) e per non tenere occupata la connessione
