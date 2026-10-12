@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ollama in LAN è in HTTP (porta 11434). Android non sa limitare il traffico in chiaro ai soli indirizzi
+  locali (la regola è per nome di dominio, non per rete): qui lo si consente e il limite "solo rete locale"
+  lo applica LocalCleartextHandler su ogni richiesta dell'app. Solo certificati di sistema, non dell'utente.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>

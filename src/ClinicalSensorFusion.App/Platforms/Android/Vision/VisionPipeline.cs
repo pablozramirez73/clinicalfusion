@@ -1,0 +1,344 @@
+using System.Globalization;
+using System.Numerics;
+using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Sensors;
+using ClinicalSensorFusion.MediaPipe;
+using Microsoft.Extensions.Logging;
+
+namespace ClinicalSensorFusion.App.Platforms.Android.Vision;
+
+/// <summary>
+/// MediaPipe (tramite la facciata Java) fotogramma per fotogramma, con gli stessi flussi e layout dell'app iOS.
+/// </summary>
+/// <remarks>
+/// Differenze rispetto a iOS, tutte dovute all'hardware:
+/// <list type="bullet">
+/// <item>senza LiDAR i punti 3D sono sempre i <i>world landmarks</i> di MediaPipe ("stima 3D");</item>
+/// <item>senza TrueDepth le blendshape del volto vengono da MediaPipe Face, riordinate nel layout ARKit;</item>
+/// <item>MediaPipe su Android restituisce i punti sull'immagine già ruotata dritta: per l'archivio si
+/// riportano nel sistema del sensore, come su iOS.</item>
+/// </list>
+/// </remarks>
+internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposable
+{
+    private const int Values = CsfVisionResult.ValuesPerLandmark;
+    private const float MinVisibility = 0.5f;
+
+    private static readonly (int From, int To)[] NoConnections = [];
+    private static readonly string[] JointLabels = ["Spalla sx", "Spalla dx", "Gomito sx", "Gomito dx", "Anca sx", "Anca dx", "Ginocchio sx", "Ginocchio dx", "Caviglia sx", "Caviglia dx"];
+
+    // Protegge il motore nativo: un cambio di modalità non deve rilasciarlo mentre un'inferenza lo sta usando.
+    private readonly Lock _engineLock = new();
+    private CsfVisionEngine? _engine;
+    private CaptureMode _mode;
+
+    public event EventHandler<OverlayFrame>? OverlayUpdated;
+
+    /// <summary>Destinazione dei dati durante la registrazione (null in sola anteprima).</summary>
+    public (ISensorSink Sink, SensorClock Clock)? Recording { get; set; }
+
+    public bool IsReady => _engine is not null;
+
+    public string? LastError { get; private set; }
+
+    /// <summary>Carica solo il modello MediaPipe necessario alla modalità.</summary>
+    public void Configure(CaptureMode mode)
+    {
+        lock (_engineLock)
+        {
+            if (_engine is not null && _mode == mode)
+            {
+                return;
+            }
+
+            Release();
+            _mode = mode;
+            _engine = CreateEngine(mode);
+        }
+    }
+
+    /// <summary>Esegue l'inferenza sul fotogramma (thread dell'analisi della camera).</summary>
+    public void Process(CameraFrame frame)
+    {
+        lock (_engineLock)
+        {
+            if (_engine is { } engine)
+            {
+                Process(engine, _mode, frame);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_engineLock)
+        {
+            Release();
+        }
+    }
+
+    private void Release()
+    {
+        _engine?.Close();
+        _engine?.Dispose();
+        _engine = null;
+    }
+
+    private CsfVisionEngine? CreateEngine(CaptureMode mode)
+    {
+        using var options = new CsfVisionOptions
+        {
+            UseGpu = true,
+            MinConfidence = 0.5f,
+            MaxPoses = 1,
+            MaxHands = 2,
+            MaxFaces = 1,
+        };
+
+        // Percorsi negli asset dell'APK (Resources/Raw/models).
+        switch (mode)
+        {
+            case CaptureMode.BodyLidar:
+                options.PoseModelPath = "models/pose_landmarker_full.task";
+                break;
+            case CaptureMode.HandsLidar:
+                options.HandModelPath = "models/hand_landmarker.task";
+                break;
+            case CaptureMode.FaceTrueDepth:
+                options.FaceModelPath = "models/face_landmarker.task";
+                break;
+        }
+
+        try
+        {
+            LastError = null;
+            return CsfVisionEngine.Create(global::Android.App.Application.Context, options);
+        }
+        catch (Java.Lang.Exception ex)
+        {
+            LastError = ex.Message;
+            logger.LogError(ex, "MediaPipe non inizializzato.");
+            return null;
+        }
+    }
+
+    private void Process(CsfVisionEngine engine, CaptureMode mode, CameraFrame frame)
+    {
+        using var result = engine.Detect(frame.Image, frame.RotationDegrees, (long)(frame.Timestamp * 1000));
+        if (result is null)
+        {
+            return;
+        }
+
+        var recording = Recording;
+        var t = recording is { } r ? r.Clock.FromUptime(frame.Timestamp) : 0;
+        var view = new ViewMapping(frame);
+
+        OverlayFrame? overlay = mode switch
+        {
+            CaptureMode.BodyLidar when result.PoseCount > 0 => ProcessPose(result, view, recording, t),
+            CaptureMode.HandsLidar => ProcessHands(result, view, recording, t),
+            CaptureMode.FaceTrueDepth when result.FaceCount > 0 => ProcessFace(result, view, recording, t),
+            _ => null,
+        };
+
+        OverlayUpdated?.Invoke(this, overlay ?? new OverlayFrame([], NoConnections, "Nessun soggetto rilevato", result.InferenceMs));
+    }
+
+    private static OverlayFrame ProcessPose(CsfVisionResult result, ViewMapping view, (ISensorSink Sink, SensorClock Clock)? recording, double t)
+    {
+        var raw = result.GetPoseLandmarks() ?? [];
+        var rawWorld = result.GetPoseWorldLandmarks() ?? [];
+        if (raw.Length < PoseLandmark.Count * Values)
+        {
+            return new OverlayFrame([], NoConnections, "Nessun soggetto rilevato", result.InferenceMs);
+        }
+
+        // Come su iOS senza LiDAR: punti 3D di MediaPipe, NaN per le articolazioni poco visibili.
+        var world = new Vector3[PoseLandmark.Count];
+        for (var i = 0; i < PoseLandmark.Count; i++)
+        {
+            var o = i * Values;
+            world[i] = rawWorld.Length >= o + Values ? new Vector3(rawWorld[o], rawWorld[o + 1], rawWorld[o + 2]) : new Vector3(float.NaN);
+        }
+
+        var fused = new FusedPose(world, 0, PoseSource.MediaPipeWorld, float.NaN);
+        var angles = JointAngleCalculator.Compute(fused.Points);
+
+        if (recording is { } rec)
+        {
+            var pose2d = new float[PoseLandmark.Count * 3];
+            var pose3d = new float[PoseLandmark.Count * 3];
+            for (var i = 0; i < PoseLandmark.Count; i++)
+            {
+                var (x, y) = view.ToSensor(raw[i * Values], raw[(i * Values) + 1]);
+                pose2d[i * 3] = x;
+                pose2d[(i * 3) + 1] = y;
+                pose2d[(i * 3) + 2] = raw[(i * Values) + 3];
+                pose3d[i * 3] = world[i].X;
+                pose3d[(i * 3) + 1] = world[i].Y;
+                pose3d[(i * 3) + 2] = world[i].Z;
+            }
+
+            var angleValues = new float[angles.Length + 2];
+            angles.CopyTo(angleValues, 0);
+            angleValues[^2] = 1; // sorgente 3D: MediaPipe world
+            angleValues[^1] = float.NaN;
+
+            rec.Sink.TryWrite(new SensorReading(SensorKind.PoseLandmarks2D, t, pose2d));
+            rec.Sink.TryWrite(new SensorReading(SensorKind.PoseLandmarks3D, t, pose3d));
+            rec.Sink.TryWrite(new SensorReading(SensorKind.JointAngles, t, angleValues));
+        }
+
+        var points = new OverlayPoint[PoseLandmark.Count];
+        for (var i = 0; i < points.Length; i++)
+        {
+            var o = i * Values;
+            points[i] = view.ToView(raw[o], raw[o + 1], raw[o + 3] >= MinVisibility, OverlayPointKind.Image);
+        }
+
+        return new OverlayFrame(points, PoseLandmark.Connections, PoseCaption(angles), result.InferenceMs);
+    }
+
+    private static OverlayFrame? ProcessHands(CsfVisionResult result, ViewMapping view, (ISensorSink Sink, SensorClock Clock)? recording, double t)
+    {
+        var raw = result.GetHandLandmarks() ?? [];
+        var count = Math.Min(result.HandCount, raw.Length / (HandLandmark.Count * Values));
+        var handedness = result.GetHandedness() ?? [];
+
+        if (recording is { } rec)
+        {
+            // Layout HandLandmarks: [n, (lato 0=sx/1=dx, profondità del polso (m, qui assente), 21 × [x, y, z]) × n], x/y nel sistema del sensore.
+            var values = new List<float>(1 + (count * (2 + (HandLandmark.Count * 3)))) { count };
+            for (var h = 0; h < count; h++)
+            {
+                values.Add(h < handedness.Length && handedness[h] == "Right" ? 1 : 0);
+                values.Add(float.NaN);
+                for (var i = 0; i < HandLandmark.Count; i++)
+                {
+                    var o = ((h * HandLandmark.Count) + i) * Values;
+                    var (x, y) = view.ToSensor(raw[o], raw[o + 1]);
+                    values.Add(x);
+                    values.Add(y);
+                    values.Add(raw[o + 2]);
+                }
+            }
+
+            rec.Sink.TryWrite(new SensorReading(SensorKind.HandLandmarks, t, [.. values]));
+        }
+
+        if (count == 0)
+        {
+            return null;
+        }
+
+        var points = new OverlayPoint[count * HandLandmark.Count];
+        var connections = new List<(int, int)>(count * HandLandmark.Connections.Length);
+        for (var h = 0; h < count; h++)
+        {
+            for (var i = 0; i < HandLandmark.Count; i++)
+            {
+                var o = ((h * HandLandmark.Count) + i) * Values;
+                points[(h * HandLandmark.Count) + i] = view.ToView(raw[o], raw[o + 1], true, OverlayPointKind.Hand);
+            }
+
+            foreach (var (a, b) in HandLandmark.Connections)
+            {
+                connections.Add(((h * HandLandmark.Count) + a, (h * HandLandmark.Count) + b));
+            }
+        }
+
+        var caption = string.Join(" · ", Enumerable.Range(0, count).Select(h =>
+            h < handedness.Length ? (handedness[h] == "Right" ? "Mano dx" : "Mano sx") : "Mano"));
+        return new OverlayFrame(points, connections, caption, result.InferenceMs);
+    }
+
+    private static OverlayFrame ProcessFace(CsfVisionResult result, ViewMapping view, (ISensorSink Sink, SensorClock Clock)? recording, double t)
+    {
+        if (recording is { } rec && result.GetFaceBlendshapeNames() is { Length: > 0 } names && result.GetFaceBlendshapes() is { } scores)
+        {
+            rec.Sink.TryWrite(new SensorReading(SensorKind.FaceBlendshapes, t, FaceBlendshapeLayout.FromNamed(names, scores)));
+        }
+
+        // 478 punti: si disegnano solo come nuvola.
+        var raw = result.GetFaceLandmarks() ?? [];
+        var count = Math.Min(raw.Length / Values, 478);
+        var points = new OverlayPoint[count];
+        for (var i = 0; i < count; i++)
+        {
+            points[i] = view.ToView(raw[i * Values], raw[(i * Values) + 1], true, OverlayPointKind.Face);
+        }
+
+        return new OverlayFrame(points, NoConnections, "Volto rilevato", result.InferenceMs);
+    }
+
+    private static string PoseCaption(float[] angles)
+    {
+        var parts = new List<string>(4);
+        foreach (var joint in (ReadOnlySpan<Joint>)[Joint.RightKneeFlexion, Joint.RightElbowFlexion, Joint.RightShoulderElevation])
+        {
+            var a = angles[(int)joint];
+            if (float.IsFinite(a))
+            {
+                parts.Add(string.Create(CultureInfo.CurrentCulture, $"{JointLabels[(int)joint]} {a:F0}°"));
+            }
+        }
+
+        parts.Add("stima 3D");
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// Passaggi di coordinate di un fotogramma: immagine dritta (quella di MediaPipe) → sensore, per
+    /// l'archivio, e immagine dritta → vista di anteprima, per l'overlay.
+    /// </summary>
+    private readonly struct ViewMapping
+    {
+        private readonly ImageOrientation _orientation;
+        private readonly bool _mirrored;
+        private readonly float _scaleX;
+        private readonly float _scaleY;
+
+        public ViewMapping(CameraFrame frame)
+        {
+            _orientation = frame.RotationDegrees switch
+            {
+                90 => ImageOrientation.Right,
+                180 => ImageOrientation.Down,
+                270 => ImageOrientation.Left,
+                _ => ImageOrientation.Up,
+            };
+            // L'anteprima della fotocamera frontale è specchiata, i fotogrammi dell'analisi no.
+            _mirrored = frame.FrontCamera;
+
+            // L'anteprima riempie la vista ritagliando l'eccedenza al centro: stessa scala sui due assi.
+            var sideways = frame.RotationDegrees is 90 or 270;
+            float width = sideways ? frame.Image.Height : frame.Image.Width;
+            float height = sideways ? frame.Image.Width : frame.Image.Height;
+            if (frame.ViewWidth > 0 && frame.ViewHeight > 0 && width > 0 && height > 0)
+            {
+                var scale = Math.Max(frame.ViewWidth / width, frame.ViewHeight / height);
+                _scaleX = width * scale / frame.ViewWidth;
+                _scaleY = height * scale / frame.ViewHeight;
+            }
+            else
+            {
+                _scaleX = _scaleY = 1;
+            }
+        }
+
+        public (float X, float Y) ToSensor(float u, float v) => OrientationMapper.ToSensor(u, v, _orientation);
+
+        public OverlayPoint ToView(float u, float v, bool valid, OverlayPointKind kind)
+        {
+            if (_mirrored)
+            {
+                u = 1 - u;
+            }
+
+            return new OverlayPoint(0.5f + ((u - 0.5f) * _scaleX), 0.5f + ((v - 0.5f) * _scaleY), valid, kind);
+        }
+    }
+}

@@ -12,6 +12,10 @@ using Microsoft.Extensions.Logging;
 using ClinicalSensorFusion.App.Platforms.iOS.Rendering;
 using ClinicalSensorFusion.App.Platforms.iOS.Security;
 using ClinicalSensorFusion.App.Platforms.iOS.Services;
+#elif ANDROID
+using ClinicalSensorFusion.App.Platforms.Android.Rendering;
+using ClinicalSensorFusion.App.Platforms.Android.Security;
+using ClinicalSensorFusion.App.Platforms.Android.Services;
 #endif
 
 namespace ClinicalSensorFusion.App;
@@ -26,7 +30,7 @@ public static class MauiProgram
             .UseMauiCommunityToolkit()
             .ConfigureMauiHandlers(handlers =>
             {
-#if IOS
+#if IOS || ANDROID
                 handlers.AddHandler<CapturePreview, CapturePreviewHandler>();
 #endif
             });
@@ -37,6 +41,15 @@ public static class MauiProgram
             handler.PlatformView.BorderStyle = UIKit.UITextBorderStyle.None);
         Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
             handler.PlatformView.BorderStyle = UIKit.UITextBorderStyle.None);
+#elif ANDROID
+        // Idem per la sottolineatura Material dei campi Android.
+        var noUnderline = Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
+            handler.PlatformView.BackgroundTintList = noUnderline);
+        Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
+            handler.PlatformView.BackgroundTintList = noUnderline);
+        Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping("Borderless", (handler, _) =>
+            handler.PlatformView.BackgroundTintList = noUnderline);
 #endif
 
 #if DEBUG
@@ -62,13 +75,28 @@ public static class MauiProgram
         // Modello linguistico. Timeout ampio: un modello locale può impiegare minuti su prompt lunghi;
         // l'annullamento è affidato al CancellationToken della UI.
         services.AddTransient<CloudflareAccessHandler>();
-        services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
+        var ollama = services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
             .AddHttpMessageHandler<CloudflareAccessHandler>();
 
         // Sincronizzazione con il server clinico.
         services.AddTransient<DeviceApiKeyHandler>();
-        services.AddHttpClient<ClinicalSyncClient>(client => client.Timeout = TimeSpan.FromMinutes(5))
+        var sync = services.AddHttpClient<ClinicalSyncClient>(client => client.Timeout = TimeSpan.FromMinutes(5))
             .AddHttpMessageHandler<DeviceApiKeyHandler>();
+
+#if ANDROID
+        // Su iOS cookie della WebView e limite dell'HTTP alla rete locale li gestisce il sistema; qui no:
+        // i client condividono un contenitore di cookie (riempito dal login nella WebView) e un controllo esplicito.
+        services.AddSingleton<System.Net.CookieContainer>();
+        services.AddTransient<LocalCleartextHandler>();
+        foreach (var client in (IHttpClientBuilder[])[ollama, sync])
+        {
+            client.AddHttpMessageHandler<LocalCleartextHandler>()
+                .ConfigurePrimaryHttpMessageHandler(sp => new Xamarin.Android.Net.AndroidMessageHandler
+                {
+                    CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
+                });
+        }
+#endif
         services.AddTransient<SessionSynchronizer>();
         services.AddSingleton<SyncService>();
 
@@ -85,6 +113,13 @@ public static class MauiProgram
         services.AddSingleton<ICaptureEngine, IosCaptureEngine>();
         services.AddSingleton<IWebSessionBridge, IosWebSessionBridge>();
         services.AddSingleton<IAudioPlayback, IosAudioPlayback>();
+#elif ANDROID
+        services.AddSingleton<IDatabaseKeyProvider, KeystoreKeyProvider>();
+        services.AddSingleton<IDeviceAuthenticator, AndroidDeviceAuthenticator>();
+        services.AddSingleton<ILockScreen, AndroidLockScreen>();
+        services.AddSingleton<ICaptureEngine, AndroidCaptureEngine>();
+        services.AddSingleton<IWebSessionBridge, AndroidWebSessionBridge>();
+        services.AddSingleton<IAudioPlayback, AndroidAudioPlayback>();
 #endif
 
         // UI

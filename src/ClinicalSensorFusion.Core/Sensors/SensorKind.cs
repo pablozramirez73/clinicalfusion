@@ -17,7 +17,8 @@ public enum SensorKind
     /// <summary>CMAltimeter: [altitudine relativa (m), pressione (kPa)].</summary>
     Barometer = 2,
 
-    /// <summary>CMPedometer: [passi, distanza (m), cadenza (passi/s), piani saliti, piani scesi].</summary>
+    /// <summary>CMPedometer: [passi, distanza (m), cadenza (passi/s), piani saliti, piani scesi].
+    /// Android: solo i passi (distanza e cadenza NaN, piani 0).</summary>
     Pedometer = 3,
 
     /// <summary>CLLocation: [lat, lon, altitudine (m), accuratezza orizzontale (m), velocità (m/s)].</summary>
@@ -26,7 +27,8 @@ public enum SensorKind
     /// <summary>Sensore di prossimità: [0 = lontano, 1 = vicino].</summary>
     Proximity = 5,
 
-    /// <summary>Stima luce ambientale da ARKit: [intensità (lumen), temperatura colore (K)].</summary>
+    /// <summary>Stima luce ambientale da ARKit: [intensità (lumen), temperatura colore (K)].
+    /// Android: sensore di luce, [illuminamento (lux), NaN].</summary>
     AmbientLight = 6,
 
     /// <summary>Stato del dispositivo: [stato termico 0..3, livello batteria 0..1].</summary>
@@ -53,6 +55,6 @@ public enum SensorKind
     HandLandmarks = 23,
 
     /// <summary>Blendshape facciali (ARKit TrueDepth): 52 coefficienti 0..1 in ordine alfabetico dei nomi ARKit
-    /// (eyeBlinkLeft, jawOpen, ...).</summary>
+    /// (eyeBlinkLeft, jawOpen, ...). Android: da MediaPipe Face, vedi <see cref="Fusion.FaceBlendshapeLayout"/>.</summary>
     FaceBlendshapes = 24,
 }

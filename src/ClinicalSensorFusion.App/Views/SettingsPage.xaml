@@ -159,7 +159,7 @@
                      Text="{Binding UnlockMethod, StringFormat='Chiedi {0} all\'apertura e al ritorno dal background. Attivo subito, senza «Salva».'}" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding RequireUnlock}" VerticalOptions="Center"
-                    SemanticProperties.Description="Blocca l'app con Face ID" />
+                    SemanticProperties.Description="Blocca l'app" />
           </Grid>
         </Border>
       </VerticalStackLayout>

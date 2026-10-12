@@ -69,9 +69,13 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         Modes =
         [
-            new(CaptureMode.BodyLidar, "Corpo", "Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)"),
+            new(CaptureMode.BodyLidar, "Corpo", engine.IsLidarSupported
+                ? "Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)"
+                : "Postura, escursione articolare e cammino (MediaPipe Pose)"),
             new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (MediaPipe Hands)"),
-            new(CaptureMode.FaceTrueDepth, "Volto", "Mimica facciale (TrueDepth + MediaPipe Face)"),
+            new(CaptureMode.FaceTrueDepth, "Volto", DeviceInfo.Current.Platform == DevicePlatform.iOS
+                ? "Mimica facciale (TrueDepth + MediaPipe Face)"
+                : "Mimica facciale (fotocamera frontale + MediaPipe Face)"),
         ];
         SelectedTest = Tests[0];
         SelectedMode = Modes[0];
@@ -127,7 +131,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     public bool LidarAvailable => _engine.IsLidarSupported;
 
-    /// <summary>L'interruttore del LiDAR ha senso solo in modalità corpo, su un iPhone che lo monta.</summary>
+    /// <summary>L'interruttore del LiDAR ha senso solo in modalità corpo, su un telefono che lo monta.</summary>
     public bool ShowLidarOption => LidarAvailable && SelectedMode.Mode == CaptureMode.BodyLidar;
 
     /// <summary>La mappa di profondità si può sovrapporre solo se il LiDAR è acceso.</summary>
@@ -210,7 +214,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         if (!await _engine.RequestPermissionsAsync(_settings.RecordLocation))
         {
-            Warning = "Servono i permessi per fotocamera e microfono (Impostazioni iOS → SensorFusion Clinic).";
+            Warning = "Servono i permessi per fotocamera e microfono (Impostazioni del telefono → SensorFusion Clinic).";
             return;
         }
 
@@ -448,7 +452,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         {
             if (SelectedMode.Mode == CaptureMode.FaceTrueDepth && !_engine.IsFaceTrackingSupported)
             {
-                Warning = "Questo iPhone non supporta il tracciamento del volto TrueDepth.";
+                Warning = "Questo telefono non ha la fotocamera necessaria al tracciamento del volto.";
                 return;
             }
 

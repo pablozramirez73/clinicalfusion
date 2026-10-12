@@ -26,6 +26,10 @@
     <!-- SQLite cifrato: Microsoft.Data.Sqlite.Core (senza provider) + SQLite3 Multiple Ciphers in modalità SQLCipher v4. -->
     <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="$(DotNetExtensionsVersion)" />
     <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.4.0" />
+    <!-- Android: CameraX. Le dipendenze Java di MediaPipe hanno la versione in ClinicalSensorFusion.MediaPipe.Android. -->
+    <PackageVersion Include="Xamarin.AndroidX.Camera.Camera2" Version="1.6.1.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Camera.Lifecycle" Version="1.6.1.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Camera.View" Version="1.6.1.1" />
     <!-- Server -->
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />

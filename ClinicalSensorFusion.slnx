@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/ClinicalSensorFusion.Core/ClinicalSensorFusion.Core.csproj" />
     <Project Path="src/ClinicalSensorFusion.MediaPipe/ClinicalSensorFusion.MediaPipe.csproj" />
+    <Project Path="src/ClinicalSensorFusion.MediaPipe.Android/ClinicalSensorFusion.MediaPipe.Android.csproj" />
     <Project Path="src/ClinicalSensorFusion.App/ClinicalSensorFusion.App.csproj" />
     <Project Path="src/ClinicalSensorFusion.Server/ClinicalSensorFusion.Server.csproj" />
   </Folder>

@@ -35,6 +35,24 @@ jobs:
       - name: Test server (integrazione su PostgreSQL)
         run: dotnet test --project tests/ClinicalSensorFusion.Server.Tests
 
+  android:
+    name: App Android (.NET MAUI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: 21
+      - run: dotnet workload install maui-android
+      - run: ./scripts/download-models.sh
+      - name: Build APK
+        run: dotnet build src/ClinicalSensorFusion.App -f net11.0-android -p:AcceptAndroidSDKLicenses=true
+
   dashboard:
     name: Dashboard (React + Three.js)
     runs-on: ubuntu-latest

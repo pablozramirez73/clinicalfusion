@@ -5,7 +5,8 @@ namespace ClinicalSensorFusion.App.Services;
 
 /// <summary>
 /// Motore di acquisizione di piattaforma: ARKit (camera, LiDAR, TrueDepth), MediaPipe, CoreMotion,
-/// microfono e sensori di sistema. Su iOS: <c>Platforms/iOS/Services/IosCaptureEngine</c>.
+/// microfono e sensori di sistema. Su iOS: <c>Platforms/iOS/Services/IosCaptureEngine</c>;
+/// su Android (CameraX, senza profondità): <c>Platforms/Android/Services/AndroidCaptureEngine</c>.
 /// </summary>
 /// <remarks>
 /// Due fasi distinte: l'anteprima (solo camera + visione, nessun dato salvato) e la registrazione

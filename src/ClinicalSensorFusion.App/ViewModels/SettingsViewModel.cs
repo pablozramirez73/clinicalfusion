@@ -18,7 +18,7 @@ public sealed partial class SettingsViewModel(
 {
     private bool _loadingLock;
 
-    /// <summary>Blocco dell'app con Face ID. Ha effetto subito, non con «Salva»: è una scelta di sicurezza.</summary>
+    /// <summary>Blocco dell'app con riconoscimento biometrico o codice. Ha effetto subito, non con «Salva»: è una scelta di sicurezza.</summary>
     [ObservableProperty]
     public partial bool RequireUnlock { get; set; }
 
@@ -42,7 +42,7 @@ public sealed partial class SettingsViewModel(
         _loadingLock = false;
         if (!appLock.Authenticator.IsAvailable)
         {
-            await dialogs.AlertAsync("Blocco dell'app", "Su questo iPhone non sono impostati né Face ID né un codice: attivali nelle Impostazioni di iOS.");
+            await dialogs.AlertAsync("Blocco dell'app", "Su questo telefono non sono impostati né il riconoscimento biometrico né un codice di sblocco: attivali nelle impostazioni di sistema.");
         }
     }
 
