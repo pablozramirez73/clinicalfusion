@@ -13,8 +13,39 @@ public sealed partial class SettingsViewModel(
     MauiAppSettings settings,
     ISecureStorage secureStorage,
     OllamaClient ollama,
+    AppLockController appLock,
     IDialogService dialogs) : ObservableObject
 {
+    private bool _loadingLock;
+
+    /// <summary>Blocco dell'app con Face ID. Ha effetto subito, non con «Salva»: è una scelta di sicurezza.</summary>
+    [ObservableProperty]
+    public partial bool RequireUnlock { get; set; }
+
+    public string UnlockMethod => appLock.Authenticator.MethodName;
+
+    async partial void OnRequireUnlockChanged(bool value)
+    {
+        if (_loadingLock || value == appLock.IsEnabled)
+        {
+            return;
+        }
+
+        if (await appLock.SetEnabledAsync(value))
+        {
+            return;
+        }
+
+        // Non riconosciuto o non disponibile: l'interruttore torna com'era.
+        _loadingLock = true;
+        RequireUnlock = appLock.IsEnabled;
+        _loadingLock = false;
+        if (!appLock.Authenticator.IsAvailable)
+        {
+            await dialogs.AlertAsync("Blocco dell'app", "Su questo iPhone non sono impostati né Face ID né un codice: attivali nelle Impostazioni di iOS.");
+        }
+    }
+
     public IReadOnlyList<string> Languages { get; } = SettingsDefaults.Languages;
 
     public ObservableCollection<string> Models { get; } = [];
@@ -33,6 +64,10 @@ public sealed partial class SettingsViewModel(
 
     [ObservableProperty]
     public partial string OllamaLanguage { get; set; } = SettingsDefaults.OllamaLanguage;
+
+    /// <summary>Istruzioni aggiuntive per il modello: si sommano alle regole predefinite dell'app.</summary>
+    [ObservableProperty]
+    public partial string OllamaPrompt { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string? CloudflareClientId { get; set; }
@@ -65,7 +100,11 @@ public sealed partial class SettingsViewModel(
         OllamaServer = settings.OllamaServer;
         OllamaModel = settings.OllamaModel;
         OllamaLanguage = settings.OllamaLanguage;
+        OllamaPrompt = settings.OllamaPrompt;
         RecordLocation = settings.RecordLocation;
+        _loadingLock = true;
+        RequireUnlock = appLock.IsEnabled;
+        _loadingLock = false;
         SyncServer = settings.SyncServer;
         AutoSync = settings.AutoSync;
         SyncApiKey = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey);
@@ -97,6 +136,7 @@ public sealed partial class SettingsViewModel(
         settings.OllamaServer = OllamaServer;
         settings.OllamaModel = OllamaModel;
         settings.OllamaLanguage = OllamaLanguage;
+        settings.OllamaPrompt = OllamaPrompt;
         if (!string.IsNullOrWhiteSpace(SyncServer) &&
             (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps && !syncUri.IsLoopback && !IsPrivateHost(syncUri.Host)))
         {

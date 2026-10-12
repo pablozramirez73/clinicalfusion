@@ -49,6 +49,7 @@ public static class MauiProgram
         services.AddSingleton(Preferences.Default);
         services.AddSingleton(SecureStorage.Default);
         services.AddSingleton<MauiAppSettings>();
+        services.AddSingleton<AppLockController>();
         services.AddSingleton<IAppSettings>(sp => sp.GetRequiredService<MauiAppSettings>());
 
         // Persistenza: un'unica connessione cifrata per tutta l'app.
@@ -74,9 +75,13 @@ public static class MauiProgram
         // Acquisizione
         services.AddSingleton<CaptureCoordinator>();
         services.AddSingleton<IDialogService, ShellDialogService>();
+        services.AddSingleton(TextToSpeech.Default);
+        services.AddSingleton<ISpeechGuide, TextToSpeechGuide>();
 
 #if IOS
         services.AddSingleton<IDatabaseKeyProvider, KeychainKeyProvider>();
+        services.AddSingleton<IDeviceAuthenticator, BiometricAuthenticator>();
+        services.AddSingleton<ILockScreen, IosLockScreen>();
         services.AddSingleton<ICaptureEngine, IosCaptureEngine>();
         services.AddSingleton<IWebSessionBridge, IosWebSessionBridge>();
         services.AddSingleton<IAudioPlayback, IosAudioPlayback>();
@@ -97,6 +102,13 @@ public static class MauiProgram
         services.AddTransient<RemoteAccessViewModel>();
         services.AddTransient<RemoteAccessPage>();
 
-        return builder.Build();
+        var app = builder.Build();
+
+        // Server clinico preimpostato in fase di compilazione, se presente (non blocca l'avvio).
+        _ = BuildProvisioning.ApplyAsync(
+            app.Services.GetRequiredService<MauiAppSettings>(),
+            app.Services.GetRequiredService<ISecureStorage>(),
+            app.Services.GetRequiredService<IPreferences>());
+        return app;
     }
 }

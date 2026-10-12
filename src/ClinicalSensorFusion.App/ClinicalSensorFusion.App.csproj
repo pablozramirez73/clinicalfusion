@@ -47,6 +47,12 @@
     <BundleResource Include="Platforms/iOS/PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
   </ItemGroup>
 
+  <!-- Preconfigurazione facoltativa del server clinico, passata da riga di comando (vedi BuildProvisioning). -->
+  <ItemGroup Condition="'$(ProvisionSyncServer)' != ''">
+    <AssemblyMetadata Include="ProvisionSyncServer" Value="$(ProvisionSyncServer)" />
+    <AssemblyMetadata Include="ProvisionSyncApiKey" Value="$(ProvisionSyncApiKey)" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="CommunityToolkit.Mvvm" />

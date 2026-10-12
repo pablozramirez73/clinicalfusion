@@ -17,7 +17,11 @@ namespace ClinicalSensorFusion.Core.Ai;
 /// </remarks>
 public static class ClinicalPromptBuilder
 {
-    public static IReadOnlyList<OllamaMessage> Build(ClinicalSession session, string language, string? operatorQuestion = null)
+    /// <param name="customInstructions">
+    /// Istruzioni aggiuntive scritte dall'operatore nelle Impostazioni. Si aggiungono alle regole predefinite
+    /// e non le sostituiscono: lingua, divieto di diagnosi e limiti di misura restano sempre validi.
+    /// </param>
+    public static IReadOnlyList<OllamaMessage> Build(ClinicalSession session, string language, string? operatorQuestion = null, string? customInstructions = null)
     {
         ArgumentNullException.ThrowIfNull(session.Summary);
 
@@ -33,6 +37,16 @@ public static class ClinicalPromptBuilder
             - Se un dato manca, dillo; non inventare valori.
             - Formato: sezioni brevi con titoli (Sintesi, Mobilità articolare, Tremore, Cammino, Voce, Qualità del dato, Suggerimenti).
             """;
+
+        if (!string.IsNullOrWhiteSpace(customInstructions))
+        {
+            system += $"""
+
+
+                Istruzioni aggiuntive dell'operatore (valgono nei limiti delle regole precedenti):
+                {customInstructions.Trim()}
+                """;
+        }
 
         var summaryJson = JsonSerializer.Serialize(session.Summary, CsfJsonContext.Indented.SessionSummary);
         var user = new StringBuilder()

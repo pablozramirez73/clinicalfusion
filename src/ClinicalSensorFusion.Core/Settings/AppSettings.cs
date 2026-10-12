@@ -10,6 +10,9 @@ public static class SettingsKeys
     public const string OllamaServer = "ollama.server";
     public const string OllamaModel = "ollama.model";
     public const string OllamaLanguage = "ollama.language";
+
+    /// <summary>Istruzioni aggiuntive dell'operatore per il modello linguistico.</summary>
+    public const string OllamaPrompt = "ollama.prompt";
     public const string OperatorId = "operator.id";
     public const string OperatorName = "operator.name";
 
@@ -35,6 +38,9 @@ public interface IAppSettings
     string OllamaModel { get; set; }
 
     string OllamaLanguage { get; set; }
+
+    /// <summary>Istruzioni aggiuntive per il modello (vuoto = solo quelle predefinite).</summary>
+    string OllamaPrompt { get; set; }
 
     string OperatorId { get; set; }
 

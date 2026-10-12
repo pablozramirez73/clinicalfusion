@@ -88,6 +88,35 @@
         </VerticalStackLayout>
       </Border>
 
+      <!-- Esito del test standardizzato -->
+      <Border Style="{StaticResource Card}" IsVisible="{Binding HasTest}">
+        <VerticalStackLayout Spacing="10">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+              <Path Style="{StaticResource IconPulse}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="0">
+              <Label Text="{Binding TestName}" Style="{StaticResource Muted}" />
+              <HorizontalStackLayout Spacing="8">
+                <Label Text="{Binding TestValue}" FontSize="28" FontAttributes="Bold" />
+                <Border Style="{StaticResource Chip}" VerticalOptions="Center" IsVisible="{Binding TestEstimated}">
+                  <Label Text="stima" Style="{StaticResource ChipText}" />
+                </Border>
+              </HorizontalStackLayout>
+            </VerticalStackLayout>
+          </Grid>
+          <Border Style="{StaticResource BannerInfo}" IsVisible="{Binding TestIsOk}">
+            <Label Text="{Binding TestInterpretation}" Style="{StaticResource BannerInfoText}" />
+          </Border>
+          <Border Style="{StaticResource BannerInfo}" IsVisible="{Binding TestFlag}"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource WarningSoftLight}, Dark={StaticResource WarningSoftDark}}">
+            <Label Text="{Binding TestInterpretation}" Style="{StaticResource ChipWarningText}" FontSize="13" FontAttributes="None" />
+          </Border>
+          <Label Text="{Binding TestReference}" Style="{StaticResource Muted}" FontSize="12" />
+          <Label Text="{Binding TestSource}" Style="{StaticResource Muted}" FontSize="11" />
+        </VerticalStackLayout>
+      </Border>
+
       <Border Style="{StaticResource Card}" IsVisible="{Binding Notes, Converter={StaticResource IsNotNullOrEmpty}}">
         <VerticalStackLayout Spacing="4">
           <Label Text="Note" Style="{StaticResource FieldLabel}" Margin="0" />

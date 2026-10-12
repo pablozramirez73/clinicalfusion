@@ -146,9 +146,11 @@ public sealed partial class SessionsViewModel(
     private static SessionListItem ToItem(ClinicalSession s)
     {
         // Senza durata la rilevazione è incompleta: lo dice già il chip dell'elenco.
+        // Se la rilevazione è un test standardizzato, in elenco conta il nome del test più della modalità.
+        var what = ClinicalTests.Find(s.Summary?.Test?.TestId)?.ShortName ?? ModeLabel(s.Mode);
         var details = s.Duration is { } d
-            ? $"{ModeLabel(s.Mode)} · {d.ToString(@"mm\:ss", CultureInfo.CurrentCulture)} · {s.OperatorName}"
-            : $"{ModeLabel(s.Mode)} · {s.OperatorName}";
+            ? $"{what} · {d.ToString(@"mm\:ss", CultureInfo.CurrentCulture)} · {s.OperatorName}"
+            : $"{what} · {s.OperatorName}";
         return new SessionListItem(
             s.Id,
             s.SubjectCode,

@@ -50,8 +50,39 @@
     <!-- Pannello di controllo -->
     <Border Grid.Row="1" StrokeThickness="0" StrokeShape="RoundRectangle 28,28,0,0" SafeAreaEdges="None"
             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
-      <ScrollView>
-        <VerticalStackLayout Padding="20,20,20,24" Spacing="12">
+      <Grid RowDefinitions="Auto,*">
+        <!-- Fisso sotto l'anteprima, non scorre con il resto. Pulsante di registrazione: con un test selezionato fa partire la guida vocale, poi registra sul «Via» -->
+        <VerticalStackLayout Spacing="6" HorizontalOptions="Center" Padding="0,14,0,10">
+          <Border WidthRequest="76" HeightRequest="76" StrokeShape="RoundRectangle 38" StrokeThickness="4" HorizontalOptions="Center"
+                  Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                  SemanticProperties.Description="{Binding RecordHint}">
+            <Border.GestureRecognizers>
+              <TapGestureRecognizer Command="{Binding RecordButtonCommand}" />
+            </Border.GestureRecognizers>
+            <Grid>
+              <Border WidthRequest="58" HeightRequest="58" StrokeShape="RoundRectangle 29" StrokeThickness="0"
+                      BackgroundColor="{StaticResource Danger}" HorizontalOptions="Center" VerticalOptions="Center">
+                <Border.Triggers>
+                  <!-- In registrazione il cerchio diventa il quadrato di stop -->
+                  <DataTrigger TargetType="Border" Binding="{Binding IsRecording}" Value="True">
+                    <Setter Property="WidthRequest" Value="30" />
+                    <Setter Property="HeightRequest" Value="30" />
+                    <Setter Property="StrokeShape" Value="RoundRectangle 7" />
+                  </DataTrigger>
+                  <DataTrigger TargetType="Border" Binding="{Binding IsGuiding}" Value="True">
+                    <Setter Property="Opacity" Value="0.55" />
+                  </DataTrigger>
+                </Border.Triggers>
+              </Border>
+              <Label Text="{Binding GuideCountdown}" TextColor="White" FontSize="26" FontAttributes="Bold"
+                     HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
+            </Grid>
+          </Border>
+          <Label Text="{Binding RecordHint}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+      <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="20,4,20,24" Spacing="12">
           <!-- Modalità -->
           <FlexLayout BindableLayout.ItemsSource="{Binding Modes}" Direction="Row" Margin="-4,0">
             <BindableLayout.ItemTemplate>
@@ -78,6 +109,27 @@
             </BindableLayout.ItemTemplate>
           </FlexLayout>
           <Label Text="{Binding SelectedMode.Description}" Style="{StaticResource Muted}" Margin="2,-4,2,0" />
+
+          <!-- Test standardizzato: guida l'operatore e dà un punteggio a fine rilevazione -->
+          <controls:FormField Label="Test" IsVisible="{Binding ShowTests}">
+            <Picker Title="Scegli" ItemsSource="{Binding Tests}" ItemDisplayBinding="{Binding Title, x:DataType=vm:TestOption}"
+                    SelectedItem="{Binding SelectedTest}" IsEnabled="{Binding CanChooseTest}" />
+          </controls:FormField>
+          <Border Style="{StaticResource Card}" Padding="14" IsVisible="{Binding HasTest}">
+            <VerticalStackLayout Spacing="8">
+              <Label Text="{Binding Test.Purpose}" Style="{StaticResource Headline}" FontSize="15" />
+              <Label Text="{Binding Test.Setup}" Style="{StaticResource Muted}" />
+              <Label Text="{Binding TestSteps}" FontSize="14" />
+              <Border Style="{StaticResource BannerInfo}" Padding="12,10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="Da dire al paziente" Style="{StaticResource BannerInfoText}" FontSize="11" FontAttributes="Bold" />
+                  <Label Text="{Binding Test.PatientScript}" Style="{StaticResource BannerInfoText}" FontSize="14" />
+                </VerticalStackLayout>
+              </Border>
+              <Label Text="{Binding Test.Reference}" Style="{StaticResource Muted}" FontSize="12" />
+              <Label Text="{Binding Test.Source}" Style="{StaticResource Muted}" FontSize="11" />
+            </VerticalStackLayout>
+          </Border>
 
           <!-- LiDAR: spento di norma, si accende solo quando servono misure in metri -->
           <Border Style="{StaticResource Tile}" Padding="14,10" IsVisible="{Binding ShowLidarOption}">
@@ -145,6 +197,7 @@
           </FlexLayout>
         </VerticalStackLayout>
       </ScrollView>
+      </Grid>
     </Border>
   </Grid>
 </ContentPage>

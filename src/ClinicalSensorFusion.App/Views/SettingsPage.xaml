@@ -70,6 +70,12 @@
                 <Picker Title="Scegli" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
               </controls:FormField>
             </Grid>
+            <controls:FormField Label="Prompt personalizzato (facoltativo)">
+              <Editor Text="{Binding OllamaPrompt}" Placeholder="Es. Concentrati sull'equilibrio e confronta i due lati."
+                      AutoSize="TextChanges" MinimumHeightRequest="88" MaximumHeightRequest="220" />
+            </controls:FormField>
+            <Label Text="Si aggiunge alle istruzioni predefinite a ogni analisi. Lingua, divieto di diagnosi e limiti di misura restano sempre attivi."
+                   Style="{StaticResource Muted}" />
           </VerticalStackLayout>
         </Border>
 
@@ -139,6 +145,21 @@
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding RecordLocation}" VerticalOptions="Center"
                     SemanticProperties.Description="Registra la posizione GPS durante le rilevazioni" />
+          </Grid>
+        </Border>
+        <!-- Blocco dell'app -->
+        <Border Style="{StaticResource Card}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Center">
+              <Path Style="{StaticResource IconLock}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+              <Label Text="Blocco dell'app" Style="{StaticResource Headline}" />
+              <Label Style="{StaticResource Muted}"
+                     Text="{Binding UnlockMethod, StringFormat='Chiedi {0} all\'apertura e al ritorno dal background. Attivo subito, senza «Salva».'}" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="2" IsToggled="{Binding RequireUnlock}" VerticalOptions="Center"
+                    SemanticProperties.Description="Blocca l'app con Face ID" />
           </Grid>
         </Border>
       </VerticalStackLayout>

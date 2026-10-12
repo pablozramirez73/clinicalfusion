@@ -27,6 +27,15 @@ public sealed record SessionSummary
 
     public double? MedianSubjectDistanceMeters { get; init; }
 
+    /// <summary>
+    /// Passaggi seduto→in piedi contati dall'angolo di flessione del ginocchio (stima automatica; null senza
+    /// fotogrammi di posa). Serve ai test di alzata dalla sedia.
+    /// </summary>
+    public int? SitToStandCount { get; init; }
+
+    /// <summary>Esito del test standardizzato scelto dall'operatore (null per una rilevazione libera).</summary>
+    public TestOutcome? Test { get; init; }
+
     public Dictionary<SensorKind, long> SampleCounts { get; init; } = [];
 
     /// <summary>Campioni scartati per saturazione della coda (indice di qualità dell'acquisizione).</summary>

@@ -109,4 +109,27 @@ public class ClinicalPromptBuilderTests
         Assert.DoesNotContain("Bianchi", all, StringComparison.Ordinal);
         Assert.Contains("<<<", all, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Custom_instructions_are_added_to_the_default_rules_not_replacing_them()
+    {
+        var session = new ClinicalSession
+        {
+            Id = "s2",
+            SubjectCode = "PZ-002",
+            OperatorId = "op1",
+            OperatorName = "Operatore",
+            Mode = CaptureMode.BodyLidar,
+            StartedAt = DateTimeOffset.UtcNow,
+            Summary = new SessionSummary { DurationSeconds = 30 },
+        };
+
+        var with = ClinicalPromptBuilder.Build(session, "Italiano", customInstructions: "  Confronta sempre i due lati.  ")[0].Content;
+        var without = ClinicalPromptBuilder.Build(session, "Italiano", customInstructions: "   ")[0].Content;
+
+        Assert.Contains("Confronta sempre i due lati.", with, StringComparison.Ordinal);
+        Assert.Contains("Non formulare diagnosi", with, StringComparison.Ordinal);
+        Assert.StartsWith(without, with, StringComparison.Ordinal);
+        Assert.DoesNotContain("Istruzioni aggiuntive", without, StringComparison.Ordinal);
+    }
 }

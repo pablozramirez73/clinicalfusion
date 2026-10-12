@@ -8,6 +8,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     private const string RecordLocationKey = "capture.location";
     private const string DepthOverlayKey = "capture.depth_overlay";
     private const string UseLidarKey = "capture.use_lidar";
+    private const string RequireAuthKey = "security.require_auth";
     private const string SyncServerKey = "sync.server";
     private const string AutoSyncKey = "sync.auto";
 
@@ -27,6 +28,12 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(SettingsKeys.OllamaLanguage, SettingsDefaults.OllamaLanguage);
         set => preferences.Set(SettingsKeys.OllamaLanguage, value ?? SettingsDefaults.OllamaLanguage);
+    }
+
+    public string OllamaPrompt
+    {
+        get => preferences.Get(SettingsKeys.OllamaPrompt, string.Empty);
+        set => preferences.Set(SettingsKeys.OllamaPrompt, value?.Trim() ?? string.Empty);
     }
 
     public string OperatorId
@@ -67,6 +74,13 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(UseLidarKey, false);
         set => preferences.Set(UseLidarKey, value);
+    }
+
+    /// <summary>Chiede Face ID (o il codice del telefono) all'avvio e al ritorno dal background.</summary>
+    public bool RequireDeviceAuthentication
+    {
+        get => preferences.Get(RequireAuthKey, false);
+        set => preferences.Set(RequireAuthKey, value);
     }
 
     public bool ShowDepthOverlay

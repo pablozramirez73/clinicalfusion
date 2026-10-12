@@ -76,6 +76,29 @@ public sealed partial class SessionDetailViewModel(
     [ObservableProperty]
     public partial string OperatorName { get; set; } = string.Empty;
 
+    /// <summary>Esito del test standardizzato, se la rilevazione ne ha eseguito uno.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTest), nameof(TestName), nameof(TestValue), nameof(TestInterpretation), nameof(TestFlag), nameof(TestIsOk), nameof(TestEstimated), nameof(TestReference), nameof(TestSource))]
+    public partial TestOutcome? TestResult { get; set; }
+
+    public bool HasTest => TestResult is not null;
+
+    public string TestName => TestResult?.TestName ?? string.Empty;
+
+    public string TestValue => TestResult?.Format(CultureInfo.CurrentCulture) ?? string.Empty;
+
+    public string TestInterpretation => TestResult?.Interpretation ?? string.Empty;
+
+    public bool TestFlag => TestResult?.Flag == true;
+
+    public bool TestIsOk => TestResult is { Flag: false };
+
+    public bool TestEstimated => TestResult?.Estimated == true;
+
+    public string TestReference => ClinicalTests.Find(TestResult?.TestId)?.Reference ?? string.Empty;
+
+    public string TestSource => ClinicalTests.Find(TestResult?.TestId)?.Source ?? string.Empty;
+
     /// <summary>Falso se la rilevazione è stata interrotta prima del calcolo degli indicatori.</summary>
     [ObservableProperty]
     public partial bool HasSummary { get; set; }
@@ -145,6 +168,7 @@ public sealed partial class SessionDetailViewModel(
             DurationText = _session.Duration is { } d ? d.ToString(@"mm\:ss", c) : "incompleta";
             OperatorName = _session.OperatorName;
             HasSummary = _session.Summary is not null;
+            TestResult = _session.Summary?.Test;
             Notes = _session.Notes;
 
             Summary.Clear();
@@ -281,7 +305,7 @@ public sealed partial class SessionDetailViewModel(
             return;
         }
 
-        var messages = ClinicalPromptBuilder.Build(_session, settings.OllamaLanguage, Question);
+        var messages = ClinicalPromptBuilder.Build(_session, settings.OllamaLanguage, Question, settings.OllamaPrompt);
         var prompt = string.Join("\n\n", messages.Select(m => $"[{m.Role}]\n{m.Content}"));
         var text = new StringBuilder();
         _analysisCts = new CancellationTokenSource();

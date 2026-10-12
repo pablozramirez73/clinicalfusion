@@ -40,6 +40,13 @@ public sealed class SessionMetricsAggregator
     private int _thermal;
     private float[]? _lastPedometer;
     private long _poseFrames;
+
+    // Conteggio delle alzate dalla sedia con isteresi sulla flessione del ginocchio: seduto oltre 70°,
+    // in piedi sotto 35°. Le due soglie distanti evitano di contare le oscillazioni attorno a un solo valore.
+    private const float SeatedKneeFlexion = 70f;
+    private const float StandingKneeFlexion = 35f;
+    private bool? _seated;
+    private int _sitToStand;
     private long _lidarPoseFrames;
 
     public SessionMetricsAggregator(CaptureMode mode) => _mode = mode;
@@ -83,6 +90,7 @@ public sealed class SessionMetricsAggregator
                 }
 
                 _lastAngles = v[.._joints.Length];
+                TrackSitToStand(v);
                 if (v.Length > _joints.Length + 1)
                 {
                     if (v[_joints.Length] == 0)
@@ -100,6 +108,35 @@ public sealed class SessionMetricsAggregator
 
                 break;
         }
+    }
+
+    private void TrackSitToStand(float[] angles)
+    {
+        var left = Angle(angles, Joint.LeftKneeFlexion);
+        var right = Angle(angles, Joint.RightKneeFlexion);
+        var knee = (float.IsFinite(left), float.IsFinite(right)) switch
+        {
+            (true, true) => (left + right) / 2,
+            (true, false) => left,
+            (false, true) => right,
+            _ => float.NaN,
+        };
+
+        if (knee > SeatedKneeFlexion)
+        {
+            _seated = true;
+        }
+        else if (knee < StandingKneeFlexion)
+        {
+            if (_seated == true)
+            {
+                _sitToStand++;
+            }
+
+            _seated = false;
+        }
+
+        static float Angle(float[] values, Joint joint) => (int)joint < values.Length ? values[(int)joint] : float.NaN;
     }
 
     public LiveMetrics Snapshot() => new(
@@ -149,6 +186,7 @@ public sealed class SessionMetricsAggregator
             Gait = gait,
             Audio = audio,
             MedianSubjectDistanceMeters = medianDistance,
+            SitToStandCount = _poseFrames > 0 ? _sitToStand : null,
             SampleCounts = new Dictionary<SensorKind, long>(_counts),
             DroppedSamples = dropped,
         };

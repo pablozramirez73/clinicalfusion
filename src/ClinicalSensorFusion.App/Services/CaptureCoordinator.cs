@@ -21,6 +21,7 @@ public sealed class CaptureCoordinator(
     private SessionRecorder? _recorder;
     private ClinicalSession? _session;
     private SensorClock? _clock;
+    private ClinicalTest? _test;
 
     public bool IsRecording => _session is not null;
 
@@ -30,7 +31,8 @@ public sealed class CaptureCoordinator(
 
     public double Elapsed => _clock?.Now ?? 0;
 
-    public async Task<ClinicalSession> StartAsync(string subjectCode, CaptureMode mode, string? notes, bool includeLocation)
+    /// <param name="test">Test standardizzato da eseguire; null per una rilevazione libera.</param>
+    public async Task<ClinicalSession> StartAsync(string subjectCode, CaptureMode mode, string? notes, bool includeLocation, ClinicalTest? test = null)
     {
         if (_session is not null)
         {
@@ -74,6 +76,7 @@ public sealed class CaptureCoordinator(
         _session = session;
         _recorder = recorder;
         _clock = clock;
+        _test = test;
         return session;
     }
 
@@ -88,7 +91,7 @@ public sealed class CaptureCoordinator(
         var summary = await recorder.CompleteAsync(duration, audio?.Features);
 
         session.EndedAt = DateTimeOffset.UtcNow;
-        session.Summary = summary;
+        session.Summary = _test is { } test ? summary with { Test = ClinicalTests.Evaluate(test, summary) } : summary;
         await repository.CompleteSessionAsync(session);
         if (audio is not null)
         {
@@ -99,6 +102,7 @@ public sealed class CaptureCoordinator(
         _session = null;
         _recorder = null;
         _clock = null;
+        _test = null;
         return session;
     }
 

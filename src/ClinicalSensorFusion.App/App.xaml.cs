@@ -1,3 +1,5 @@
+using ClinicalSensorFusion.App.Services;
+
 namespace ClinicalSensorFusion.App;
 
 public partial class App : Application
@@ -11,6 +13,10 @@ public partial class App : Application
     }
 
     // La shell si risolve qui e non nel costruttore: il suo XAML usa le risorse caricate da InitializeComponent.
-    protected override Window CreateWindow(IActivationState? activationState) =>
-        new(_services.GetRequiredService<AppShell>()) { Title = "SensorFusion Clinic" };
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        var window = new Window(_services.GetRequiredService<AppShell>()) { Title = "SensorFusion Clinic" };
+        _services.GetRequiredService<AppLockController>().Attach(window);
+        return window;
+    }
 }

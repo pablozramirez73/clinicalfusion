@@ -23,6 +23,9 @@ public sealed partial class CaptureModeOption(CaptureMode mode, string title, st
     public partial bool IsSelected { get; set; }
 }
 
+/// <summary>Voce del selettore dei test; <see cref="Test"/> null = rilevazione libera.</summary>
+public sealed record TestOption(ClinicalTest? Test, string Title);
+
 public sealed partial class MetricTile(string name) : ObservableObject
 {
     public string Name { get; } = name;
@@ -40,6 +43,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly CaptureCoordinator _coordinator;
     private readonly MauiAppSettings _settings;
     private readonly IDialogService _dialogs;
+    private readonly ISpeechGuide _speech;
+    private CancellationTokenSource? _guideCts;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -53,8 +58,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly MetricTile _light = new("Luce");
     private readonly MetricTile _thermal = new("Temperatura");
 
-    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs)
+    public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs, ISpeechGuide speech)
     {
+        _speech = speech;
         _engine = engine;
         _coordinator = coordinator;
         _settings = settings;
@@ -66,6 +72,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (MediaPipe Hands)"),
             new(CaptureMode.FaceTrueDepth, "Volto", "Mimica facciale (TrueDepth + MediaPipe Face)"),
         ];
+        Tests = [new TestOption(null, "Rilevazione libera"), .. ClinicalTests.All.Select(t => new TestOption(t, t.Name))];
+        SelectedTest = Tests[0];
         SelectedMode = Modes[0];
         UseLidar = settings.UseLidar;
         DepthOpacity = settings.ShowDepthOverlay ? 0.35 : 0;
@@ -80,6 +88,26 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     public LandmarkOverlayDrawable Overlay { get; } = new();
 
     public IReadOnlyList<CaptureModeOption> Modes { get; }
+
+    /// <summary>Test funzionali standardizzati (CDC STEADI, core set ANPT/APTA), tutti in modalità corpo.</summary>
+    public IReadOnlyList<TestOption> Tests { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint))]
+    public partial TestOption SelectedTest { get; set; }
+
+    public ClinicalTest? Test => ShowTests ? SelectedTest.Test : null;
+
+    public bool HasTest => Test is not null;
+
+    public bool ShowTests => SelectedMode.Mode == CaptureMode.BodyLidar;
+
+    public bool CanChooseTest => !IsRecording;
+
+    /// <summary>Passi del protocollo, numerati, per la scheda delle istruzioni.</summary>
+    public string TestSteps => Test is { } test
+        ? string.Join("\n", test.Steps.Select((step, i) => $"{i + 1}. {step}"))
+        : string.Empty;
 
     public ObservableCollection<MetricTile> Tiles { get; }
 
@@ -101,7 +129,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     public partial bool UseLidar { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowLidarOption), nameof(ShowDepthToggle))]
+    [NotifyPropertyChangedFor(nameof(ShowLidarOption), nameof(ShowDepthToggle), nameof(ShowTests), nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint))]
     public partial CaptureModeOption SelectedMode { get; set; }
 
     /// <summary>Tempo trascorso, mostrato accanto all'indicatore REC sull'anteprima.</summary>
@@ -119,8 +147,27 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     [NotifyCanExecuteChangedFor(nameof(SelectModeCommand))]
-    [NotifyPropertyChangedFor(nameof(CanChangeLidar))]
+    [NotifyPropertyChangedFor(nameof(CanChangeLidar), nameof(CanChooseTest), nameof(RecordHint))]
     public partial bool IsRecording { get; set; }
+
+    /// <summary>La guida vocale sta parlando o contando alla rovescia: la registrazione non è ancora partita.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordHint))]
+    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
+    public partial bool IsGuiding { get; set; }
+
+    /// <summary>Conto alla rovescia mostrato sul pulsante durante la guida ("3", "2", "1").</summary>
+    [ObservableProperty]
+    public partial string GuideCountdown { get; set; } = string.Empty;
+
+    /// <summary>Che cosa fa il pulsante rosso in questo momento.</summary>
+    public string RecordHint => (IsRecording, IsGuiding, HasTest) switch
+    {
+        (true, _, _) => "Tocca per terminare",
+        (_, true, _) => "Guida vocale in corso · tocca per annullare",
+        (_, _, true) => "Avvia con guida vocale",
+        _ => "Avvia la rilevazione",
+    };
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
@@ -176,6 +223,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _engine.OverlayUpdated -= OnOverlay;
+        _guideCts?.Cancel();
         _timer?.Stop();
     }
 
@@ -206,7 +254,84 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     partial void OnDepthOpacityChanged(double value) => _settings.ShowDepthOverlay = value > 0;
 
-    private bool CanStart() => !IsRecording && !IsBusy && !string.IsNullOrWhiteSpace(SubjectCode);
+    private bool CanStart() => !IsRecording && !IsBusy && !IsGuiding && !string.IsNullOrWhiteSpace(SubjectCode);
+
+    /// <summary>
+    /// Pulsante rosso sotto l'anteprima. Con un test selezionato legge la guida al paziente, conta alla
+    /// rovescia e avvia la registrazione sul «Via»; senza test avvia subito. Durante la guida la annulla,
+    /// durante la registrazione la termina.
+    /// </summary>
+    [RelayCommand]
+    private async Task RecordButtonAsync()
+    {
+        if (IsRecording)
+        {
+            if (StopCommand.CanExecute(null))
+            {
+                await StopCommand.ExecuteAsync(null);
+            }
+
+            return;
+        }
+
+        if (IsGuiding)
+        {
+            _guideCts?.Cancel();
+            return;
+        }
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SubjectCode))
+        {
+            await _dialogs.AlertAsync("Codice soggetto", "Inserisci il codice soggetto prima di avviare.");
+            return;
+        }
+
+        if (Test is not { } test)
+        {
+            await StartAsync();
+            return;
+        }
+
+        using var cts = new CancellationTokenSource();
+        _guideCts = cts;
+        IsGuiding = true;
+        try
+        {
+            await _speech.SpeakAsync(test.AudioGuide, cts.Token);
+            await _speech.SpeakAsync("Pronti?", cts.Token);
+            foreach (var (digit, word) in new[] { ("3", "Tre"), ("2", "Due"), ("1", "Uno") })
+            {
+                GuideCountdown = digit;
+                await _speech.SpeakAsync(word, cts.Token);
+                await Task.Delay(350, cts.Token);
+            }
+
+            GuideCountdown = string.Empty;
+            await _speech.SpeakAsync("Via!", cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            // La voce è un aiuto: se la sintesi non è disponibile il test si può comunque eseguire.
+            Warning = $"Guida vocale non disponibile: {ex.Message}";
+        }
+        finally
+        {
+            GuideCountdown = string.Empty;
+            IsGuiding = false;
+            _guideCts = null;
+        }
+
+        await StartAsync();
+    }
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
@@ -214,7 +339,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         IsBusy = true;
         try
         {
-            await _coordinator.StartAsync(SubjectCode, SelectedMode.Mode, Notes, _settings.RecordLocation);
+            await _coordinator.StartAsync(SubjectCode, SelectedMode.Mode, Notes, _settings.RecordLocation, Test);
             IsRecording = true;
             RefreshSensors();
         }
@@ -266,6 +391,18 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void ToggleDepth() => DepthOpacity = DepthOpacity > 0 ? 0 : 0.35;
+
+    private async Task SpeakQuietlyAsync(string text)
+    {
+        try
+        {
+            await _speech.SpeakAsync(text);
+        }
+        catch (Exception)
+        {
+            // Solo un avviso sonoro: un errore della sintesi non deve disturbare la chiusura del test.
+        }
+    }
 
     private async Task StartPreviewAsync()
     {
@@ -319,6 +456,18 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         var c = CultureInfo.CurrentCulture;
         _elapsed.Value = IsRecording ? TimeSpan.FromSeconds(_coordinator.Elapsed).ToString(@"mm\:ss", c) : "—";
         Elapsed = IsRecording ? _elapsed.Value : "00:00";
+
+        // I test a durata fissa (30 secondi, 6 minuti, 10 secondi) si chiudono da soli allo scadere.
+        if (IsRecording && Test?.AutoStopSeconds is { } limit)
+        {
+            Elapsed = $"{_elapsed.Value} / {TimeSpan.FromSeconds(limit).ToString(@"mm\:ss", c)}";
+            if (_coordinator.Elapsed >= limit && StopCommand.CanExecute(null))
+            {
+                // Avvisa il paziente: l'operatore può essere lontano dal telefono.
+                _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                StopCommand.Execute(null);
+            }
+        }
         if (live is null)
         {
             return;
