@@ -66,6 +66,23 @@ il database `clinical_dev` viene popolato con **6 pazienti fittizi** e ~30 rilev
 
 Chiave di sviluppo per l'app: `dev-device-key-solo-sviluppo`.
 
+### Dal telefono, sulla rete locale
+
+Il profilo di sviluppo ascolta solo su `localhost` e usa credenziali note (quelle qui sopra). Per provare
+l'invio da un telefono sulla stessa Wi-Fi:
+
+```bash
+./scripts/run-server-lan.sh        # http://<indirizzo del computer>:5180
+```
+
+Al primo avvio lo script genera una password per la dashboard e una chiave del dispositivo, le mostra una sola
+volta e ne salva gli hash in `.server-lan.env` (file locale, escluso da git): le credenziali di sviluppo non
+valgono più. Nell'app: Impostazioni → *Server clinico* → `http://<indirizzo>:5180` e la chiave. Per rigenerarle
+basta cancellare il file. Nello stesso file si può indicare un PostgreSQL diverso da quello di docker compose.
+
+Il traffico è HTTP non cifrato: va bene su una rete fidata, non su una Wi-Fi condivisa. Per un uso reale vale
+la sezione seguente.
+
 ## 5. Produzione
 
 ```bash
