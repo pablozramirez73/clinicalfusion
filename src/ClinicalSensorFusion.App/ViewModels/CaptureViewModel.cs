@@ -199,6 +199,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string? Warning { get; set; }
 
+    /// <summary>Serve un dato che sta nel pannello dei parametri (per esempio il codice soggetto): va mostrato.</summary>
+    public event EventHandler? DetailsNeeded;
+
     public async Task OnAppearingAsync(IDispatcher dispatcher)
     {
         _timer ??= CreateTimer(dispatcher);
@@ -301,6 +304,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         if (string.IsNullOrWhiteSpace(SubjectCode))
         {
+            DetailsNeeded?.Invoke(this, EventArgs.Empty);
             await _dialogs.AlertAsync("Codice soggetto", "Inserisci il codice soggetto prima di avviare.");
             return;
         }
