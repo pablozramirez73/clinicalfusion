@@ -23,6 +23,7 @@ public sealed class CaptureCoordinator(
     private SensorClock? _clock;
     private ClinicalTest? _test;
     private double? _testStart;
+    private double? _testEnd;
 
     public bool IsRecording => _session is not null;
 
@@ -37,6 +38,12 @@ public sealed class CaptureCoordinator(
 
     /// <summary>Segna il «Via»: da qui si misura il tempo del test (la spiegazione che lo precede non conta).</summary>
     public void MarkTestStart() => _testStart ??= _clock?.Now;
+
+    /// <summary>
+    /// Segna l'istante (secondi di sessione) in cui il paziente ha completato il compito: il tempo del test
+    /// si ferma lì, non quando la registrazione viene poi chiusa.
+    /// </summary>
+    public void MarkTestEnd(double sessionSeconds) => _testEnd ??= sessionSeconds;
 
     /// <param name="test">Test standardizzato da eseguire; null per una rilevazione libera.</param>
     public async Task<ClinicalSession> StartAsync(string subjectCode, CaptureMode mode, string? notes, bool includeLocation, ClinicalTest? test = null)
@@ -85,6 +92,7 @@ public sealed class CaptureCoordinator(
         _clock = clock;
         _test = test;
         _testStart = null;
+        _testEnd = null;
         return session;
     }
 
@@ -93,7 +101,7 @@ public sealed class CaptureCoordinator(
         var session = _session ?? throw new InvalidOperationException("Nessuna rilevazione in corso.");
         var recorder = _recorder!;
         var duration = _clock!.Now;
-        var testSeconds = _testStart is { } start ? duration - start : (double?)null;
+        var testSeconds = _testStart is { } start ? Math.Max(0, (_testEnd ?? duration) - start) : (double?)null;
 
         // Prima si fermano le sorgenti (niente più scritture), poi si svuota il registratore.
         var audio = await engine.StopRecordingAsync();
@@ -113,6 +121,7 @@ public sealed class CaptureCoordinator(
         _clock = null;
         _test = null;
         _testStart = null;
+        _testEnd = null;
         return session;
     }
 

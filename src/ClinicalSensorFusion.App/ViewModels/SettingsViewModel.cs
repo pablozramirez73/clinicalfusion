@@ -24,6 +24,8 @@ public sealed partial class SettingsViewModel(
 
     public string UnlockMethod => appLock.Authenticator.MethodName;
 
+    public string AppVersion => $"SensorFusion Clinic {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
     async partial void OnRequireUnlockChanged(bool value)
     {
         if (_loadingLock || value == appLock.IsEnabled)

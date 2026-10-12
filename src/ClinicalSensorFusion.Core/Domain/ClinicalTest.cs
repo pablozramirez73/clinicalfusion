@@ -44,6 +44,65 @@ public sealed record ClinicalTest(
 
     /// <summary>Modalità di acquisizione in cui il test si esegue.</summary>
     public CaptureMode Mode { get; init; } = CaptureMode.BodyLidar;
+
+    /// <summary>
+    /// Compito il cui completamento chiude da solo il test (null: lo chiude l'operatore o la durata fissa).
+    /// È un aiuto: se l'app non riconosce il movimento, l'operatore termina a mano come sempre.
+    /// </summary>
+    public TestCompletion? Completion { get; init; }
+}
+
+/// <summary>Che cosa deve aver fatto il paziente, dal «Via», perché il test si consideri eseguito.</summary>
+public enum TestCompletionKind
+{
+    /// <summary>Un certo numero di tocchi indice-pollice.</summary>
+    FingerTaps,
+
+    /// <summary>Un certo numero di alzate dalla sedia, e poi di nuovo seduto.</summary>
+    RisesThenSeated,
+}
+
+/// <param name="Count">Tocchi o alzate richiesti.</param>
+/// <param name="SeatedHoldSeconds">
+/// Per quanto deve restare seduto perché il test si chiuda: evita di scambiare per "seduto" un ginocchio
+/// piegato durante il cammino. Il tempo del test si ferma comunque all'istante in cui si è seduto.
+/// </param>
+public sealed record TestCompletion(TestCompletionKind Kind, int Count, double SeatedHoldSeconds = 0);
+
+/// <summary>
+/// Segue l'esecuzione di un test dal «Via» e dice quando il compito è stato completato. Conta solo ciò
+/// che avviene dopo la prima chiamata: i movimenti fatti mentre la voce spiega il test non valgono.
+/// </summary>
+public sealed class TestCompletionTracker(TestCompletion rule)
+{
+    private int? _baseline;
+
+    /// <summary>Tocchi o alzate eseguiti dal «Via».</summary>
+    public int Done { get; private set; }
+
+    public int Required => rule.Count;
+
+    /// <summary>
+    /// Aggiorna con gli ultimi valori dal vivo. Restituisce l'istante (secondi di sessione) in cui il
+    /// compito è stato completato, o null se non lo è ancora.
+    /// </summary>
+    public double? Update(Recording.LiveMetrics live)
+    {
+        var total = rule.Kind == TestCompletionKind.FingerTaps ? live.FingerTaps : live.SitToStandCount;
+        _baseline ??= total;
+        Done = total - _baseline.Value;
+        if (Done < rule.Count)
+        {
+            return null;
+        }
+
+        if (rule.Kind == TestCompletionKind.FingerTaps)
+        {
+            return live.Elapsed;
+        }
+
+        return live.SeatedSince is { } since && live.Elapsed - since >= rule.SeatedHoldSeconds ? since : null;
+    }
 }
 
 /// <summary>Frase pronunciata durante un test, <paramref name="AtSeconds"/> secondi dopo il «Via».</summary>
@@ -95,7 +154,7 @@ public static class ClinicalTests
             "Il paziente siede appoggiato allo schienale, con le sue calzature abituali; può usare l'ausilio.",
             "Avvia la rilevazione sul «Via».",
             "Il paziente si alza, cammina fino alla linea a passo normale, si gira, torna e si siede.",
-            "Termina la rilevazione quando è di nuovo seduto.",
+            "Quando è di nuovo seduto la rilevazione si chiude da sola; se non lo riconosce, termina tu.",
         ],
         "Quando dico «Via» si alzi, cammini fino alla linea al suo passo normale, si giri, torni alla sedia e si sieda.",
         "Test del cammino con alzata dalla sedia. Si sieda appoggiando la schiena allo schienale. "
@@ -103,7 +162,10 @@ public static class ClinicalTests
         + "Non c'è fretta: cammini come fa di solito.",
         null, TestResultKind.Seconds,
         "≥ 12 s: rischio di caduta aumentato nell'anziano.",
-        Cdc);
+        Cdc)
+    {
+        Completion = new(TestCompletionKind.RisesThenSeated, 1, SeatedHoldSeconds: 1),
+    };
 
     public static readonly ClinicalTest ChairStand30 = new(
         "chair30", "Chair Stand 30 s", "30-Second Chair Stand",
@@ -162,7 +224,7 @@ public static class ClinicalTests
             "Il paziente siede con le braccia incrociate sul petto e la schiena allo schienale.",
             "Avvia la rilevazione sul «Via».",
             "Il paziente si alza e si siede cinque volte di seguito, il più velocemente possibile.",
-            "Termina la rilevazione quando tocca la sedia la quinta volta.",
+            "Quando si siede la quinta volta la rilevazione si chiude da sola; se non lo riconosce, termina tu.",
         ],
         "Si alzi e si sieda cinque volte di seguito, più in fretta che può, alzandosi ogni volta del tutto.",
         "Test delle cinque alzate dalla sedia. Si sieda con la schiena allo schienale e le braccia incrociate sul petto. "
@@ -170,7 +232,10 @@ public static class ClinicalTests
         + "Alla quinta volta resti seduto.",
         null, TestResultKind.Seconds,
         "> 12 s distingue gli adulti sani dalle persone con ictus; 13 s indica disfunzione dell'equilibrio. Medie nei sani: 60–69 anni 7,8 s · 70–79 9,3 s · 80–85 10,8 s.",
-        Anpt);
+        Anpt)
+    {
+        Completion = new(TestCompletionKind.RisesThenSeated, 5, SeatedHoldSeconds: 0.3),
+    };
 
     public static readonly ClinicalTest TenMeterWalk = new(
         "10mwt", "10MWT", "10 Meter Walk Test (10MWT)",
@@ -224,7 +289,7 @@ public static class ClinicalTests
             "Mostra tu il movimento, poi smetti: il paziente non deve copiarti durante la prova.",
             "Il paziente tiene la mano ferma davanti alla fotocamera, pollice e indice ben visibili.",
             "Avvia la rilevazione: dopo il «Via» tocca l'indice sul pollice 10 volte, più veloce e più ampio che può.",
-            "Termina dopo il decimo tocco. Ripeti con l'altra mano in una nuova rilevazione.",
+            "Al decimo tocco la rilevazione si chiude da sola (se non li riconosce, termina tu). Ripeti con l'altra mano in una nuova rilevazione.",
         ],
         "Tocchi l'indice sul pollice dieci volte, più velocemente e più ampiamente che può.",
         "Test del tocco delle dita. Tenga la mano ferma davanti al telefono, con il pollice e l'indice ben visibili. "
@@ -235,6 +300,7 @@ public static class ClinicalTests
         "MDS-UPDRS Parte III, item 3.4 — Movement Disorder Society")
     {
         Mode = CaptureMode.HandsLidar,
+        Completion = new(TestCompletionKind.FingerTaps, 10),
     };
 
     public static IReadOnlyList<ClinicalTest> All { get; } =

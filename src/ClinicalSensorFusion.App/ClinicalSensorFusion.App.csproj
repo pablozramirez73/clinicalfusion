@@ -18,8 +18,8 @@
 
     <ApplicationTitle>SensorFusion Clinic</ApplicationTitle>
     <ApplicationId>com.lucaguelfi.sensorfusionclinic</ApplicationId>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.1</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
 
     <!--
       Runtime CoreCLR su iOS (come l'app originale: libcoreclr + ReadyToRun) invece di Mono.

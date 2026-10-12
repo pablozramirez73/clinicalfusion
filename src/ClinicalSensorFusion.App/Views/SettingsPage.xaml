@@ -162,6 +162,9 @@
                     SemanticProperties.Description="Blocca l'app" />
           </Grid>
         </Border>
+
+        <!-- Per sapere con certezza quale build è installata sul telefono. -->
+        <Label Text="{Binding AppVersion}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
       </VerticalStackLayout>
     </ScrollView>
 

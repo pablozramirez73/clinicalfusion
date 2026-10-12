@@ -46,6 +46,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly ISpeechGuide _speech;
     private CancellationTokenSource? _guideCts;
     private int _nextCue;
+    private TestCompletionTracker? _completion;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -317,6 +318,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         using var cts = new CancellationTokenSource();
         _guideCts = cts;
         _nextCue = 0;
+        _completion = null;
         IsGuiding = true;
         try
         {
@@ -509,6 +511,26 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             if (_nextCue < test.Cues.Count && sinceStart >= test.Cues[_nextCue].AtSeconds)
             {
                 _ = SpeakQuietlyAsync(test.Cues[_nextCue++].Text);
+            }
+
+            // I test con un compito riconoscibile (dieci tocchi, cinque alzate, di nuovo seduto) si chiudono
+            // da soli quando il paziente lo ha completato. Si conta dal «Via».
+            if (test.Completion is { } rule && live is not null)
+            {
+                _completion ??= new TestCompletionTracker(rule);
+                var completedAt = _completion.Update(live);
+                Elapsed = $"{time} · {Math.Min(_completion.Done, _completion.Required)}/{_completion.Required}";
+                if (completedAt is { } at && StopCommand.CanExecute(null))
+                {
+                    // Per i test a tempo il risultato è l'istante del completamento, non quello della chiusura.
+                    if (test.ResultKind == TestResultKind.Seconds)
+                    {
+                        _coordinator.MarkTestEnd(at);
+                    }
+
+                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    StopCommand.Execute(null);
+                }
             }
 
             // I test a durata fissa (30 secondi, 6 minuti, 10 secondi) si chiudono da soli allo scadere.

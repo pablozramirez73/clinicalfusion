@@ -16,7 +16,17 @@ public sealed record LiveMetrics(
     float? AmbientLux,
     bool ProximityNear,
     int ThermalState,
-    IReadOnlyDictionary<SensorKind, long> Counts);
+    IReadOnlyDictionary<SensorKind, long> Counts)
+{
+    /// <summary>Alzate dalla sedia contate finora (ginocchio da flesso a esteso).</summary>
+    public int SitToStandCount { get; init; }
+
+    /// <summary>Istante in cui il soggetto si è seduto, se ora è seduto; null se è in piedi o non si sa.</summary>
+    public double? SeatedSince { get; init; }
+
+    /// <summary>Tocchi indice-pollice contati finora.</summary>
+    public int FingerTaps { get; init; }
+}
 
 /// <summary>
 /// Accumula gli indicatori clinici mentre i campioni scorrono. Non è thread-safe: viene usato solo dal
@@ -47,6 +57,7 @@ public sealed class SessionMetricsAggregator
     private const float SeatedKneeFlexion = 70f;
     private const float StandingKneeFlexion = 35f;
     private bool? _seated;
+    private double? _seatedSince;
     private int _sitToStand;
     private long _lidarPoseFrames;
 
@@ -94,7 +105,7 @@ public sealed class SessionMetricsAggregator
                 }
 
                 _lastAngles = v[.._joints.Length];
-                TrackSitToStand(v);
+                TrackSitToStand(v, r.Timestamp);
                 if (v.Length > _joints.Length + 1)
                 {
                     if (v[_joints.Length] == 0)
@@ -114,7 +125,7 @@ public sealed class SessionMetricsAggregator
         }
     }
 
-    private void TrackSitToStand(float[] angles)
+    private void TrackSitToStand(float[] angles, double timestamp)
     {
         var left = Angle(angles, Joint.LeftKneeFlexion);
         var right = Angle(angles, Joint.RightKneeFlexion);
@@ -129,6 +140,7 @@ public sealed class SessionMetricsAggregator
         if (knee > SeatedKneeFlexion)
         {
             _seated = true;
+            _seatedSince ??= timestamp;
         }
         else if (knee < StandingKneeFlexion)
         {
@@ -138,6 +150,7 @@ public sealed class SessionMetricsAggregator
             }
 
             _seated = false;
+            _seatedSince = null;
         }
 
         static float Angle(float[] values, Joint joint) => (int)joint < values.Length ? values[(int)joint] : float.NaN;
@@ -153,7 +166,12 @@ public sealed class SessionMetricsAggregator
         _lastLux,
         _proximity,
         _thermal,
-        new Dictionary<SensorKind, long>(_counts));
+        new Dictionary<SensorKind, long>(_counts))
+    {
+        SitToStandCount = _sitToStand,
+        SeatedSince = _seatedSince,
+        FingerTaps = _fingerTaps.Count,
+    };
 
     public SessionSummary Build(double durationSeconds, AudioFeatures? audio, long dropped)
     {

@@ -86,6 +86,80 @@ public class ClinicalTestTests
     }
 
     [Fact]
+    public void Five_rises_complete_the_test_when_seated_again_and_time_stops_at_sitting()
+    {
+        var aggregator = new SessionMetricsAggregator(CaptureMode.BodyLidar);
+        var tracker = new TestCompletionTracker(ClinicalTests.FiveTimesSitToStand.Completion!);
+        var t = 0.0;
+        double? Knee(float degrees)
+        {
+            var values = new float[JointAngleCalculator.JointCount + 2];
+            Array.Fill(values, float.NaN);
+            values[(int)Joint.LeftKneeFlexion] = degrees;
+            values[(int)Joint.RightKneeFlexion] = degrees;
+            aggregator.Add(new SensorReading(SensorKind.JointAngles, t += 0.1, values));
+            return tracker.Update(aggregator.Snapshot());
+        }
+
+        // Un'alzata fatta mentre la voce spiega, prima del «Via», non conta.
+        aggregator.Add(new SensorReading(SensorKind.JointAngles, 0, Angles(90)));
+        aggregator.Add(new SensorReading(SensorKind.JointAngles, 0, Angles(10)));
+        Assert.Null(Knee(90));
+
+        for (var rise = 1; rise <= 5; rise++)
+        {
+            Assert.Null(Knee(10));
+            Assert.Equal(rise, tracker.Done);
+            if (rise < 5)
+            {
+                Assert.Null(Knee(90));
+                Assert.Null(Knee(90));
+                Assert.Null(Knee(90));
+                Assert.Null(Knee(90));
+            }
+        }
+
+        // Quinta seduta: completato solo dopo 0,3 s da seduto, ma il tempo è quello in cui si è seduto.
+        Assert.Null(Knee(90));
+        var seatedAt = t;
+        Assert.Null(Knee(92));
+        Assert.Null(Knee(91));
+        Assert.Equal(seatedAt, Knee(90)!.Value, 6);
+
+        static float[] Angles(float knee)
+        {
+            var values = new float[JointAngleCalculator.JointCount + 2];
+            Array.Fill(values, float.NaN);
+            values[(int)Joint.LeftKneeFlexion] = knee;
+            values[(int)Joint.RightKneeFlexion] = knee;
+            return values;
+        }
+    }
+
+    [Fact]
+    public void Ten_taps_after_the_start_complete_finger_tapping()
+    {
+        var rule = ClinicalTests.FingerTapping.Completion!;
+        var tracker = new TestCompletionTracker(rule);
+        LiveMetrics Live(int taps, double elapsed) =>
+            new(elapsed, null, null, null, null, 0, null, false, 0, new Dictionary<SensorKind, long>()) { FingerTaps = taps };
+
+        // Tre tocchi di prova durante la spiegazione: il conteggio parte dal «Via».
+        Assert.Null(tracker.Update(Live(3, 5)));
+        Assert.Null(tracker.Update(Live(12, 9)));
+        Assert.Equal(9, tracker.Done);
+        Assert.Equal(9.4, tracker.Update(Live(13, 9.4)));
+        Assert.Equal(rule.Count, tracker.Required);
+    }
+
+    [Fact]
+    public void Only_tests_with_a_recognisable_task_close_by_themselves()
+    {
+        Assert.Equal(["tug", "5tsts", "ftap"], ClinicalTests.All.Where(t => t.Completion is not null).Select(t => t.Id));
+        Assert.All(ClinicalTests.All, t => Assert.False(t.Completion is not null && t.AutoStopSeconds is not null));
+    }
+
+    [Fact]
     public void Every_test_has_instructions_reference_and_source()
     {
         Assert.Equal(ClinicalTests.All.Count, ClinicalTests.All.Select(t => t.Id).Distinct().Count());
