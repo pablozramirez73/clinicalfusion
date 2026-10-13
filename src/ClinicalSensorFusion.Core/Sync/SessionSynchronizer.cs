@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -65,12 +66,12 @@ public sealed class SessionSynchronizer(
         var session = await repository.GetSessionAsync(sessionId, ct).ConfigureAwait(false);
         if (session is null)
         {
-            return new SyncReport(0, 0, 0, ["Rilevazione non trovata."]);
+            return new SyncReport(0, 0, 0, [Loc.T("Rilevazione non trovata.")]);
         }
 
         if (session.EndedAt is null)
         {
-            return new SyncReport(0, 0, 0, ["La rilevazione è incompleta: non può essere inviata."]);
+            return new SyncReport(0, 0, 0, [Loc.T("La rilevazione è incompleta: non può essere inviata.")]);
         }
 
         try
@@ -175,8 +176,8 @@ public sealed class SessionSynchronizer(
             // Mai "sincronizzata" con audio mancante: l'operatore deve saperlo, e sul server la registrazione
             // resta senza file. Dati e altri audio sono già arrivati (invio idempotente).
             throw new FileNotFoundException(missingAudio == 1
-                ? "Un file audio non è più sul dispositivo: la rilevazione è stata inviata senza quell'audio e resta da sincronizzare."
-                : $"{missingAudio} file audio non sono più sul dispositivo: la rilevazione è stata inviata senza quegli audio e resta da sincronizzare.");
+                ? Loc.T("Un file audio non è più sul dispositivo: la rilevazione è stata inviata senza quell'audio e resta da sincronizzare.")
+                : Loc.F("{0} file audio non sono più sul dispositivo: la rilevazione è stata inviata senza quegli audio e resta da sincronizzare.", missingAudio));
         }
 
         await repository.MarkSyncedAsync(session.Id, DateTimeOffset.UtcNow, ct).ConfigureAwait(false);

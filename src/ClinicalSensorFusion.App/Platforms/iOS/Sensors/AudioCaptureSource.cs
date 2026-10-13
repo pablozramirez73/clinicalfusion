@@ -50,12 +50,12 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         EnsureFreeSpace();
 
         var session = AVAudioSession.SharedInstance();
-        Check(session.SetCategory(AVAudioSessionCategory.PlayAndRecord, AVAudioSessionCategoryOptions.DefaultToSpeaker | AVAudioSessionCategoryOptions.AllowBluetoothA2DP), "categoria");
+        Check(session.SetCategory(AVAudioSessionCategory.PlayAndRecord, AVAudioSessionCategoryOptions.DefaultToSpeaker | AVAudioSessionCategoryOptions.AllowBluetoothA2DP), Loc.T("categoria"));
         session.SetMode(AVAudioSessionMode.Measurement, out var modeError);
-        Check(modeError, "modalità misura");
+        Check(modeError, Loc.T("modalità misura"));
         session.SetPreferredSampleRate(AudioRecording.SampleRate, out _);
         session.SetActive(true, out var activeError);
-        Check(activeError, "attivazione");
+        Check(activeError, Loc.T("attivazione"));
 
         var recording = new AudioRecording
         {
@@ -77,7 +77,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
             LinearPcmNonInterleaved = false,
         };
         _file = new AVAudioFile(NSUrl.FromFilename(path), settings, AVAudioCommonFormat.PCMFloat32, interleaved: false, out var fileError);
-        Check(fileError, "creazione file");
+        Check(fileError, Loc.T("creazione file"));
 
         // Protezione dati iOS: file cifrato a dispositivo bloccato, ma scrivibile se già aperto.
         NSFileManager.DefaultManager.SetAttributes(new NSFileAttributes { ProtectionKey = NSFileProtection.CompleteUnlessOpen }, path, out _);
@@ -94,7 +94,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         _engine.Prepare();
         if (!_engine.StartAndReturnError(out var startError))
         {
-            Check(startError, "avvio motore audio");
+            Check(startError, Loc.T("avvio motore audio"));
         }
 
         _recording = recording;

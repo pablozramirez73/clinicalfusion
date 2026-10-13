@@ -1,9 +1,10 @@
 using ClinicalSensorFusion.App.Controls;
 using ClinicalSensorFusion.App.Platforms.iOS.Services;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using Metal;
-using Microsoft.Extensions.DependencyInjection;
 using MetalKit;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Handlers;
 
 namespace ClinicalSensorFusion.App.Platforms.iOS.Rendering;
@@ -29,7 +30,7 @@ internal sealed class CapturePreviewHandler : ViewHandler<CapturePreview, MTKVie
 
     protected override MTKView CreatePlatformView()
     {
-        var device = MTLDevice.SystemDefault ?? throw new NotSupportedException("Metal non disponibile.");
+        var device = MTLDevice.SystemDefault ?? throw new NotSupportedException(Loc.T("Metal non disponibile."));
         _renderer = new ArPreviewRenderer(device, Engine.Ar);
         return new MTKView(CoreGraphics.CGRect.Empty, device)
         {

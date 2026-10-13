@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
@@ -88,7 +89,7 @@ internal static class Migrations
         if (current > Steps.Length)
         {
             throw new InvalidOperationException(
-                $"Il database è alla versione {current}, più recente di quella supportata ({Steps.Length}).");
+                Loc.F("Il database è alla versione {0}, più recente di quella supportata ({1}).", current, Steps.Length));
         }
 
         for (var version = current + 1; version <= Steps.Length; version++)

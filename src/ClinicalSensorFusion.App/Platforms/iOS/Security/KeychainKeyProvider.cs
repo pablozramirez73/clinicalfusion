@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using Foundation;
 using Security;
@@ -34,7 +35,7 @@ internal sealed class KeychainKeyProvider : IDatabaseKeyProvider
 
         if (status != SecStatusCode.ItemNotFound && status != SecStatusCode.Success)
         {
-            throw new InvalidOperationException($"Portachiavi non accessibile ({status}).");
+            throw new InvalidOperationException(Loc.F("Portachiavi non accessibile ({0}).", status));
         }
 
         var key = RandomNumberGenerator.GetBytes(32);
@@ -50,7 +51,7 @@ internal sealed class KeychainKeyProvider : IDatabaseKeyProvider
         var added = SecKeyChain.Add(record);
         if (added != SecStatusCode.Success)
         {
-            throw new InvalidOperationException($"Impossibile salvare la chiave nel Portachiavi ({added}).");
+            throw new InvalidOperationException(Loc.F("Impossibile salvare la chiave nel Portachiavi ({0}).", added));
         }
 
         return Task.FromResult(key);
