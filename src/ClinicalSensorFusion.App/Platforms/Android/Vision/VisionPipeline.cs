@@ -306,6 +306,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     private readonly struct ViewMapping
     {
         private readonly ImageOrientation _orientation;
+        private readonly bool _mirrored;
         private readonly float _scaleX;
         private readonly float _scaleY;
 
@@ -318,6 +319,8 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
                 270 => ImageOrientation.Left,
                 _ => ImageOrientation.Up,
             };
+            // L'anteprima della fotocamera frontale è specchiata (come uno specchio), i fotogrammi analizzati no.
+            _mirrored = frame.FrontCamera;
 
             // L'anteprima riempie la vista ritagliando l'eccedenza al centro: stessa scala sui due assi.
             var sideways = frame.RotationDegrees is 90 or 270;
@@ -337,9 +340,12 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
 
         public OverlayPoint ToView(float x, float y, bool valid, OverlayPointKind kind)
         {
-            // Nessuna specchiatura per la fotocamera frontale: sul telefono di prova (Moto G77) anteprima e
-            // punti raddrizzati coincidono già; specchiandoli finivano sul lato opposto del volto.
             var (u, v) = OrientationMapper.ToOriented(x, y, _orientation);
+            if (_mirrored)
+            {
+                u = 1 - u;
+            }
+
             return new OverlayPoint(0.5f + ((u - 0.5f) * _scaleX), 0.5f + ((v - 0.5f) * _scaleY), valid, kind);
         }
     }

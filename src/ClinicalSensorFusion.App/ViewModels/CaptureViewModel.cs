@@ -101,8 +101,15 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     public IReadOnlyList<TestOption> Tests { get; private set; } = [new TestOption(null, "Rilevazione libera")];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint))]
+    [NotifyPropertyChangedFor(nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint), nameof(SetupSummary))]
     public partial TestOption SelectedTest { get; set; }
+
+    /// <summary>
+    /// Test e codice soggetto in una riga, sempre visibile sul pannello abbassato: dice che cosa si sta per
+    /// registrare e fa da ingresso ai parametri (toccandola il pannello si alza).
+    /// </summary>
+    public string SetupSummary =>
+        $"{SelectedTest?.Title ?? "Rilevazione libera"} · {(string.IsNullOrWhiteSpace(SubjectCode) ? "codice soggetto da inserire" : SubjectCode.Trim())}";
 
     public ClinicalTest? Test => ShowTests ? SelectedTest?.Test : null;
 
@@ -155,6 +162,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
+    [NotifyPropertyChangedFor(nameof(SetupSummary))]
     public partial string SubjectCode { get; set; } = string.Empty;
 
     [ObservableProperty]
