@@ -199,5 +199,10 @@ input[type='range'] { padding: 0; accent-color: var(--cyan); }
   .table { display: block; overflow-x: auto; }
 }
 
-/* Scelta della lingua: compatta, nel piede della barra laterale e nel riquadro di accesso. */
-select.language { width: auto; align-self: flex-start; padding: 4px 8px; font-size: 12px; }
+/* Scelta della lingua: sempre con la sua etichetta, nel piede della barra laterale e nel riquadro di accesso. */
+label.language { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 0.85rem; }
+label.language select { width: auto; padding: 6px 10px; font-size: 0.85rem; }
+/* Nel piede della barra il selettore occupa una riga intera, sopra nome utente ed «Esci». */
+.sidebar-footer { flex-wrap: wrap; }
+.sidebar-footer label.language { flex: 0 0 100%; flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 10px; }
+.sidebar-footer label.language select { width: 100%; }
