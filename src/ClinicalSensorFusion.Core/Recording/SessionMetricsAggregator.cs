@@ -40,6 +40,7 @@ public sealed class SessionMetricsAggregator
     private readonly TremorAnalyzer _tremor = new();
     private readonly List<float> _distances = [];
     private readonly FingerTapAnalyzer _fingerTaps = new();
+    private readonly SensorStreamStats _sensors = new();
 
     private double _elapsed;
     private float[]? _lastAngles;
@@ -68,6 +69,7 @@ public sealed class SessionMetricsAggregator
     {
         _counts[r.Kind] = _counts.GetValueOrDefault(r.Kind) + 1;
         _elapsed = Math.Max(_elapsed, r.Timestamp);
+        _sensors.Add(r);
         var v = r.Values;
 
         switch (r.Kind)
@@ -214,6 +216,7 @@ public sealed class SessionMetricsAggregator
             MedianSubjectDistanceMeters = medianDistance,
             SitToStandCount = _poseFrames > 0 ? _sitToStand : null,
             FingerTaps = _fingerTaps.Build(),
+            Sensors = _sensors.Build(),
             SampleCounts = new Dictionary<SensorKind, long>(_counts),
             DroppedSamples = dropped,
         };

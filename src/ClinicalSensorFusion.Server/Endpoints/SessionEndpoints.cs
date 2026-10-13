@@ -107,7 +107,7 @@ public static class SessionEndpoints
     }
 
     private static async Task<Results<Ok<SessionDetail>, NotFound>> GetAsync(
-        string id, ClinicalDbContext db, AuditService audit, AudioStorage storage, HttpContext http, CancellationToken ct)
+        string id, ClinicalDbContext db, AuditService audit, AudioStorage storage, SessionAnalytics analytics, HttpContext http, CancellationToken ct)
     {
         var s = await db.Sessions.AsNoTracking()
             .Include(x => x.Patient)
@@ -127,6 +127,11 @@ public static class SessionEndpoints
             .ToDictionaryAsync(x => x.Kind, x => x.Samples, ct);
 
         var summary = s.SummaryJson is null ? null : JsonSerializer.Deserialize(s.SummaryJson, CsfJsonContext.Default.SessionSummary);
+        if (summary is { Sensors: null })
+        {
+            summary = summary with { Sensors = await analytics.GetSensorSummaryAsync(id, ct) };
+        }
+
         var report = summary is null ? [] : SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
 
         audit.Record(http.User, "session.read", id);

@@ -41,6 +41,24 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
         return readings;
     }
 
+    /// <summary>
+    /// Statistiche dei sensori ambientali ricalcolate dai blocchi archiviati: per le rilevazioni inviate da
+    /// una versione dell'app che non le metteva ancora nel riepilogo.
+    /// </summary>
+    public async Task<Dictionary<SensorKind, SensorStreamSummary>> GetSensorSummaryAsync(string sessionId, CancellationToken ct)
+    {
+        var stats = new SensorStreamStats();
+        foreach (var kind in SensorStreamStats.Kinds)
+        {
+            foreach (var reading in await ReadStreamAsync(sessionId, kind, ct))
+            {
+                stats.Add(reading);
+            }
+        }
+
+        return stats.Build();
+    }
+
     public async Task<PoseReplay> GetPoseReplayAsync(string sessionId, int maxFrames, CancellationToken ct)
     {
         var poses = await ReadStreamAsync(sessionId, SensorKind.PoseLandmarks3D, ct);

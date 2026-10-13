@@ -1,5 +1,6 @@
 using System.Globalization;
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.Core.Domain;
@@ -85,6 +86,20 @@ public static class SummaryReport
             rows.Add(new("Voce e suoni (microfono)", "Saturazione", string.Format(c, "{0:P2}", audio.ClippingRatio), audio.ClippingRatio > 0.001));
         }
 
+        foreach (var (kind, stream) in (s.Sensors ?? []).OrderBy(k => k.Key))
+        {
+            if (kind == SensorKind.Location)
+            {
+                AddLocation(rows, stream, c);
+                continue;
+            }
+
+            foreach (var channel in stream.Channels)
+            {
+                rows.Add(new(SensorsSection, $"{StreamName(kind)} · {channel.Name}", Describe(channel, c)));
+            }
+        }
+
         foreach (var (kind, count) in s.SampleCounts.OrderBy(k => k.Key))
         {
             rows.Add(new("Qualità del dato", StreamName(kind), string.Format(c, "{0:N0} campioni", count)));
@@ -92,6 +107,39 @@ public static class SummaryReport
 
         rows.Add(new("Qualità del dato", "Campioni persi", s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
         return rows;
+    }
+
+    public const string SensorsSection = "Sensori ambientali";
+
+    /// <summary>Un solo valore se il canale non è mai cambiato, altrimenti intervallo e media.</summary>
+    private static string Describe(ChannelStats ch, CultureInfo c)
+    {
+        var unit = ch.Unit.Length > 0 ? " " + ch.Unit : string.Empty;
+        return ch.Min == ch.Max
+            ? string.Format(c, "{0:0.##}{1}", ch.Last, unit)
+            : string.Format(c, "{0:0.##}–{1:0.##}{3} (media {2:0.##}, ultimo {4:0.##})", ch.Min, ch.Max, ch.Mean, unit, ch.Last);
+    }
+
+    /// <summary>La posizione si legge come coppia di coordinate, non come cinque statistiche separate.</summary>
+    private static void AddLocation(List<SummaryRow> rows, SensorStreamSummary stream, CultureInfo c)
+    {
+        var name = StreamName(SensorKind.Location);
+        var byName = stream.Channels.ToDictionary(ch => ch.Name);
+        if (byName.TryGetValue("Latitudine", out var lat) && byName.TryGetValue("Longitudine", out var lon))
+        {
+            rows.Add(new(SensorsSection, $"{name} · Posizione", string.Format(CultureInfo.InvariantCulture, "{0:F5}, {1:F5}", lat.Last, lon.Last)));
+            rows.Add(new(SensorsSection, $"{name} · Rilevamenti", lat.Samples.ToString("N0", c)));
+        }
+
+        if (byName.TryGetValue("Accuratezza orizzontale", out var accuracy))
+        {
+            rows.Add(new(SensorsSection, $"{name} · Accuratezza", string.Format(c, "±{0:F0} m (migliore ±{1:F0} m)", accuracy.Last, accuracy.Min), accuracy.Min > 50));
+        }
+
+        foreach (var channel in stream.Channels.Where(ch => ch.Name is "Altitudine" or "Velocità"))
+        {
+            rows.Add(new(SensorsSection, $"{name} · {channel.Name}", Describe(channel, c)));
+        }
     }
 
     public static string StreamName(SensorKind kind) => kind switch

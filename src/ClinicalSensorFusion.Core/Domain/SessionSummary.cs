@@ -1,12 +1,14 @@
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
 
 namespace ClinicalSensorFusion.Core.Domain;
 
 /// <summary>
-/// Indicatori sintetici calcolati a fine rilevazione. Viene serializzato in JSON nel DB e
-/// costituisce l'unico contenuto inviato al modello linguistico (nessun dato grezzo, nessun identificativo).
+/// Indicatori sintetici calcolati a fine rilevazione. Viene serializzato in JSON nel DB e inviato al server.
+/// Al modello linguistico e nella condivisione va la versione <see cref="WithoutLocation"/>: nessun dato
+/// grezzo, nessun identificativo, nessuna posizione.
 /// </summary>
 public sealed record SessionSummary
 {
@@ -39,10 +41,26 @@ public sealed record SessionSummary
     /// <summary>Esito del test standardizzato scelto dall'operatore (null per una rilevazione libera).</summary>
     public TestOutcome? Test { get; init; }
 
+    /// <summary>
+    /// Ciò che hanno segnalato i sensori ambientali accesi (barometro, GPS, luce, prossimità, stato del
+    /// dispositivo, LiDAR, livelli audio, pedometro): statistiche per canale. Null nelle rilevazioni
+    /// precedenti all'introduzione del campo.
+    /// </summary>
+    public Dictionary<SensorKind, SensorStreamSummary>? Sensors { get; init; }
+
     public Dictionary<SensorKind, long> SampleCounts { get; init; } = [];
 
     /// <summary>Campioni scartati per saturazione della coda (indice di qualità dell'acquisizione).</summary>
     public long DroppedSamples { get; init; }
+
+    /// <summary>
+    /// Copia senza le coordinate GPS: dove è stata fatta la rilevazione (spesso il domicilio del paziente)
+    /// identifica la persona, quindi non deve uscire verso il modello linguistico né nella condivisione.
+    /// </summary>
+    public SessionSummary WithoutLocation() =>
+        Sensors is null || !Sensors.ContainsKey(SensorKind.Location)
+            ? this
+            : this with { Sensors = Sensors.Where(s => s.Key != SensorKind.Location).ToDictionary(s => s.Key, s => s.Value) };
 }
 
 /// <summary>Riepilogo del cammino dal pedometro di iOS.</summary>

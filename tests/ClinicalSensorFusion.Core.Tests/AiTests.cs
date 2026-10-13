@@ -198,6 +198,11 @@ public class ClinicalPromptBuilderTests
             {
                 DurationSeconds = 60,
                 JointRanges = new() { [Joint.RightKneeFlexion] = new JointRange(2, 118, 40, 900) },
+                Sensors = new()
+                {
+                    [Core.Sensors.SensorKind.Location] = new([new("Latitudine", "°", 45.46421, 45.46421, 45.46421, 45.46421, 45.46421, 1)]),
+                    [Core.Sensors.SensorKind.Barometer] = new([new("Pressione", "kPa", 101.25, 101.25, 101.25, 101.25, 101.25, 1)]),
+                },
             },
         };
 
@@ -207,6 +212,10 @@ public class ClinicalPromptBuilderTests
         Assert.Contains("RightKneeFlexion", all, StringComparison.Ordinal);
         Assert.Contains("118", all, StringComparison.Ordinal);
         Assert.DoesNotContain("MARIO", all, StringComparison.Ordinal);
+        // I sensori ambientali sì, le coordinate GPS no.
+        Assert.Contains("101.25", all, StringComparison.Ordinal);
+        Assert.DoesNotContain("45.46", all, StringComparison.Ordinal);
+        Assert.DoesNotContain("atitud", all, StringComparison.Ordinal);
         Assert.DoesNotContain("Bianchi", all, StringComparison.Ordinal);
         Assert.Contains("<<<", all, StringComparison.Ordinal);
     }

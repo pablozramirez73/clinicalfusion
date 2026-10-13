@@ -112,6 +112,52 @@ public class ClinicalTestTests
     }
 
     [Fact]
+    public void Every_enabled_ambient_sensor_is_summarised_per_channel()
+    {
+        var aggregator = new SessionMetricsAggregator(CaptureMode.BodyLidar);
+        aggregator.Add(new SensorReading(SensorKind.Barometer, 0, [0f, 101.2f]));
+        aggregator.Add(new SensorReading(SensorKind.Barometer, 1, [0.5f, 101.0f]));
+        aggregator.Add(new SensorReading(SensorKind.Location, 0, [45.46421f, 9.18998f, 120f, 30f, 0f]));
+        aggregator.Add(new SensorReading(SensorKind.Location, 5, [45.46425f, 9.19002f, 121f, 8f, 0.4f]));
+        // Android: solo i lux, la temperatura colore non esiste (NaN).
+        aggregator.Add(new SensorReading(SensorKind.AmbientLight, 0, [300f, float.NaN]));
+        aggregator.Add(new SensorReading(SensorKind.AmbientLight, 1, [500f, float.NaN]));
+        aggregator.Add(new SensorReading(SensorKind.DeviceState, 0, [1f, 0.82f]));
+        aggregator.Add(new SensorReading(SensorKind.Motion, 0, new float[16]));
+
+        var summary = aggregator.Build(5, null, 0);
+        var sensors = summary.Sensors!;
+
+        Assert.Equal([SensorKind.Barometer, SensorKind.Location, SensorKind.AmbientLight, SensorKind.DeviceState], sensors.Keys);
+        var pressure = Assert.Single(sensors[SensorKind.Barometer].Channels, c => c.Name == "Pressione");
+        Assert.Equal("kPa", pressure.Unit);
+        Assert.Equal(101.0, pressure.Min, 3);
+        Assert.Equal(101.2, pressure.Max, 3);
+        Assert.Equal(101.1, pressure.Mean, 3);
+        Assert.Equal(101.2, pressure.First, 3);
+        Assert.Equal(101.0, pressure.Last, 3);
+        Assert.Equal(2, pressure.Samples);
+        Assert.Equal("Intensità", Assert.Single(sensors[SensorKind.AmbientLight].Channels).Name);
+
+        var report = SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        Assert.Contains(report, r => r is { Section: SummaryReport.SensorsSection, Label: "GPS · Posizione", Value: "45.46425, 9.19002" });
+        Assert.Contains(report, r => r.Label == "GPS · Accuratezza" && r.Value == "±8 m (migliore ±8 m)" && !r.Warning);
+        Assert.Contains(report, r => r.Label == "Luce ambientale · Intensità" && r.Value.StartsWith("300–500", StringComparison.Ordinal));
+        Assert.Contains(report, r => r.Label == "Stato dispositivo · Batteria" && r.Value == "0,82 0–1");
+
+        // Il riepilogo si rilegge identico dal JSON che va al server.
+        var json = System.Text.Json.JsonSerializer.Serialize(summary, ClinicalSensorFusion.Core.Persistence.CsfJsonContext.Default.SessionSummary);
+        var back = System.Text.Json.JsonSerializer.Deserialize(json, ClinicalSensorFusion.Core.Persistence.CsfJsonContext.Default.SessionSummary)!;
+        Assert.Equal(pressure, back.Sensors![SensorKind.Barometer].Channels.Single(c => c.Name == "Pressione"));
+
+        // Verso il modello linguistico e nella condivisione le coordinate non escono.
+        var shared = summary.WithoutLocation();
+        Assert.DoesNotContain(SensorKind.Location, shared.Sensors!.Keys);
+        Assert.Contains(SensorKind.Barometer, shared.Sensors.Keys);
+        Assert.Contains(SensorKind.Location, summary.Sensors!.Keys);
+    }
+
+    [Fact]
     public void Five_rises_complete_the_test_when_seated_again_and_time_stops_at_sitting()
     {
         var aggregator = new SessionMetricsAggregator(CaptureMode.BodyLidar);

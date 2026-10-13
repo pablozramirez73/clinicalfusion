@@ -61,6 +61,8 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         var detail = (await clinician.GetFromJsonAsync<SessionDetail>($"api/v1/sessions/{session.Id}", Ct))!;
         Assert.Equal(CaptureMode.BodyLidar, detail.Mode);
         Assert.Contains(detail.Report, r => r.Label == "Flessione ginocchio dx");
+        Assert.Contains(detail.Report, r => r is { Section: "Sensori ambientali", Label: "GPS · Posizione", Value: "45.46421, 9.18998" });
+        Assert.Contains(detail.Report, r => r.Label == "Luce ambientale · Intensità" && r.Value.StartsWith("400–440", StringComparison.Ordinal));
         Assert.Equal(150, detail.Streams[SensorKind.PoseLandmarks3D]);
         Assert.Equal(1000, detail.Streams[SensorKind.Motion]);
         Assert.True(Assert.Single(detail.Audio).Available);
@@ -161,6 +163,13 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
             var t = i / 100.0;
             var tremor = (float)(0.03 * Math.Sin(2 * Math.PI * 6 * t));
             recorder.TryWrite(new SensorReading(SensorKind.Motion, t, [tremor, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0]));
+        }
+
+        // Sensori ambientali accesi durante la rilevazione.
+        recorder.TryWrite(new SensorReading(SensorKind.Location, 1, [45.46421f, 9.18998f, 120f, 12f, 0f]));
+        for (var i = 0; i < 5; i++)
+        {
+            recorder.TryWrite(new SensorReading(SensorKind.AmbientLight, i, [400 + (i * 10), 4800]));
         }
 
         var features = new AudioFeatures(0.1, -20, -12, 100, 0.5, 0);

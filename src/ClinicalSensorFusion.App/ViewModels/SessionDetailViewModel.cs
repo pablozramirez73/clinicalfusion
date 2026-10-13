@@ -399,12 +399,12 @@ public sealed partial class SessionDetailViewModel(
             return;
         }
 
-        if (!await dialogs.ConfirmAsync("Condividi riepilogo", "Verrà condiviso solo il riepilogo numerico, senza codice soggetto né operatore. Procedere?", "Condividi"))
+        if (!await dialogs.ConfirmAsync("Condividi riepilogo", "Verrà condiviso solo il riepilogo numerico, senza codice soggetto, operatore né posizione GPS. Procedere?", "Condividi"))
         {
             return;
         }
 
-        var json = JsonSerializer.Serialize(_session.Summary, CsfJsonContext.Indented.SessionSummary);
+        var json = JsonSerializer.Serialize(_session.Summary.WithoutLocation(), CsfJsonContext.Indented.SessionSummary);
         await Share.Default.RequestAsync(new ShareTextRequest { Title = "Riepilogo rilevazione", Text = json });
     }
 }

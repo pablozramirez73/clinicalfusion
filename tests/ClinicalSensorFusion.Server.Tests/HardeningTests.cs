@@ -63,6 +63,20 @@ public sealed class IngestHardeningTests(ServerFixture server) : IClassFixture<S
     }
 
     [Fact]
+    public async Task Sessions_sent_before_the_sensor_summary_existed_get_it_from_their_stored_chunks()
+    {
+        var (id, audioId) = (Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"));
+        var owner = server.CreateDeviceClient();
+        var old = Session(id, audioId) with { Summary = new SessionSummary { DurationSeconds = 4, Mode = CaptureMode.BodyLidar } };
+        (await owner.PutAsJsonAsync($"api/v1/ingest/sessions/{id}", old, SyncJsonContext.Default.SessionUpload, Ct)).EnsureSuccessStatusCode();
+        (await owner.PostAsJsonAsync($"api/v1/ingest/sessions/{id}/chunks", new ChunkBatch([Chunk()]), SyncJsonContext.Default.ChunkBatch, Ct)).EnsureSuccessStatusCode();
+
+        var clinician = await server.CreateClinicianClientAsync();
+        var detail = (await clinician.GetFromJsonAsync<SessionDetail>($"api/v1/sessions/{id}", Ct))!;
+        Assert.Contains(detail.Report, r => r is { Section: "Sensori ambientali", Label: "Barometro · Pressione", Value: "101,2 kPa" });
+    }
+
+    [Fact]
     public async Task Chunks_that_cannot_be_decoded_within_limits_are_rejected_before_storage()
     {
         var (id, _, owner) = await CreateSessionAsync();

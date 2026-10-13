@@ -48,7 +48,8 @@ public static class ClinicalPromptBuilder
                 """;
         }
 
-        var summaryJson = JsonSerializer.Serialize(session.Summary, CsfJsonContext.Indented.SessionSummary);
+        // Senza le coordinate GPS: il luogo della rilevazione identifica il paziente.
+        var summaryJson = JsonSerializer.Serialize(session.Summary.WithoutLocation(), CsfJsonContext.Indented.SessionSummary);
         var user = new StringBuilder()
             .AppendLine(CultureInfo.InvariantCulture, $"Modalità di acquisizione: {Describe(session.Mode)}.")
             .AppendLine(CultureInfo.InvariantCulture, $"Durata: {session.Summary.DurationSeconds:F0} s.")
@@ -56,6 +57,7 @@ public static class ClinicalPromptBuilder
             .AppendLine("elevazione spalla = angolo tronco–braccio; caviglia = angolo interno gamba–piede (~90° neutro).")
             .AppendLine("Tremore: banda 3–12 Hz dall'accelerometro, ampiezza RMS in m/s².")
             .AppendLine("Audio: livelli in dBFS, ActiveRatio = frazione di tempo con segnale sopra −45 dBFS.")
+            .AppendLine("Sensors: statistiche per canale dei sensori ambientali (min, max, media, primo e ultimo valore), contesto dell'acquisizione.")
             .AppendLine()
             .AppendLine("Dati della rilevazione (JSON):")
             .AppendLine(summaryJson);

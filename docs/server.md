@@ -141,7 +141,7 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
 
 ## 7. Verifiche
 
-- **Server: 32 test di integrazione** su PostgreSQL reale. Coprono:
+- **Server: 33 test di integrazione** su PostgreSQL reale. Coprono:
   - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
   - stato del servizio, metriche, token JWT (anche contraffatti) e documentazione Swagger;
   - rifiuto dei blocchi non decodificabili e degli audio fuori misura, limiti di frequenza, registro di audit;
@@ -149,7 +149,7 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
   - anagrafica CRUD, validazione e concorrenza ottimistica;
   - percorso completo **DB cifrato del telefono → sincronizzatore → API → PostgreSQL → dashboard**, incluso il reinvio idempotente;
   - conversione CAF→WAV, path traversal e dati demo.
-- **Core: 91 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
+- **Core: 92 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
   modulo dell'accelerazione raddoppiava la frequenza) e la necessità di una soglia di significatività. Entrambi corretti.
 - **Dashboard:** typecheck TypeScript strict, test Vitest, build Vite e verifica visiva con Chromium headless
   (WebGL software) di tutte le pagine, senza errori in console.
