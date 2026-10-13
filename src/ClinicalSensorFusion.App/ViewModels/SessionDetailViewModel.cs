@@ -339,13 +339,21 @@ public sealed partial class SessionDetailViewModel(
             AnalysisText = string.Empty;
             await LoadAnalysesAsync();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_analysisCts.IsCancellationRequested)
         {
             AnalysisText = text.Append("\n\n[interrotta]").ToString();
         }
-        catch (Exception ex) when (ex is OllamaException or HttpRequestException)
+        catch (Exception ex) when (ex is OllamaException or HttpRequestException or OperationCanceledException)
         {
-            await dialogs.AlertAsync("Ollama non raggiungibile", ex.Message);
+            // Timeout, rete caduta o stream troncato: il testo parziale resta visibile ma non viene salvato.
+            if (text.Length > 0)
+            {
+                AnalysisText = text.Append("\n\n[incompleta: non salvata]").ToString();
+            }
+
+            await dialogs.AlertAsync(
+                "Analisi non completata",
+                ex is OperationCanceledException ? "Il server Ollama non ha risposto in tempo." : ex.Message);
         }
         finally
         {

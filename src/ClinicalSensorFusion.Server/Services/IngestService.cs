@@ -10,13 +10,53 @@ namespace ClinicalSensorFusion.Server.Services;
 /// <summary>
 /// Ricezione dei dati dall'app. Tutte le operazioni sono idempotenti: l'app ritenta dopo un'interruzione e
 /// il risultato finale non cambia (upsert della sessione, blocchi "insert se assente", audio sovrascritto).
+/// Ogni rilevazione appartiene al dispositivo che l'ha creata: una chiave valida non basta per modificare
+/// i dati inviati da un altro dispositivo.
 /// </summary>
 public sealed class IngestService(ClinicalDbContext db, AuditService audit, TimeProvider clock)
 {
-    public async Task<SessionEntity> UpsertSessionAsync(SessionUpload upload, ClaimsPrincipal device, CancellationToken ct)
+    /// <summary>
+    /// Vero se la rilevazione esiste ed è del dispositivo. Il tentativo su una rilevazione altrui finisce
+    /// nel registro di audit; al chiamante le due situazioni vanno presentate allo stesso modo (404).
+    /// </summary>
+    public async Task<bool> CanWriteAsync(string sessionId, ClaimsPrincipal device, CancellationToken ct)
+    {
+        var session = await db.Sessions.AsNoTracking()
+            .Where(s => s.Id == sessionId)
+            .Select(s => new { s.OwnerDevice })
+            .FirstOrDefaultAsync(ct);
+        if (session is null)
+        {
+            return false;
+        }
+
+        if (session.OwnerDevice == DeviceName(device))
+        {
+            return true;
+        }
+
+        await DenyAsync(device, sessionId, ct);
+        return false;
+    }
+
+    /// <returns>Null se la rilevazione esiste già ed è di un altro dispositivo (nessuna modifica).</returns>
+    public async Task<SessionEntity?> UpsertSessionAsync(SessionUpload upload, ClaimsPrincipal device, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var code = Patient.NormalizeCode(upload.SubjectCode);
+        var owner = DeviceName(device);
+
+        var session = await db.Sessions
+            .Include(s => s.Audio)
+            .Include(s => s.Analyses)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(s => s.Id == upload.Id, ct);
+
+        if (session is { OwnerDevice: not null } && session.OwnerDevice != owner)
+        {
+            await DenyAsync(device, upload.Id, ct);
+            return null;
+        }
 
         var patient = await db.Patients.FirstOrDefaultAsync(p => p.Code == code, ct);
         if (patient is null)
@@ -26,12 +66,6 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
             db.Patients.Add(patient);
             audit.Record(device, "patient.autocreate", code);
         }
-
-        var session = await db.Sessions
-            .Include(s => s.Audio)
-            .Include(s => s.Analyses)
-            .AsSplitQuery()
-            .FirstOrDefaultAsync(s => s.Id == upload.Id, ct);
 
         if (session is null)
         {
@@ -45,6 +79,9 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
             };
             db.Sessions.Add(session);
         }
+
+        // Anche per le righe senza proprietario (precedenti al vincolo): le adotta chi le reinvia per primo.
+        session.OwnerDevice = owner;
 
         session.Patient = patient;
         session.SubjectCode = code;
@@ -119,5 +156,14 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
 
         await tx.CommitAsync(ct);
         return inserted;
+    }
+
+    private static string DeviceName(ClaimsPrincipal device) =>
+        device.Identity?.Name ?? throw new InvalidOperationException("Dispositivo senza nome.");
+
+    private async Task DenyAsync(ClaimsPrincipal device, string sessionId, CancellationToken ct)
+    {
+        audit.Record(device, "ingest.denied", sessionId);
+        await db.SaveChangesAsync(ct);
     }
 }

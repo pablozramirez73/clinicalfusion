@@ -71,6 +71,107 @@ public class OllamaClientTests
     }
 
     [Fact]
+    public async Task A_stream_that_ends_without_done_is_an_error_not_a_complete_answer()
+    {
+        var ndjson = """
+            {"message":{"role":"assistant","content":"Il paziente"},"done":false}
+            {"message":{"role":"assistant","content":" mostra"},"done":false}
+            """;
+        var client = new OllamaClient(new HttpClient(new StubHandler(_ => Json(ndjson))));
+        var text = new StringBuilder();
+        var error = await Assert.ThrowsAsync<OllamaException>(async () =>
+        {
+            await foreach (var part in client.ChatStreamAsync(new Uri("http://h:11434/"), "m", [new("user", "x")], TestContext.Current.CancellationToken))
+            {
+                text.Append(part);
+            }
+        });
+
+        Assert.Equal("Il paziente mostra", text.ToString());
+        Assert.Contains("incompleto", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Stream che consegna una riga e poi non manda più nulla finché la lettura non viene annullata.</summary>
+    private sealed class StallingStream(byte[] head) : Stream
+    {
+        private int _position;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_position < head.Length)
+            {
+                var n = Math.Min(buffer.Length, head.Length - _position);
+                head.AsMemory(_position, n).CopyTo(buffer);
+                _position += n;
+                return n;
+            }
+
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private static OllamaClient StallingClient(TimeSpan idleTimeout) =>
+        new(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new StallingStream(Encoding.UTF8.GetBytes("""{"message":{"role":"assistant","content":"Ciao"},"done":false}""" + "\n"))),
+        })))
+        {
+            StreamIdleTimeout = idleTimeout,
+        };
+
+    [Fact]
+    public async Task A_stalled_stream_times_out_as_an_error_distinct_from_cancellation()
+    {
+        var parts = new List<string>();
+        await Assert.ThrowsAsync<OllamaException>(async () =>
+        {
+            await foreach (var part in StallingClient(TimeSpan.FromMilliseconds(100))
+                .ChatStreamAsync(new Uri("http://h:11434/"), "m", [new("user", "x")], TestContext.Current.CancellationToken))
+            {
+                parts.Add(part);
+            }
+        });
+
+        Assert.Equal(["Ciao"], parts);
+    }
+
+    [Fact]
+    public async Task Cancelling_the_stream_is_still_reported_as_cancellation()
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var part in StallingClient(TimeSpan.FromMinutes(5)).ChatStreamAsync(new Uri("http://h:11434/"), "m", [new("user", "x")], cts.Token))
+            {
+                await cts.CancelAsync();
+            }
+        });
+    }
+
+    [Fact]
     public async Task Html_login_page_is_reported_as_access_problem()
     {
         var client = new OllamaClient(new HttpClient(new StubHandler(_ =>

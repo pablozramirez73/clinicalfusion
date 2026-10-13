@@ -1,5 +1,9 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Demo;
 using ClinicalSensorFusion.Server.Endpoints;
@@ -8,7 +12,9 @@ using ClinicalSensorFusion.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 
 // Comandi di amministrazione (nessun segreto in chiaro nella configurazione):
@@ -49,6 +55,7 @@ services.AddHealthChecks().AddDbContextCheck<ClinicalDbContext>("database");
 services.Configure<IngestOptions>(builder.Configuration.GetSection("Ingest"));
 services.Configure<DashboardOptions>(builder.Configuration.GetSection("Dashboard"));
 services.Configure<AudioStorageOptions>(builder.Configuration.GetSection("AudioStorage"));
+services.AddHttpContextAccessor();
 services.AddSingleton<DashboardUserService>();
 services.AddSingleton<AudioStorage>();
 services.AddScoped<AuditService>();
@@ -76,13 +83,46 @@ services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Ingest, p => p.AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName).RequireRole(Roles.Device))
     .AddPolicy(Policies.Clinician, p => p.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme).RequireRole(Roles.Clinician));
 
-services.AddRateLimiter(o =>
+// Limiti letti dalle opzioni al primo uso (non qui): così valgono anche le configurazioni aggiunte dopo, es. nei test.
+services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimits"));
+services.AddRateLimiter(_ => { });
+services.AddOptions<RateLimiterOptions>().Configure<IOptions<RateLimitOptions>>((o, configured) =>
 {
+    var limits = configured.Value;
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    // Contro i tentativi di indovinare le password: 5 login al minuto per indirizzo IP.
-    o.AddPolicy(AuthEndpoints.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.OnRejected = (ctx, _) =>
+    {
+        if (ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            ctx.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+        }
+
+        return ValueTask.CompletedTask;
+    };
+
+    // Tetto generale per indirizzo IP: vale per ogni rotta e si somma ai limiti specifici qui sotto.
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => PerMinute(ClientIp(http), limits.GlobalPerMinute));
+    // Contro i tentativi di indovinare le password.
+    o.AddPolicy(AuthEndpoints.LoginRateLimit, http => PerMinute(ClientIp(http), limits.LoginPerMinute));
+    // Ingestione: per dispositivo, così un telefono non consuma il margine degli altri dietro lo stesso NAT.
+    o.AddPolicy(IngestEndpoints.RateLimit, http => PerMinute(DeviceOrIp(http), limits.IngestPerMinute));
+    // I file audio sono grandi (centinaia di MB): pochi alla volta per dispositivo, il resto riceve 429.
+    o.AddPolicy(IngestEndpoints.AudioRateLimit, http => RateLimitPartition.GetConcurrencyLimiter(
+        DeviceOrIp(http),
+        _ => new ConcurrencyLimiterOptions { PermitLimit = limits.ConcurrentAudioUploads, QueueLimit = 0 }));
+
+    static RateLimitPartition<string> PerMinute(string key, int permits) => RateLimitPartition.GetFixedWindowLimiter(
+        key,
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
+    static string ClientIp(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    // Il limiter gira prima dell'autenticazione: si partiziona sull'hash della chiave presentata. Chi ne
+    // inventa di nuove per avere altre partizioni resta comunque sotto il tetto per IP.
+    static string DeviceOrIp(HttpContext http) =>
+        http.Request.Headers.TryGetValue(ClinicalSyncClient.ApiKeyHeader, out var key) && key.Count == 1 && !string.IsNullOrEmpty(key[0])
+            ? "key:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key[0]!)), 0, 8)
+            : "ip:" + ClientIp(http);
 });
 
 services.Configure<ForwardedHeadersOptions>(o =>
@@ -125,9 +165,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
-api.MapAuth().MapPatients().MapSessions().MapDashboard().MapIngest();
+api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapIngest();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
-app.MapHealthChecks("/health").AllowAnonymous();
+app.MapHealthChecks("/health").AllowAnonymous().DisableRateLimiting();
 
 if (app.Environment.IsDevelopment())
 {

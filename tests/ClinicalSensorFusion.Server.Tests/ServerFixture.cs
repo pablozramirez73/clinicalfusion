@@ -12,6 +12,7 @@ namespace ClinicalSensorFusion.Server.Tests;
 public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string DeviceKey = "test-device-key-0123456789";
+    public const string OtherDeviceKey = "test-device-key-altro-telefono";
     public const string UserName = "dottoressa";
     /// <summary>Generata a ogni esecuzione: nessuna credenziale fissa nel repository.</summary>
     public static readonly string Password = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
@@ -23,6 +24,9 @@ public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifeti
     public string AudioRoot { get; } = Path.Combine(Path.GetTempPath(), "csf-audio-" + Guid.NewGuid().ToString("N"));
 
     public bool SeedDemo { get; init; }
+
+    /// <summary>Impostazioni aggiuntive (es. limiti di frequenza ridotti).</summary>
+    public Dictionary<string, string> Settings { get; init; } = [];
 
     private static string AdminConnectionString =>
         Environment.GetEnvironmentVariable("CSF_TEST_POSTGRES") ?? "Host=localhost;Username=postgres";
@@ -37,18 +41,24 @@ public sealed class ServerFixture : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("Demo:Seed", SeedDemo ? "true" : "false");
         builder.UseSetting("Ingest:Devices:0:Name", "iphone-test");
         builder.UseSetting("Ingest:Devices:0:KeySha256", ApiKeyAuthenticationHandler.Hash(DeviceKey));
+        builder.UseSetting("Ingest:Devices:1:Name", "android-test");
+        builder.UseSetting("Ingest:Devices:1:KeySha256", ApiKeyAuthenticationHandler.Hash(OtherDeviceKey));
         builder.UseSetting("Dashboard:Users:0:UserName", UserName);
         builder.UseSetting("Dashboard:Users:0:DisplayName", "Dott.ssa Test");
         builder.UseSetting("Dashboard:Users:0:PasswordHash", PasswordHash);
+        foreach (var (key, value) in Settings)
+        {
+            builder.UseSetting(key, value);
+        }
     }
 
     /// <summary>Client HTTPS (i cookie di sessione sono Secure fuori da Development).</summary>
     public HttpClient CreateHttpsClient() => CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost/") });
 
-    public HttpClient CreateDeviceClient()
+    public HttpClient CreateDeviceClient(string key = DeviceKey)
     {
         var client = CreateHttpsClient();
-        client.DefaultRequestHeaders.Add(ClinicalSyncClient.ApiKeyHeader, DeviceKey);
+        client.DefaultRequestHeaders.Add(ClinicalSyncClient.ApiKeyHeader, key);
         return client;
     }
 

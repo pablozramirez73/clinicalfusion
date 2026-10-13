@@ -30,6 +30,9 @@ public static class AuthEndpoints
         var user = users.Validate(request.UserName ?? "", request.Password ?? "");
         if (user is null)
         {
+            // Il nome tentato va nel registro (mai la password): serve a riconoscere i tentativi di intrusione.
+            audit.Record(http.User, "auth.login.failed", request.UserName);
+            await db.SaveChangesAsync();
             return TypedResults.Unauthorized();
         }
 
@@ -47,8 +50,10 @@ public static class AuthEndpoints
         return TypedResults.Ok(new CurrentUser(user.UserName, user.DisplayName ?? user.UserName));
     }
 
-    private static async Task<NoContent> LogoutAsync(HttpContext http)
+    private static async Task<NoContent> LogoutAsync(HttpContext http, AuditService audit, Data.ClinicalDbContext db)
     {
+        audit.Record(http.User, "auth.logout");
+        await db.SaveChangesAsync();
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return TypedResults.NoContent();
     }

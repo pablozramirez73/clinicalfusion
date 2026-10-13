@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Security;
@@ -11,22 +12,35 @@ namespace ClinicalSensorFusion.Server.Endpoints;
 /// <summary>API usata dall'app iOS (autenticazione con chiave del dispositivo).</summary>
 public static class IngestEndpoints
 {
+    /// <summary>Limite di richieste al minuto per dispositivo (metadati e blocchi).</summary>
+    public const string RateLimit = "ingest";
+
+    /// <summary>Limite di caricamenti audio contemporanei per dispositivo.</summary>
+    public const string AudioRateLimit = "ingest-audio";
+
     private const int MaxChunksPerBatch = 500;
+
+    /// <summary>Il registratore dell'app chiude i blocchi a 2.048 campioni: oltre questo valore non è un blocco reale.</summary>
+    private const int MaxSamplesPerChunk = 16_384;
 
     public static RouteGroupBuilder MapIngest(this RouteGroupBuilder api)
     {
         var g = api.MapGroup("/ingest").WithTags("Ingestione dall'app").RequireAuthorization(Policies.Ingest);
 
-        g.MapPut("/sessions/{id}", UpsertSessionAsync);
+        g.MapPut("/sessions/{id}", UpsertSessionAsync).RequireRateLimiting(RateLimit);
+        // L'app invia lotti da ~1,5 MB (2 MB in base64): 16 MB lasciano margine senza accettare richieste enormi.
         g.MapPost("/sessions/{id}/chunks", UploadChunksAsync)
-            .WithMetadata(new RequestSizeLimitAttribute(64L * 1024 * 1024));
+            .WithMetadata(new RequestSizeLimitAttribute(16L * 1024 * 1024))
+            .RequireRateLimiting(RateLimit);
+        // Tetto di Kestrel; il limite effettivo è AudioStorage:MaxFileBytes, applicato durante la scrittura.
         g.MapPut("/sessions/{id}/audio/{audioId}", UploadAudioAsync)
             .WithMetadata(new RequestSizeLimitAttribute(320L * 1024 * 1024))
+            .RequireRateLimiting(AudioRateLimit)
             .DisableAntiforgery();
         return api;
     }
 
-    private static async Task<Results<Ok, ValidationProblem>> UpsertSessionAsync(
+    private static async Task<Results<Ok, ValidationProblem, ProblemHttpResult>> UpsertSessionAsync(
         string id, SessionUpload upload, IngestService ingest, HttpContext http, CancellationToken ct)
     {
         var errors = new Dictionary<string, string[]>();
@@ -55,21 +69,38 @@ public static class IngestEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        await ingest.UpsertSessionAsync(upload, http.User, ct);
+        if (await ingest.UpsertSessionAsync(upload, http.User, ct) is null)
+        {
+            // 409 e non 403: per l'app un 403 significa "chiave revocata" e fermerebbe tutta la coda di invio.
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                detail: "La rilevazione è già stata registrata da un altro dispositivo.");
+        }
+
         return TypedResults.Ok();
     }
 
     private static async Task<Results<Ok<ChunkBatchResult>, NotFound, ValidationProblem>> UploadChunksAsync(
-        string id, ChunkBatch batch, ClinicalDbContext db, IngestService ingest, CancellationToken ct)
+        string id, ChunkBatch batch, IngestService ingest, HttpContext http, CancellationToken ct)
     {
         if (batch.Chunks.Count is 0 or > MaxChunksPerBatch || batch.Chunks.Any(c => c.Payload is null || c.Payload.Length == 0 || c.Sequence < 0))
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["chunks"] = [$"Da 1 a {MaxChunksPerBatch} blocchi non vuoti."] });
         }
 
-        if (!await db.Sessions.AnyAsync(s => s.Id == id, ct))
+        if (!await ingest.CanWriteAsync(id, http.User, ct))
         {
             return TypedResults.NotFound();
+        }
+
+        // I blocchi si salvano così come arrivano e si decodificano quando un clinico apre la rilevazione:
+        // ciò che non è decodificabile entro i limiti (anche una "bomba" di decompressione) si rifiuta qui.
+        foreach (var c in batch.Chunks)
+        {
+            if (InvalidChunk(c) is { } problem)
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["chunks"] = [$"Blocco {c.Kind} n. {c.Sequence}: {problem}"] });
+            }
         }
 
         var inserted = await ingest.InsertChunksAsync(id, batch.Chunks, ct);
@@ -77,11 +108,22 @@ public static class IngestEndpoints
     }
 
     private static async Task<Results<Ok, NotFound, ValidationProblem>> UploadAudioAsync(
-        string id, string audioId, HttpRequest request, ClinicalDbContext db, AudioStorage storage, TimeProvider clock, CancellationToken ct)
+        string id, string audioId, HttpRequest request, ClinicalDbContext db, IngestService ingest, AuditService audit,
+        AudioStorage storage, TimeProvider clock, CancellationToken ct)
     {
         if (!AudioStorage.IsValidId(id) || !AudioStorage.IsValidId(audioId))
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["id"] = ["Identificativo non valido."] });
+        }
+
+        if (request.ContentLength > storage.MaxFileBytes)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["File audio troppo grande."] });
+        }
+
+        if (!await ingest.CanWriteAsync(id, request.HttpContext.User, ct))
+        {
+            return TypedResults.NotFound();
         }
 
         var recording = await db.AudioRecordings.FirstOrDefaultAsync(a => a.Id == audioId && a.SessionId == id, ct);
@@ -97,12 +139,33 @@ public static class IngestEndpoints
             recording.StoragePath = path;
             recording.SizeBytes = size;
             recording.UploadedAt = clock.GetUtcNow();
+            audit.Record(request.HttpContext.User, "audio.ingest", audioId);
             await db.SaveChangesAsync(ct);
             return TypedResults.Ok();
         }
         catch (InvalidDataException ex)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["file"] = [ex.Message] });
+        }
+    }
+
+    private static string? InvalidChunk(ChunkUpload chunk)
+    {
+        if (!Enum.IsDefined(chunk.Kind))
+        {
+            return "tipo di flusso sconosciuto.";
+        }
+
+        try
+        {
+            var samples = SensorChunkCodec.CountSamples(chunk.Payload);
+            return samples != chunk.SampleCount || samples is 0 or > MaxSamplesPerChunk
+                ? "numero di campioni non valido."
+                : null;
+        }
+        catch (InvalidDataException ex)
+        {
+            return ex.Message;
         }
     }
 }

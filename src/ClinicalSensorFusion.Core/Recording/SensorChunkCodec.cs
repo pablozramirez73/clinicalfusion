@@ -59,26 +59,21 @@ public static class SensorChunkCodec
         return output.ToArray();
     }
 
-    public static List<SensorReading> Decode(SensorKind kind, byte[] payload)
+    /// <summary>
+    /// Limite predefinito dei byte decompressi di un blocco. Un blocco reale non supera ~1,2 MB (2.048 campioni
+    /// delle mani); senza limite, pochi byte Brotli possono espandersi fino a esaurire la memoria.
+    /// </summary>
+    public const int DefaultMaxDecodedBytes = 8 * 1024 * 1024;
+
+    /// <exception cref="InvalidDataException">Blocco malformato, troncato o più grande di <paramref name="maxDecodedBytes"/>.</exception>
+    public static List<SensorReading> Decode(SensorKind kind, byte[] payload, int maxDecodedBytes = DefaultMaxDecodedBytes)
     {
-        using var input = new BrotliStream(new MemoryStream(payload), CompressionMode.Decompress);
-        using var buffer = new MemoryStream();
-        input.CopyTo(buffer);
-        var raw = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
-
-        if (raw.Length == 0 || raw[0] != Version)
-        {
-            throw new InvalidDataException("Versione del blocco sensori non supportata.");
-        }
-
+        var raw = Decompress(payload, maxDecodedBytes);
         var result = new List<SensorReading>();
         var offset = 1;
         while (offset < raw.Length)
         {
-            var t = BinaryPrimitives.ReadDoubleLittleEndian(raw[offset..]);
-            offset += 8;
-            int n = BinaryPrimitives.ReadUInt16LittleEndian(raw[offset..]);
-            offset += 2;
+            var n = ReadSampleHeader(raw, ref offset, out var t);
             var values = new float[n];
             for (var i = 0; i < n; i++)
             {
@@ -90,5 +85,78 @@ public static class SensorChunkCodec
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Verifica la struttura di un blocco senza materializzare i campioni e ne restituisce il numero.
+    /// Serve al server per rifiutare all'ingresso i blocchi che non potrebbe poi decodificare.
+    /// </summary>
+    /// <exception cref="InvalidDataException">Blocco malformato, troncato o più grande di <paramref name="maxDecodedBytes"/>.</exception>
+    public static int CountSamples(byte[] payload, int maxDecodedBytes = DefaultMaxDecodedBytes)
+    {
+        var raw = Decompress(payload, maxDecodedBytes);
+        var count = 0;
+        var offset = 1;
+        while (offset < raw.Length)
+        {
+            var n = ReadSampleHeader(raw, ref offset, out _);
+            offset += 4 * n;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static ReadOnlySpan<byte> Decompress(byte[] payload, int maxDecodedBytes)
+    {
+        using var input = new BrotliStream(new MemoryStream(payload), CompressionMode.Decompress);
+        using var buffer = new MemoryStream();
+        var block = new byte[81920];
+        try
+        {
+            int read;
+            while ((read = input.Read(block)) > 0)
+            {
+                if (buffer.Length + read > maxDecodedBytes)
+                {
+                    throw new InvalidDataException("Blocco sensori troppo grande.");
+                }
+
+                buffer.Write(block, 0, read);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            // BrotliStream segnala così i dati compressi non validi.
+            throw new InvalidDataException("Blocco sensori non decomprimibile.", ex);
+        }
+
+        var raw = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+        if (raw.Length == 0 || raw[0] != Version)
+        {
+            throw new InvalidDataException("Versione del blocco sensori non supportata.");
+        }
+
+        return raw;
+    }
+
+    /// <summary>Legge <c>[f64 t][u16 n]</c> e controlla che gli <c>n</c> valori siano davvero presenti.</summary>
+    private static int ReadSampleHeader(ReadOnlySpan<byte> raw, ref int offset, out double timestamp)
+    {
+        if (raw.Length - offset < 10)
+        {
+            throw new InvalidDataException("Blocco sensori troncato.");
+        }
+
+        timestamp = BinaryPrimitives.ReadDoubleLittleEndian(raw[offset..]);
+        offset += 8;
+        int n = BinaryPrimitives.ReadUInt16LittleEndian(raw[offset..]);
+        offset += 2;
+        if (raw.Length - offset < 4 * n)
+        {
+            throw new InvalidDataException("Blocco sensori troncato.");
+        }
+
+        return n;
     }
 }

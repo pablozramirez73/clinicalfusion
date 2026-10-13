@@ -56,13 +56,21 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
                 }
 
                 await file.WriteAsync(header, ct);
-                await content.CopyToAsync(file, ct);
-                size = file.Length;
-            }
+                size = header.Length;
 
-            if (size > MaxFileBytes)
-            {
-                throw new InvalidDataException("File audio troppo grande.");
+                // Il limite si applica mentre si scrive: un file fuori misura non deve prima riempire il disco.
+                var buffer = new byte[81920];
+                int n;
+                while ((n = await content.ReadAsync(buffer, ct)) > 0)
+                {
+                    size += n;
+                    if (size > MaxFileBytes)
+                    {
+                        throw new InvalidDataException("File audio troppo grande.");
+                    }
+
+                    await file.WriteAsync(buffer.AsMemory(0, n), ct);
+                }
             }
 
             File.Move(temp, target, overwrite: true);

@@ -10,7 +10,8 @@ public sealed record SyncReport(int Sessions, int Chunks, int AudioFiles, IReadO
 /// <summary>
 /// Invia al server le rilevazioni concluse e non ancora sincronizzate: metadati e riepilogo, blocchi dei
 /// sensori (a lotti), file audio, analisi IA. Solo a invio completo la sessione è marcata come sincronizzata,
-/// quindi un'interruzione (rete, app in background) si recupera al tentativo successivo.
+/// quindi un'interruzione (rete, app in background) si recupera al tentativo successivo. Un file audio
+/// mancante sul dispositivo conta come invio incompleto: viene segnalato, non ignorato.
 /// </summary>
 public sealed class SessionSynchronizer(
     ClinicalRepository repository,
@@ -126,18 +127,30 @@ public sealed class SessionSynchronizer(
         sent += await FlushAsync().ConfigureAwait(false);
 
         var uploadedAudio = 0;
+        var missingAudio = 0;
         foreach (var recording in audio)
         {
             var path = audioPathResolver(recording);
             if (!File.Exists(path))
             {
-                logger.LogWarning("File audio {AudioId} assente: si inviano solo i metadati.", recording.Id);
+                // Si prosegue con gli altri file, ma la rilevazione non risulterà sincronizzata.
+                logger.LogWarning("File audio {AudioId} assente sul dispositivo.", recording.Id);
+                missingAudio++;
                 continue;
             }
 
             await using var stream = File.OpenRead(path);
             await client.UploadAudioAsync(server, session.Id, recording.Id, stream, ct).ConfigureAwait(false);
             uploadedAudio++;
+        }
+
+        if (missingAudio > 0)
+        {
+            // Mai "sincronizzata" con audio mancante: l'operatore deve saperlo, e sul server la registrazione
+            // resta senza file. Dati e altri audio sono già arrivati (invio idempotente).
+            throw new FileNotFoundException(missingAudio == 1
+                ? "Un file audio non è più sul dispositivo: la rilevazione è stata inviata senza quell'audio e resta da sincronizzare."
+                : $"{missingAudio} file audio non sono più sul dispositivo: la rilevazione è stata inviata senza quegli audio e resta da sincronizzare.");
         }
 
         await repository.MarkSyncedAsync(session.Id, DateTimeOffset.UtcNow, ct).ConfigureAwait(false);

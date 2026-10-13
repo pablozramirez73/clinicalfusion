@@ -98,6 +98,33 @@ public sealed class SyncTests : IDisposable
     }
 
     [Fact]
+    public async Task A_missing_audio_file_is_reported_and_the_session_stays_pending()
+    {
+        var (repository, synchronizer, handler) = Create(HttpStatusCode.OK);
+        var session = await AddSessionAsync(repository, completed: true);
+        var lost = new AudioRecording { Id = AudioRecording.NewId(), SessionId = session.Id, CreatedAt = DateTimeOffset.UtcNow };
+        var kept = new AudioRecording { Id = AudioRecording.NewId(), SessionId = session.Id, CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1) };
+        await repository.AddAudioRecordingAsync(lost);
+        await repository.AddAudioRecordingAsync(kept);
+        Directory.CreateDirectory(_dir);
+        var keptPath = Path.Combine(_dir, kept.Id + ".caf");
+        await File.WriteAllBytesAsync(keptPath, "caff"u8.ToArray());
+
+        var report = await synchronizer.SyncSessionAsync(Server, session.Id, a => a.Id == kept.Id ? keptPath : "/nessun/file");
+
+        Assert.Contains("audio", Assert.Single(report.Errors), StringComparison.Ordinal);
+        Assert.Equal(0, report.Sessions);
+        Assert.Null((await repository.GetSessionAsync(session.Id))!.SyncedAt);
+        // Il resto è comunque arrivato al server: l'audio ancora presente non aspetta quello perso.
+        Assert.Contains($"PUT /api/v1/ingest/sessions/{session.Id}/audio/{kept.Id}", handler.Requests);
+        Assert.DoesNotContain($"PUT /api/v1/ingest/sessions/{session.Id}/audio/{lost.Id}", handler.Requests);
+
+        var pending = await synchronizer.SyncPendingAsync(Server, _ => "/nessun/file");
+        Assert.StartsWith("PZ-001:", Assert.Single(pending.Errors), StringComparison.Ordinal);
+        Assert.Equal(0, pending.Sessions);
+    }
+
+    [Fact]
     public async Task An_incomplete_session_is_not_sent()
     {
         var (repository, synchronizer, handler) = Create(HttpStatusCode.OK);

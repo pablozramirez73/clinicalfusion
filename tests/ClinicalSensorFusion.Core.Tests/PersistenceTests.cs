@@ -155,5 +155,40 @@ public class SensorChunkCodecTests
         Assert.Empty(output[1].Values);
         Assert.True(float.IsNaN(output[2].Values[0]));
         Assert.Equal(0.3, output[2].Timestamp);
+        Assert.Equal(3, SensorChunkCodec.CountSamples(SensorChunkCodec.Encode(input)));
+    }
+
+    [Fact]
+    public void A_block_that_expands_beyond_the_limit_is_rejected_instead_of_filling_memory()
+    {
+        // ~260 KB di zeri: compressi sono poche decine di byte.
+        var bomb = SensorChunkCodec.Encode([new SensorReading(SensorKind.Motion, 0, new float[65_535])]);
+        Assert.True(bomb.Length < 1_000);
+
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.Decode(SensorKind.Motion, bomb, maxDecodedBytes: 100_000));
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.CountSamples(bomb, maxDecodedBytes: 100_000));
+        Assert.Single(SensorChunkCodec.Decode(SensorKind.Motion, bomb));
+    }
+
+    [Fact]
+    public void Truncated_or_foreign_data_is_reported_as_invalid()
+    {
+        static byte[] Brotli(byte[] raw)
+        {
+            using var output = new MemoryStream();
+            using (var brotli = new System.IO.Compression.BrotliStream(output, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+            {
+                brotli.Write(raw);
+            }
+
+            return output.ToArray();
+        }
+
+        // Versione corretta, poi un campione che dichiara 2 valori ma ne contiene uno solo.
+        byte[] truncated = [1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 128, 63];
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.Decode(SensorKind.Motion, Brotli(truncated)));
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.CountSamples(Brotli([1, 0, 0])));
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.Decode(SensorKind.Motion, Brotli([9])));
+        Assert.Throws<InvalidDataException>(() => SensorChunkCodec.Decode(SensorKind.Motion, [1, 2, 3, 4, 5]));
     }
 }

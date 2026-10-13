@@ -37,12 +37,18 @@ flowchart LR
 
 | Rischio | Contromisura |
 |---|---|
-| Furto della chiave del dispositivo | Solo l'hash SHA-256 è in configurazione; la chiave consente **solo** di inviare dati, non di leggerli. Revoca = rimuovere la voce. |
+| Furto della chiave del dispositivo | Solo l'hash SHA-256 è in configurazione; la chiave consente **solo** di inviare dati, non di leggerli, e **solo sulle rilevazioni di quel dispositivo**: metadati, blocchi e audio di una rilevazione creata da un altro dispositivo sono rifiutati (409/404) e il tentativo va nel registro (`ingest.denied`). Revoca = rimuovere la voce. |
+| Blocchi dei sensori malevoli | Ogni blocco è verificato all'arrivo (decodificabile, numero di campioni coerente) e la decompressione ha un tetto di 8 MB per blocco, anche in lettura: una "bomba" Brotli è rifiutata con 400 invece di esaurire la memoria quando si apre la rilevazione. |
+| Abuso / saturazione | Limiti di frequenza su **tutte** le rotte (sezione `RateLimits`): 600 richieste/minuto per IP, 300/minuto per dispositivo in ingestione, 2 caricamenti audio contemporanei per dispositivo; risposta `429` con `Retry-After`. Lotti di blocchi fino a 16 MB; audio fino a `AudioStorage:MaxFileBytes`, applicato durante la scrittura. |
 | Credenziali della dashboard | Password PBKDF2 (ASP.NET Core Identity v3); verifica a tempo costante anche per utenti inesistenti; **rate limit** 5 login/minuto per IP. |
 | Furto di sessione / CSRF | Cookie `HttpOnly`, `Secure`, `SameSite=Strict`, scadenza 8 h; SPA sulla stessa origine, nessun token in `localStorage`. |
 | XSS / clickjacking | CSP `default-src 'self'` (niente CDN), `frame-ancestors 'none'`, `nosniff`, `no-referrer`. |
 | Path traversal sui file | Id validati (32 hex) prima di comporre i percorsi; file scritti in modo atomico e verificati come CAF. |
-| Tracciabilità | `audit_log` per login, letture e modifiche dell'anagrafica, letture delle rilevazioni, riproduzione audio, ingestione. |
+| Tracciabilità | `audit_log` per login riusciti e **falliti**, logout, letture e modifiche dell'anagrafica, letture delle rilevazioni, riproduzione audio, ingestione (anche rifiutata), con indirizzo IP e user-agent. Consultabile da `GET /api/v1/audit` (anche la consultazione è registrata). |
+
+Il proprietario di una rilevazione è il **nome** del dispositivo in `Ingest:Devices`: rinominare una voce equivale
+a cambiare dispositivo (per sostituire una chiave compromessa basta cambiare `KeySha256` lasciando il nome). Le
+rilevazioni ricevute prima di questo vincolo non hanno proprietario e vengono adottate dal primo dispositivo che le reinvia.
 
 Da fare prima della produzione: TLS sul reverse proxy (es. Cloudflare Tunnel), backup cifrati di PostgreSQL e
 dell'archivio audio, cifratura del volume dati, DPIA (GDPR art. 35) per dati sanitari.
@@ -100,6 +106,9 @@ ConnectionStrings__Clinical=Host=…;Database=clinical;Username=…;Password=…
 Dashboard__Users__0__UserName=…            Dashboard__Users__0__PasswordHash=…
 Ingest__Devices__0__Name=iphone-1           Ingest__Devices__0__KeySha256=…
 AudioStorage__Root=/var/lib/clinical/audio
+# Facoltativi (valori predefiniti indicati)
+RateLimits__GlobalPerMinute=600             RateLimits__LoginPerMinute=5
+RateLimits__IngestPerMinute=300             RateLimits__ConcurrentAudioUploads=2
 ```
 
 Nell'app iOS: Impostazioni → *Server clinico* → indirizzo HTTPS e chiave del dispositivo.
@@ -118,17 +127,19 @@ OpenAPI su `/openapi/v1.json` e interfaccia Scalar su `/scalar` (solo in svilupp
 | `GET` | `/api/v1/patients/{id}/sessions` · `/trends` | clinico |
 | `GET` | `/api/v1/sessions/{id}` · `/pose` · `/spectrogram` · `/streams/{kind}` · `/audio/{audioId}.wav` | clinico |
 | `GET` | `/api/v1/dashboard/overview` | clinico |
+| `GET` | `/api/v1/audit?actor=&action=&entityId=&from=&to=&page=&pageSize=` | clinico |
 | `GET` | `/health` | — |
 
 ## 7. Verifiche
 
-- **Server: 15 test di integrazione** su PostgreSQL reale. Coprono:
-  - autenticazione e autorizzazioni;
+- **Server: 23 test di integrazione** su PostgreSQL reale. Coprono:
+  - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
+  - rifiuto dei blocchi non decodificabili e degli audio fuori misura, limiti di frequenza, registro di audit;
   - header di sicurezza;
   - anagrafica CRUD, validazione e concorrenza ottimistica;
   - percorso completo **DB cifrato del telefono → sincronizzatore → API → PostgreSQL → dashboard**, incluso il reinvio idempotente;
   - conversione CAF→WAV, path traversal e dati demo.
-- **Core: 38 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
+- **Core: 75 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
   modulo dell'accelerazione raddoppiava la frequenza) e la necessità di una soglia di significatività. Entrambi corretti.
 - **Dashboard:** typecheck TypeScript strict, test Vitest, build Vite e verifica visiva con Chromium headless
   (WebGL software) di tutte le pagine, senza errori in console.

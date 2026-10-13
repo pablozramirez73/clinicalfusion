@@ -86,6 +86,12 @@ public sealed class SessionEntity
 
     public string? DeviceModel { get; set; }
 
+    /// <summary>
+    /// Nome (da <c>Ingest:Devices</c>) del dispositivo che ha inviato la rilevazione: solo quello può
+    /// aggiornarla. Null per le righe precedenti all'introduzione del vincolo: le adotta il primo reinvio.
+    /// </summary>
+    public string? OwnerDevice { get; set; }
+
     /// <summary><see cref="SessionSummary"/> serializzato (jsonb).</summary>
     public string? SummaryJson { get; set; }
 
@@ -177,4 +183,9 @@ public sealed class AuditEntry
     public required string Action { get; set; }
 
     public string? EntityId { get; set; }
+
+    /// <summary>Indirizzo del client (quello originale, dietro reverse proxy); null fuori da una richiesta HTTP.</summary>
+    public string? IpAddress { get; set; }
+
+    public string? UserAgent { get; set; }
 }

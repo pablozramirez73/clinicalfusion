@@ -46,6 +46,7 @@ public sealed class ClinicalDbContext(DbContextOptions<ClinicalDbContext> option
             e.Property(s => s.OperatorId).HasMaxLength(64);
             e.Property(s => s.OperatorName).HasMaxLength(200);
             e.Property(s => s.DeviceModel).HasMaxLength(64);
+            e.Property(s => s.OwnerDevice).HasMaxLength(100);
             e.Property(s => s.Mode).HasConversion<string>().HasMaxLength(20);
             e.Property(s => s.SummaryJson).HasColumnType("jsonb");
             e.HasOne(s => s.Patient).WithMany(p => p.Sessions).HasForeignKey(s => s.PatientId).OnDelete(DeleteBehavior.Cascade);
@@ -88,6 +89,8 @@ public sealed class ClinicalDbContext(DbContextOptions<ClinicalDbContext> option
             e.Property(a => a.Actor).HasMaxLength(100);
             e.Property(a => a.Action).HasMaxLength(60);
             e.Property(a => a.EntityId).HasMaxLength(64);
+            e.Property(a => a.IpAddress).HasMaxLength(45);
+            e.Property(a => a.UserAgent).HasMaxLength(256);
             e.HasIndex(a => a.At);
         });
     }

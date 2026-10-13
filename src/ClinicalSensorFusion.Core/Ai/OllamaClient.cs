@@ -19,7 +19,18 @@ public sealed class OllamaClient(HttpClient http)
         return tags?.Models ?? [];
     }
 
+    /// <summary>
+    /// Attesa massima tra un frammento e il successivo. Il timeout dell'HttpClient copre solo l'attesa
+    /// dell'intestazione: senza questo limite uno stream che si blocca a metà resterebbe appeso per sempre.
+    /// </summary>
+    public TimeSpan StreamIdleTimeout { get; init; } = TimeSpan.FromMinutes(2);
+
     /// <summary>Restituisce i frammenti di testo man mano che il modello li genera.</summary>
+    /// <exception cref="OllamaException">
+    /// Errore del server, timeout di rete o stream chiuso prima del frammento finale (<c>done</c>): in tutti
+    /// questi casi il testo già restituito è incompleto. <see cref="OperationCanceledException"/> è riservata
+    /// all'annullamento richiesto dal chiamante.
+    /// </exception>
     public async IAsyncEnumerable<string> ChatStreamAsync(
         Uri baseUri,
         string model,
@@ -32,13 +43,13 @@ public sealed class OllamaClient(HttpClient http)
             Content = JsonContent.Create(body, OllamaJsonContext.Default.OllamaChatRequest),
         };
 
-        // ResponseHeadersRead: senza, HttpClient attende l'intera risposta e lo streaming non serve a nulla.
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        using var response = await SendAsync(request, ct).ConfigureAwait(false);
         await EnsureSuccessAsync(response, ct).ConfigureAwait(false);
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new StreamReader(stream);
-        while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+        using var idle = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        while (await ReadLineAsync(reader, idle, ct).ConfigureAwait(false) is { } line)
         {
             if (string.IsNullOrWhiteSpace(line))
             {
@@ -70,6 +81,40 @@ public sealed class OllamaClient(HttpClient http)
             {
                 yield break;
             }
+        }
+
+        // Fine dello stream senza "done": connessione chiusa a metà (proxy, rete, Ollama riavviato).
+        throw new OllamaException("La risposta del modello si è interrotta prima della fine: il testo ricevuto è incompleto.");
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        try
+        {
+            // ResponseHeadersRead: senza, HttpClient attende l'intera risposta e lo streaming non serve a nulla.
+            return await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // Timeout dell'HttpClient: non è un annullamento dell'utente.
+            throw new OllamaException("Il server Ollama non ha risposto in tempo.", ex);
+        }
+    }
+
+    private async Task<string?> ReadLineAsync(StreamReader reader, CancellationTokenSource idle, CancellationToken ct)
+    {
+        idle.CancelAfter(StreamIdleTimeout);
+        try
+        {
+            return await reader.ReadLineAsync(idle.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new OllamaException("Il modello ha smesso di rispondere: il testo ricevuto è incompleto.", ex);
+        }
+        catch (IOException ex)
+        {
+            throw new OllamaException("Connessione con Ollama interrotta: il testo ricevuto è incompleto.", ex);
         }
     }
 
