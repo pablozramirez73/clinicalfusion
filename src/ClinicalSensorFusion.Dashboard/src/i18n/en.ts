@@ -25,7 +25,6 @@ export const en: Record<string, string> = {
   "Caviglia sx": "Left ankle",
   "Caviglia dx": "Right ankle",
   "Errore {0}": "Error {0}",
-  "Lingua": "Language",
   "Troppi tentativi: riprovare tra un minuto.": "Too many attempts: try again in a minute.",
   "Credenziali non valide.": "Invalid credentials.",
   "Server non raggiungibile.": "Server unreachable.",
