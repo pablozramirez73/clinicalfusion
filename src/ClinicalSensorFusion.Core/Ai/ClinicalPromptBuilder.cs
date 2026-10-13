@@ -1,9 +1,8 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Fhir;
 using ClinicalSensorFusion.Core.Localization;
-using ClinicalSensorFusion.Core.Persistence;
 
 namespace ClinicalSensorFusion.Core.Ai;
 
@@ -15,6 +14,8 @@ namespace ClinicalSensorFusion.Core.Ai;
 /// Niente codice soggetto, niente nome operatore, niente audio/immagini: anche se il server Ollama è
 /// locale, può essere raggiunto tramite Internet (Cloudflare) e i log del server non sono sotto il
 /// controllo dell'app.
+/// I dati viaggiano come Bundle HL7 FHIR in JSON (<see cref="FhirAnalysisBundle"/>): un formato che i modelli
+/// conoscono, con codici e unità espliciti, e lo stesso che il server espone dalle sue API.
 /// </remarks>
 public static class ClinicalPromptBuilder
 {
@@ -22,7 +23,9 @@ public static class ClinicalPromptBuilder
     /// Istruzioni aggiuntive scritte dall'operatore nelle Impostazioni. Si aggiungono alle regole predefinite
     /// e non le sostituiscono: lingua, divieto di diagnosi e limiti di misura restano sempre validi.
     /// </param>
-    public static IReadOnlyList<OllamaMessage> Build(ClinicalSession session, string language, string? operatorQuestion = null, string? customInstructions = null)
+    /// <param name="fhir">Versione di FHIR dichiarata per i dati della rilevazione.</param>
+    public static IReadOnlyList<OllamaMessage> Build(
+        ClinicalSession session, string language, string? operatorQuestion = null, string? customInstructions = null, FhirRelease fhir = FhirRelease.R4)
     {
         ArgumentNullException.ThrowIfNull(session.Summary);
 
@@ -49,19 +52,22 @@ public static class ClinicalPromptBuilder
                 """;
         }
 
-        // Senza le coordinate GPS: il luogo della rilevazione identifica il paziente.
-        var summaryJson = JsonSerializer.Serialize(session.Summary.WithoutLocation(), CsfJsonContext.Indented.SessionSummary);
+        // Bundle anonimo: niente paziente, operatore, date né coordinate GPS (il luogo identifica il paziente).
+        var bundleJson = FhirAnalysisBundle.ToJson(session, fhir);
         var user = new StringBuilder()
             .AppendLine(CultureInfo.InvariantCulture, $"Modalità di acquisizione: {Describe(session.Mode)}.")
             .AppendLine(CultureInfo.InvariantCulture, $"Durata: {session.Summary.DurationSeconds:F0} s.")
             .AppendLine("Convenzioni: angoli in gradi; flessione = 180° − angolo interno (0° = segmento esteso);")
             .AppendLine("elevazione spalla = angolo tronco–braccio; caviglia = angolo interno gamba–piede (~90° neutro).")
             .AppendLine("Tremore: banda 3–12 Hz dall'accelerometro, ampiezza RMS in m/s².")
-            .AppendLine("Audio: livelli in dBFS, ActiveRatio = frazione di tempo con segnale sopra −45 dBFS.")
-            .AppendLine("Sensors: statistiche per canale dei sensori ambientali (min, max, media, primo e ultimo valore), contesto dell'acquisizione.")
+            .AppendLine("Audio: livelli in dBFS.")
             .AppendLine()
-            .AppendLine("Dati della rilevazione (JSON):")
-            .AppendLine(summaryJson);
+            .AppendLine(CultureInfo.InvariantCulture, $"Dati della rilevazione: Bundle HL7 FHIR {fhir} ({FhirAnalysisBundle.VersionOf(fhir)}) in JSON.")
+            .AppendLine("Un DiagnosticReport elenca le Observation della rilevazione. Ogni Observation ha il codice dell'indicatore")
+            .AppendLine($"(LOINC dove esiste, altrimenti il sistema locale {FhirObservations.IndicatorSystem}), il valore con unità UCUM,")
+            .AppendLine("il metodo di misura e, in component, i valori di dettaglio. Le Observation dei sensori sono contesto")
+            .AppendLine("dell'acquisizione; measurement-reliability riassume la qualità tecnica del dato.")
+            .AppendLine(bundleJson);
 
         if (!string.IsNullOrWhiteSpace(session.Notes))
         {

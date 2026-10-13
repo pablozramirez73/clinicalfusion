@@ -102,7 +102,10 @@ un sistema di riferimento (es. motion capture ottico) e la valutazione regolator
 - File audio con protezione dati iOS `CompleteUnlessOpen`.
 - Soggetti identificati solo da **codice pseudonimo**; ogni sessione e analisi è firmata dall'operatore;
   `audit_log` di creazione/chiusura/eliminazione/analisi.
-- Al modello linguistico vanno **solo indicatori numerici** (no codice soggetto, no operatore, no audio/immagini);
+- Al modello linguistico vanno **solo indicatori numerici** (no codice soggetto, no operatore, no audio/immagini),
+  come **Bundle HL7 FHIR in JSON** (R4 o R5, a scelta nelle Impostazioni): un `DiagnosticReport` con le sue
+  `Observation`, senza paziente, date né posizione. È la stessa mappatura delle API FHIR del server
+  (`Core/Fhir`: codici LOINC e unità UCUM dove esistono, altrimenti il sistema locale dichiarato);
   le note sono delimitate per ridurre la prompt injection.
 - HTTP in chiaro consentito **solo in rete locale** (`NSAllowsLocalNetworking`); da Internet serve HTTPS
   (Cloudflare Access con login nella WebView o service token salvato nel Portachiavi).

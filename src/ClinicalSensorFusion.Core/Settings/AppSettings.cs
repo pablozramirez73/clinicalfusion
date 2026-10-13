@@ -13,6 +13,9 @@ public static class SettingsKeys
 
     /// <summary>Istruzioni aggiuntive dell'operatore per il modello linguistico.</summary>
     public const string OllamaPrompt = "ollama.prompt";
+
+    /// <summary>Versione di HL7 FHIR dei dati inviati al modello: "R4" o "R5".</summary>
+    public const string OllamaFhirRelease = "ollama.fhir";
     public const string OperatorId = "operator.id";
     public const string OperatorName = "operator.name";
 
@@ -47,6 +50,9 @@ public interface IAppSettings
 
     /// <summary>Istruzioni aggiuntive per il modello (vuoto = solo quelle predefinite).</summary>
     string OllamaPrompt { get; set; }
+
+    /// <summary>Versione di HL7 FHIR con cui i dati della rilevazione vengono inviati al modello.</summary>
+    Fhir.FhirRelease OllamaFhirRelease { get; set; }
 
     string OperatorId { get; set; }
 

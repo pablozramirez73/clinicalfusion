@@ -209,7 +209,7 @@ public class ClinicalPromptBuilderTests
         var messages = ClinicalPromptBuilder.Build(session, "English");
         var all = string.Join("\n", messages.Select(m => m.Content));
         Assert.Contains("English", messages[0].Content, StringComparison.Ordinal);
-        Assert.Contains("RightKneeFlexion", all, StringComparison.Ordinal);
+        Assert.Contains("rom-right-knee-flexion", all, StringComparison.Ordinal);
         Assert.Contains("118", all, StringComparison.Ordinal);
         Assert.DoesNotContain("MARIO", all, StringComparison.Ordinal);
         // I sensori ambientali sì, le coordinate GPS no.

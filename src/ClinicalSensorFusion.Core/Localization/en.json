@@ -516,5 +516,6 @@
   "Metal: texture cache non disponibile.": "Metal: texture cache not available.",
   "Compilazione shader fallita: {0}": "Shader compilation failed: {0}",
   "Pipeline Metal non creata: {0}": "Metal pipeline not created: {0}",
-  "Metal non disponibile.": "Metal is not available."
+  "Metal non disponibile.": "Metal is not available.",
+  "Formato dei dati inviati (HL7 FHIR)": "Format of the data sent (HL7 FHIR)"
 }

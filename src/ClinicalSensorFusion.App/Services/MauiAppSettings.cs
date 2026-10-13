@@ -37,6 +37,14 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
         set => preferences.Set(SettingsKeys.OllamaPrompt, value?.Trim() ?? string.Empty);
     }
 
+    public ClinicalSensorFusion.Core.Fhir.FhirRelease OllamaFhirRelease
+    {
+        get => Enum.TryParse<ClinicalSensorFusion.Core.Fhir.FhirRelease>(preferences.Get(SettingsKeys.OllamaFhirRelease, string.Empty), out var release)
+            ? release
+            : ClinicalSensorFusion.Core.Fhir.FhirRelease.R4;
+        set => preferences.Set(SettingsKeys.OllamaFhirRelease, value.ToString());
+    }
+
     public string OperatorId
     {
         get => preferences.Get(SettingsKeys.OperatorId, string.Empty);

@@ -1,8 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using ClinicalSensorFusion.Core.Domain;
-using ClinicalSensorFusion.Core.Fusion;
-using ClinicalSensorFusion.Core.Sensors;
+using ClinicalSensorFusion.Core.Fhir;
 using ClinicalSensorFusion.Server.Data;
 
 namespace ClinicalSensorFusion.Server.Fhir;
@@ -25,9 +24,9 @@ namespace ClinicalSensorFusion.Server.Fhir;
 public static class FhirMapper
 {
     public const string FhirVersion = "4.0.1";
-    public const string Loinc = "http://loinc.org";
-    public const string Ucum = "http://unitsofmeasure.org";
-    public const string CategorySystem = "http://terminology.hl7.org/CodeSystem/observation-category";
+    public const string Loinc = FhirObservations.Loinc;
+    public const string Ucum = FhirObservations.Ucum;
+    public const string CategorySystem = FhirObservations.CategorySystem;
 
     /// <summary>Codice fiscale italiano (OID del Ministero dell'Economia e delle Finanze).</summary>
     public const string FiscalCodeSystem = "urn:oid:2.16.840.1.113883.2.9.4.3.2";
@@ -36,9 +35,7 @@ public static class FhirMapper
     public const string PatientCodeSystem = "urn:clinical-sensor-fusion:patient-code";
 
     /// <summary>Indicatori senza codice standard (escursione articolare, tremore, alzate dalla sedia).</summary>
-    public const string IndicatorSystem = "urn:clinical-sensor-fusion:indicator";
-
-    private static readonly CultureInfo Italian = CultureInfo.GetCultureInfo("it-IT");
+    public const string IndicatorSystem = FhirObservations.IndicatorSystem;
 
     public static string Instant(DateTimeOffset value) => value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
@@ -105,87 +102,9 @@ public static class FhirMapper
     }
 
     /// <summary>Tutte le osservazioni di una rilevazione, con la chiave che completa il loro identificativo.</summary>
-    public static IReadOnlyList<(string Key, JsonObject Resource)> Observations(SessionEntity s, SessionSummary? summary)
-    {
-        var result = new List<(string, JsonObject)>();
-        if (summary is null)
-        {
-            return result;
-        }
-
-        void Add(string key, JsonObject observation) => result.Add((key, Complete(observation, s, key)));
-
-        if (Channel(summary, SensorKind.HeartRate, "Frequenza cardiaca") is { } heartRate)
-        {
-            Add("heart-rate", Vital("heartrate", [("8867-4", "Heart rate")], heartRate, "beats/minute", "/min", "Sensore Bluetooth di frequenza cardiaca"));
-        }
-
-        if (Channel(summary, SensorKind.PulseOximeter, "SpO2") is { } spo2)
-        {
-            Add("spo2", Vital(
-                "oxygensat",
-                [("2708-6", "Oxygen saturation in Arterial blood"), ("59408-5", "Oxygen saturation in Arterial blood by Pulse oximetry")],
-                spo2, "%", "%", "Saturimetro Bluetooth"));
-        }
-
-        if (Channel(summary, SensorKind.BodyTemperature, "Temperatura") is { } temperature)
-        {
-            Add("body-temperature", Vital("bodytemp", [("8310-5", "Body temperature")], temperature, "Cel", "Cel", "Termometro Bluetooth"));
-        }
-
-        if (summary.Gait is { } gait)
-        {
-            Add("steps", new JsonObject
-            {
-                ["category"] = Category("activity", "Activity"),
-                ["code"] = Code(Loinc, [("55423-8", "Number of steps in unspecified time Pedometer")], "Passi"),
-                ["valueQuantity"] = Quantity(gait.Steps, "steps", "{steps}"),
-                ["method"] = new JsonObject { ["text"] = "Pedometro del telefono" },
-            });
-        }
-
-        foreach (var (joint, range) in summary.JointRanges.OrderBy(j => j.Key))
-        {
-            var name = SummaryReport.JointName(joint);
-            Add("rom-" + Kebab(joint.ToString()), new JsonObject
-            {
-                ["category"] = Category("exam", "Exam"),
-                ["code"] = Code(IndicatorSystem, [("rom-" + Kebab(joint.ToString()), $"Escursione articolare: {name}")], $"Escursione articolare: {name}"),
-                ["valueQuantity"] = Quantity(range.RangeOfMotion, "deg", "deg"),
-                ["method"] = new JsonObject { ["text"] = "Stima ottica (MediaPipe, con profondità LiDAR se attiva)" },
-                ["note"] = new JsonArray(new JsonObject { ["text"] = $"Stima ottica con incertezza di ±5–10°, su {range.Samples} fotogrammi." }),
-                ["component"] = new JsonArray(
-                    Component("angle-min", "Angolo minimo", range.Min, "deg", "deg"),
-                    Component("angle-max", "Angolo massimo", range.Max, "deg", "deg"),
-                    Component("angle-mean", "Angolo medio", range.Mean, "deg", "deg")),
-            });
-        }
-
-        if (summary.Tremor is { IsSignificant: true } tremor)
-        {
-            Add("tremor", new JsonObject
-            {
-                ["category"] = Category("exam", "Exam"),
-                ["code"] = Code(IndicatorSystem, [("tremor-frequency", "Frequenza dominante del tremore (3–12 Hz)")], "Frequenza dominante del tremore"),
-                ["valueQuantity"] = Quantity(tremor.DominantFrequencyHz, "Hz", "Hz"),
-                ["method"] = new JsonObject { ["text"] = "Accelerometro del telefono, banda 3–12 Hz" },
-                ["component"] = new JsonArray(Component("tremor-amplitude-rms", "Ampiezza RMS in banda", tremor.BandRmsMs2, "m/s2", "m/s2")),
-            });
-        }
-
-        if (summary.SitToStandCount is { } rises)
-        {
-            Add("sit-to-stand", new JsonObject
-            {
-                ["category"] = Category("exam", "Exam"),
-                ["code"] = Code(IndicatorSystem, [("sit-to-stand-count", "Alzate dalla sedia contate")], "Alzate dalla sedia"),
-                ["valueInteger"] = rises,
-                ["method"] = new JsonObject { ["text"] = "Conteggio automatico dalla flessione del ginocchio" },
-            });
-        }
-
-        return result;
-    }
+    /// <summary>Indicatori clinici della rilevazione: la mappatura è nel Core, condivisa con l'app (<see cref="FhirObservations"/>).</summary>
+    public static IReadOnlyList<(string Key, JsonObject Resource)> Observations(SessionEntity s, SessionSummary? summary) =>
+        summary is null ? [] : [.. FhirObservations.Clinical(summary).Select(o => (o.Key, Complete(o.Body, s, o.Key)))];
 
     public static JsonObject DiagnosticReport(SessionEntity s, IEnumerable<string> observationIds)
     {
@@ -202,7 +121,7 @@ public static class FhirMapper
             ["id"] = s.Id,
             ["meta"] = new JsonObject { ["lastUpdated"] = Instant(s.UpdatedAt) },
             ["status"] = "final",
-            ["code"] = Code(IndicatorSystem, [("movement-assessment-" + Kebab(s.Mode.ToString()), $"Rilevazione con sensori del telefono ({mode})")], $"Rilevazione con sensori del telefono ({mode})"),
+            ["code"] = FhirObservations.Code(IndicatorSystem, [("movement-assessment-" + FhirObservations.Kebab(s.Mode.ToString()), $"Rilevazione con sensori del telefono ({mode})")], $"Rilevazione con sensori del telefono ({mode})"),
             ["subject"] = new JsonObject { ["reference"] = $"Patient/{s.PatientId}" },
             ["effectivePeriod"] = Period(s),
             ["issued"] = Instant(s.ReceivedAt),
@@ -260,23 +179,6 @@ public static class FhirMapper
         return bundle;
     }
 
-    private static ClinicalSensorFusion.Core.Recording.ChannelStats? Channel(SessionSummary summary, SensorKind kind, string name) =>
-        summary.Sensors is { } sensors && sensors.TryGetValue(kind, out var stream) ? stream.Channels.FirstOrDefault(c => c.Name == name) : null;
-
-    /// <summary>Segno vitale secondo il profilo FHIR: valore = media sulla rilevazione, minimo e massimo nella nota.</summary>
-    private static JsonObject Vital(string profile, (string Code, string Display)[] codes, ClinicalSensorFusion.Core.Recording.ChannelStats stats, string unit, string ucum, string method) => new()
-    {
-        ["meta"] = new JsonObject { ["profile"] = new JsonArray($"http://hl7.org/fhir/StructureDefinition/{profile}") },
-        ["category"] = Category("vital-signs", "Vital Signs"),
-        ["code"] = Code(Loinc, codes, codes[0].Display),
-        ["valueQuantity"] = Quantity(stats.Mean, unit, ucum),
-        ["method"] = new JsonObject { ["text"] = method },
-        ["note"] = new JsonArray(new JsonObject
-        {
-            ["text"] = string.Format(Italian, "Media di {0} misure durante la rilevazione (minimo {1:0.#}, massimo {2:0.#}).", stats.Samples, stats.Min, stats.Max),
-        }),
-    };
-
     /// <summary>Campi comuni a tutte le osservazioni; conserva il profilo già indicato in <c>meta</c>.</summary>
     private static JsonObject Complete(JsonObject body, SessionEntity s, string key)
     {
@@ -319,33 +221,4 @@ public static class FhirMapper
 
         return period;
     }
-
-    private static JsonArray Category(string code, string display) => new(new JsonObject
-    {
-        ["coding"] = new JsonArray(new JsonObject { ["system"] = CategorySystem, ["code"] = code, ["display"] = display }),
-    });
-
-    private static JsonObject Code(string system, (string Code, string Display)[] codes, string text) => new()
-    {
-        ["coding"] = new JsonArray([.. codes.Select(c => (JsonNode)new JsonObject { ["system"] = system, ["code"] = c.Code, ["display"] = c.Display })]),
-        ["text"] = text,
-    };
-
-    private static JsonObject Quantity(double value, string unit, string ucum) => new()
-    {
-        ["value"] = Math.Round(value, 3),
-        ["unit"] = unit,
-        ["system"] = Ucum,
-        ["code"] = ucum,
-    };
-
-    private static JsonObject Component(string code, string display, double value, string unit, string ucum) => new()
-    {
-        ["code"] = Code(IndicatorSystem, [(code, display)], display),
-        ["valueQuantity"] = Quantity(value, unit, ucum),
-    };
-
-    /// <summary><c>RightKneeFlexion</c> → <c>right-knee-flexion</c>.</summary>
-    private static string Kebab(string pascal) =>
-        string.Concat(pascal.Select((c, i) => char.IsUpper(c) && i > 0 ? "-" + char.ToLowerInvariant(c) : char.ToLowerInvariant(c).ToString()));
 }

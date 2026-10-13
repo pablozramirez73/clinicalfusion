@@ -313,7 +313,7 @@ public sealed partial class SessionDetailViewModel(
             return;
         }
 
-        var messages = ClinicalPromptBuilder.Build(_session, settings.OllamaLanguage, Question, settings.OllamaPrompt);
+        var messages = ClinicalPromptBuilder.Build(_session, settings.OllamaLanguage, Question, settings.OllamaPrompt, settings.OllamaFhirRelease);
         var prompt = string.Join("\n\n", messages.Select(m => $"[{m.Role}]\n{m.Content}"));
         var text = new StringBuilder();
         _analysisCts = new CancellationTokenSource();

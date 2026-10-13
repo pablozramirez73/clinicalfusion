@@ -80,6 +80,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string OllamaLanguage { get; set; } = SettingsDefaults.OllamaLanguage;
 
+    /// <summary>Versioni di HL7 FHIR in cui l'app sa inviare i dati al modello.</summary>
+    public IReadOnlyList<ClinicalSensorFusion.Core.Fhir.FhirRelease> FhirReleases { get; } = Enum.GetValues<ClinicalSensorFusion.Core.Fhir.FhirRelease>();
+
+    [ObservableProperty]
+    public partial ClinicalSensorFusion.Core.Fhir.FhirRelease OllamaFhirRelease { get; set; }
+
     /// <summary>Istruzioni aggiuntive per il modello: si sommano alle regole predefinite dell'app.</summary>
     [ObservableProperty]
     public partial string OllamaPrompt { get; set; } = string.Empty;
@@ -116,6 +122,7 @@ public sealed partial class SettingsViewModel(
         OllamaServer = settings.OllamaServer;
         OllamaModel = settings.OllamaModel;
         OllamaLanguage = settings.OllamaLanguage;
+        OllamaFhirRelease = settings.OllamaFhirRelease;
         OllamaPrompt = settings.OllamaPrompt;
         RecordLocation = settings.RecordLocation;
         _loadingLock = true;
@@ -152,6 +159,7 @@ public sealed partial class SettingsViewModel(
         settings.OllamaServer = OllamaServer;
         settings.OllamaModel = OllamaModel;
         settings.OllamaLanguage = OllamaLanguage;
+        settings.OllamaFhirRelease = OllamaFhirRelease;
         settings.OllamaPrompt = OllamaPrompt;
         if (!string.IsNullOrWhiteSpace(SyncServer) &&
             (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps && !syncUri.IsLoopback && !IsPrivateHost(syncUri.Host)))

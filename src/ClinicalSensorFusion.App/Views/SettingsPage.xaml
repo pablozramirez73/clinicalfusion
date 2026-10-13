@@ -90,6 +90,9 @@
                 <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
               </controls:FormField>
             </Grid>
+            <controls:FormField Label="{l:Tr Text='Formato dei dati inviati (HL7 FHIR)'}">
+              <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding FhirReleases}" SelectedItem="{Binding OllamaFhirRelease}" />
+            </controls:FormField>
             <controls:FormField Label="{l:Tr Text='Prompt personalizzato (facoltativo)'}">
               <Editor Text="{Binding OllamaPrompt}" Placeholder="{l:Tr Text='Es. Concentrati sull\'equilibrio e confronta i due lati.'}"
                       AutoSize="TextChanges" MinimumHeightRequest="88" MaximumHeightRequest="220" />
