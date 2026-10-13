@@ -14,7 +14,7 @@ TrueDepth, e questa versione non li sostituisce con altro.
 | Fotocamera | ARKit | CameraX (anteprima + analisi 640×480 RGBA) |
 | Profondità | LiDAR a richiesta (modalità corpo) | **assente**: l'interruttore non compare |
 | Punti 3D e angoli articolari | LiDAR, oppure stima 3D di MediaPipe | sempre stima 3D di MediaPipe (`sorgente = 1`) |
-| Distanza del soggetto, copertura LiDAR | misurate | non disponibili (NaN) |
+| Distanza del soggetto, copertura LiDAR | misurate | non disponibili: distanza NaN, copertura assente dal riepilogo (non 0%) |
 | Blendshape del volto | ARKit TrueDepth, 52 coefficienti | MediaPipe Face, riordinate nel layout ARKit; `tongueOut` = NaN |
 | MediaPipe | bridge Swift, pod 0.10.21, GPU Metal | facciata Java, Maven 0.10.35, GPU OpenGL con ripiego su CPU |
 | Dove gira l'inferenza | sempre GPU | mostrato nello stato dei sensori: «MediaPipe Pose · GPU» oppure «· CPU» |

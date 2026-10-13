@@ -198,12 +198,16 @@ public sealed class SessionMetricsAggregator
             medianDistance = _distances[_distances.Count / 2];
         }
 
+        // Senza LiDAR (Android, oppure interruttore spento) la copertura non è "0%": non è applicabile.
+        // Resta 0 solo se il LiDAR era acceso (flusso LidarDepth presente) e non ha mai dato un fotogramma valido.
+        var lidarUsed = _lidarPoseFrames > 0 || _counts.ContainsKey(SensorKind.LidarDepth);
+
         return new SessionSummary
         {
             DurationSeconds = durationSeconds,
             Mode = _mode,
             JointRanges = ranges,
-            LidarCoverage = _poseFrames > 0 ? _lidarPoseFrames / (double)_poseFrames : null,
+            LidarCoverage = lidarUsed && _poseFrames > 0 ? _lidarPoseFrames / (double)_poseFrames : null,
             Tremor = _tremor.Analyze(),
             Gait = gait,
             Audio = audio,

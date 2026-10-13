@@ -138,6 +138,100 @@ public sealed class PersistenceTests : IDisposable
     }
 }
 
+/// <summary>Schema del database del telefono: versione, aggiornamento da una versione precedente, rifiuto di una futura.</summary>
+public sealed class MigrationTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "csf-migrations-" + Guid.NewGuid().ToString("N"));
+    private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private ClinicalDatabase Open() =>
+        new(Path.Combine(_dir, ClinicalDatabase.FileName), new FixedKeyProvider(_key), NullLogger<ClinicalDatabase>.Instance);
+
+    private static Task<long> ScalarAsync(ClinicalDatabase db, string sql) => db.RunAsync(
+        async connection =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            return Convert.ToInt64(await command.ExecuteScalarAsync(Ct), System.Globalization.CultureInfo.InvariantCulture);
+        },
+        Ct);
+
+    private static Task ExecAsync(ClinicalDatabase db, string sql) =>
+        db.RunAsync(connection => ClinicalDatabase.ExecAsync(connection, sql, Ct), Ct);
+
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_dir))
+        {
+            Directory.Delete(_dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_new_database_is_at_the_latest_version_and_reopening_does_not_migrate_again()
+    {
+        await using (var db = Open())
+        {
+            Assert.Equal(Migrations.LatestVersion, await ScalarAsync(db, "PRAGMA user_version;"));
+        }
+
+        await using var reopened = Open();
+        Assert.Equal(Migrations.LatestVersion, await ScalarAsync(reopened, "PRAGMA user_version;"));
+        Assert.Empty(await new ClinicalRepository(reopened).ListUnsyncedSessionsAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_version_1_database_is_upgraded_and_keeps_its_data()
+    {
+        string sessionId;
+        await using (var db = Open())
+        {
+            var session = new ClinicalSession
+            {
+                Id = ClinicalSession.NewId(), SubjectCode = "PZ-V1", OperatorId = "op1", OperatorName = "Operatore Uno",
+                Mode = CaptureMode.BodyLidar, StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1), EndedAt = DateTimeOffset.UtcNow,
+            };
+            sessionId = session.Id;
+            var repo = new ClinicalRepository(db);
+            await repo.CreateSessionAsync(session, Ct);
+            await repo.CompleteSessionAsync(session, Ct);
+
+            // Riporta lo schema alla v1 (prima della sincronizzazione): è l'inverso esatto del passo v2.
+            await ExecAsync(db, "DROP INDEX ix_sessions_unsynced; ALTER TABLE sessions DROP COLUMN synced_at; PRAGMA user_version = 1;");
+        }
+
+        await using var upgraded = Open();
+        Assert.Equal(Migrations.LatestVersion, await ScalarAsync(upgraded, "PRAGMA user_version;"));
+        var pending = Assert.Single(await new ClinicalRepository(upgraded).ListUnsyncedSessionsAsync(Ct));
+        Assert.Equal(sessionId, pending.Id);
+        Assert.Equal("PZ-V1", pending.SubjectCode);
+        Assert.Null(pending.SyncedAt);
+    }
+
+    [Fact]
+    public async Task A_database_newer_than_the_app_is_refused_and_left_untouched()
+    {
+        var future = Migrations.LatestVersion + 1;
+        await using (var db = Open())
+        {
+            await ExecAsync(db, $"PRAGMA user_version = {future};");
+        }
+
+        await using (var db = Open())
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new ClinicalRepository(db).ListSessionsAsync(ct: Ct));
+            Assert.Contains("più recente", error.Message, StringComparison.Ordinal);
+        }
+
+        // Nessun downgrade silenzioso: la versione sul file è ancora quella futura.
+        await using var raw = Open();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ScalarAsync(raw, "PRAGMA user_version;"));
+    }
+}
+
 public class SensorChunkCodecTests
 {
     [Fact]

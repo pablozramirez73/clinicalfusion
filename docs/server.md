@@ -139,7 +139,7 @@ OpenAPI su `/openapi/v1.json` e interfaccia Scalar su `/scalar` (solo in svilupp
   - anagrafica CRUD, validazione e concorrenza ottimistica;
   - percorso completo **DB cifrato del telefono → sincronizzatore → API → PostgreSQL → dashboard**, incluso il reinvio idempotente;
   - conversione CAF→WAV, path traversal e dati demo.
-- **Core: 75 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
+- **Core: 81 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
   modulo dell'accelerazione raddoppiava la frequenza) e la necessità di una soglia di significatività. Entrambi corretti.
 - **Dashboard:** typecheck TypeScript strict, test Vitest, build Vite e verifica visiva con Chromium headless
   (WebGL software) di tutte le pagine, senza errori in console.

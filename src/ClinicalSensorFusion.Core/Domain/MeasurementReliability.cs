@@ -64,7 +64,7 @@ public static class MeasurementReliability
             Add("Distanza del soggetto", string.Format(c, "{0:F1} m (ideale 1–4,5)", distance), distance is < 1 or > 4.5 ? 10 : 0);
         }
 
-        // La copertura LiDAR conta solo se il LiDAR era acceso (altrimenti è zero per scelta).
+        // La copertura LiDAR conta solo se il LiDAR era acceso: senza LiDAR è assente (zero nei riepiloghi meno recenti).
         if (s.LidarCoverage is { } coverage && coverage > 0)
         {
             Add("Copertura LiDAR", string.Format(c, "{0:P0}", coverage), coverage < 0.6 ? 10 : 0);

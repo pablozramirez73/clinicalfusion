@@ -85,6 +85,32 @@ public class ClinicalTestTests
         Assert.Equal(3, aggregator.Build(1, null, 0).SitToStandCount);
     }
 
+    [Theory]
+    [InlineData(false, 1f, null)] // Android, o LiDAR spento: non applicabile, non "0%"
+    [InlineData(true, 1f, 0.0)]   // LiDAR acceso ma mai valido: 0% è un dato vero
+    [InlineData(true, 0f, 1.0)]
+    public void Lidar_coverage_is_reported_only_when_the_lidar_was_used(bool lidarOn, float source, double? expected)
+    {
+        var aggregator = new SessionMetricsAggregator(CaptureMode.BodyLidar);
+        for (var i = 0; i < 10; i++)
+        {
+            var values = new float[JointAngleCalculator.JointCount + 2];
+            Array.Fill(values, float.NaN);
+            values[(int)Joint.LeftKneeFlexion] = 30;
+            values[^2] = source;
+            aggregator.Add(new SensorReading(SensorKind.JointAngles, i * 0.03, values));
+            if (lidarOn)
+            {
+                aggregator.Add(new SensorReading(SensorKind.LidarDepth, i * 0.03, [float.NaN, 0]));
+            }
+        }
+
+        var summary = aggregator.Build(1, null, 0);
+        Assert.Equal(expected, summary.LidarCoverage);
+        Assert.DoesNotContain(MeasurementReliability.Assess(summary).Factors, f => expected is null && f.Label == "Copertura LiDAR");
+        Assert.Equal(expected is not null, SummaryReport.Build(summary, System.Globalization.CultureInfo.InvariantCulture).Any(r => r.Label == "Copertura LiDAR"));
+    }
+
     [Fact]
     public void Five_rises_complete_the_test_when_seated_again_and_time_stops_at_sitting()
     {
