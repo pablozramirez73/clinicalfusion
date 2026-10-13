@@ -84,7 +84,9 @@ public sealed partial class SessionDetailViewModel(
 
     public bool HasTest => TestResult is not null;
 
-    public string TestName => TestResult?.TestName ?? string.Empty;
+    // Nome e interpretazione sono salvati nel riepilogo: il nome in italiano (si traduce qui), l'interpretazione
+    // nella lingua che l'interfaccia aveva al momento della rilevazione.
+    public string TestName => TestResult is { } result ? Loc.T(result.TestName) : string.Empty;
 
     public string TestValue => TestResult?.Format(CultureInfo.CurrentCulture) ?? string.Empty;
 
@@ -96,9 +98,9 @@ public sealed partial class SessionDetailViewModel(
 
     public bool TestEstimated => TestResult?.Estimated == true;
 
-    public string TestReference => ClinicalTests.Find(TestResult?.TestId)?.Reference ?? string.Empty;
+    public string TestReference => ClinicalTests.Find(TestResult?.TestId)?.Localized().Reference ?? string.Empty;
 
-    public string TestSource => ClinicalTests.Find(TestResult?.TestId)?.Source ?? string.Empty;
+    public string TestSource => ClinicalTests.Find(TestResult?.TestId)?.Localized().Source ?? string.Empty;
 
     /// <summary>Falso se la rilevazione è stata interrotta prima del calcolo degli indicatori.</summary>
     [ObservableProperty]
@@ -163,7 +165,7 @@ public sealed partial class SessionDetailViewModel(
             var c = CultureInfo.CurrentCulture;
             Title = _session.SubjectCode;
             Mode = _session.Mode;
-            var mode = ClinicalPromptBuilder.Describe(_session.Mode);
+            var mode = Loc.T(ClinicalPromptBuilder.Describe(_session.Mode));
             ModeText = mode.Length > 0 ? char.ToUpper(mode[0], c) + mode[1..] : mode;
             WhenText = _session.StartedAt.ToLocalTime().ToString("f", c);
             DurationText = _session.Duration is { } d ? d.ToString(@"mm\:ss", c) : Loc.T("incompleta");

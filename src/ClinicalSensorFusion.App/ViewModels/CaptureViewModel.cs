@@ -258,7 +258,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     async partial void OnSelectedModeChanged(CaptureModeOption value)
     {
         // Ogni modalità ha i suoi test: l'elenco cambia e si riparte dalla rilevazione libera.
-        Tests = [new TestOption(null, Loc.T("Rilevazione libera")), .. ClinicalTests.For(value.Mode).Select(t => new TestOption(t, t.Name))];
+        Tests = [new TestOption(null, Loc.T("Rilevazione libera")), .. ClinicalTests.For(value.Mode).Select(t => t.Localized()).Select(t => new TestOption(t, t.Name))];
         OnPropertyChanged(nameof(Tests));
         SelectedTest = Tests[0];
         OnPropertyChanged(nameof(ShowTests));
@@ -342,8 +342,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             }
 
             await _speech.SpeakAsync(test.AudioGuide, cts.Token);
-            await _speech.SpeakAsync("Pronti?", cts.Token);
-            foreach (var (digit, word) in new[] { ("3", "Tre"), ("2", "Due"), ("1", "Uno") })
+            await _speech.SpeakAsync(Loc.T("Pronti?"), cts.Token);
+            foreach (var (digit, word) in new[] { ("3", Loc.T("Tre")), ("2", Loc.T("Due")), ("1", Loc.T("Uno")) })
             {
                 GuideCountdown = digit;
                 await _speech.SpeakAsync(word, cts.Token);
@@ -351,7 +351,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             }
 
             GuideCountdown = string.Empty;
-            await _speech.SpeakAsync("Via!", cts.Token);
+            await _speech.SpeakAsync(Loc.T("Via!"), cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -381,9 +381,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     private static string FreeCaptureGuide(CaptureMode mode) => mode switch
     {
-        CaptureMode.HandsLidar => "Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore.",
-        CaptureMode.FaceTrueDepth => "Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore.",
-        _ => "Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore.",
+        CaptureMode.HandsLidar => Loc.T("Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore."),
+        CaptureMode.FaceTrueDepth => Loc.T("Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore."),
+        _ => Loc.T("Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore."),
     };
 
     [RelayCommand(CanExecute = nameof(CanStart))]
@@ -541,7 +541,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
                         _coordinator.MarkTestEnd(at);
                     }
 
-                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
                     StopCommand.Execute(null);
                 }
             }
@@ -553,7 +553,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
                 if (sinceStart >= limit && StopCommand.CanExecute(null))
                 {
                     // Avvisa il paziente: l'operatore può essere lontano dal telefono.
-                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
                     StopCommand.Execute(null);
                 }
             }

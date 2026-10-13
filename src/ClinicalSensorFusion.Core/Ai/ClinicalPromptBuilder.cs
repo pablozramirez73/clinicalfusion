@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 
 namespace ClinicalSensorFusion.Core.Ai;
@@ -81,11 +82,12 @@ public static class ClinicalPromptBuilder
         return [new OllamaMessage("system", system), new OllamaMessage("user", user.ToString())];
     }
 
+    /// <summary>Modalità descritta in italiano, per il prompt; per mostrarla all'operatore va passata da Loc.T.</summary>
     public static string Describe(CaptureMode mode) => mode switch
     {
-        CaptureMode.BodyLidar => "corpo intero, fotocamera posteriore con MediaPipe Pose (LiDAR se attivato)",
-        CaptureMode.HandsLidar => "mani, fotocamera posteriore con MediaPipe Hands",
-        CaptureMode.FaceTrueDepth => "volto, fotocamera frontale TrueDepth con MediaPipe Face e blendshape ARKit",
+        CaptureMode.BodyLidar => Loc.N("corpo intero, fotocamera posteriore con MediaPipe Pose (LiDAR se attivato)"),
+        CaptureMode.HandsLidar => Loc.N("mani, fotocamera posteriore con MediaPipe Hands"),
+        CaptureMode.FaceTrueDepth => Loc.N("volto, fotocamera frontale TrueDepth con MediaPipe Face e blendshape ARKit"),
         _ => mode.ToString(),
     };
 }

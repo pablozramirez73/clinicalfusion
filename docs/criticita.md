@@ -36,10 +36,14 @@ Aree nate dopo la prima stesura di questo documento, non coperte dalla revisione
   era sempre in italiano. Ora la lingua si sceglie in Impostazioni → «Lingua dell'app» (preferenza
   `ui.language`, vuota = quella del telefono), si applica all'avvio in `MauiProgram`, e i testi
   dell'interfaccia (XAML, ViewModel, servizi e piattaforme) sono tradotti; `LocalizationTests` fallisce se
-  un testo nuovo non ha la traduzione. **Restano in italiano** i contenuti clinici del Core: protocolli dei
-  test (`ClinicalTests`), guida vocale (voce italiana), righe del riepilogo (`SummaryReport`,
-  `MeasurementReliability`, `PayloadReport`) e descrizioni delle modalità nel prompt: vanno tradotti con
-  una revisione clinica, non come testi dell'interfaccia.
+  un testo nuovo non ha la traduzione. Sono tradotti anche i contenuti clinici del Core: protocolli dei
+  test (`ClinicalTest.Localized`), guida vocale (con la voce di sistema della lingua scelta),
+  interpretazione dei punteggi, righe del riepilogo, affidabilità della misura e controllo del payload.
+  **Restano in italiano i dati**: il nome del test e i nomi dei canali salvati nel riepilogo e inviati al
+  server (marcati con `Loc.N` e tradotti solo quando si mostrano), il prompt per Ollama e tutto ciò che
+  produce il server, che non cambia mai lingua. L'interpretazione del test è salvata nella lingua che
+  l'interfaccia aveva al momento della rilevazione. Le traduzioni inglesi dei protocolli seguono la
+  terminologia delle fonti (CDC STEADI, ANPT, MDS-UPDRS) ma non hanno avuto una revisione clinica.
 - **`Core/Bluetooth/`** e `Platforms/iOS/Bluetooth/IosBluetoothSensors.cs` — frequenza cardiaca,
   saturimetro, termometro.
 - **Server** — `FhirEndpoints` (HL7 FHIR R4 in sola lettura ed esportazione), `AuditEndpoints`,

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.Core.Sync;
 
@@ -49,11 +50,11 @@ public sealed record PayloadReport(int Bytes, string Sha256, bool RoundTrips, IR
             }
         }
 
-        Require("identificativo", !string.IsNullOrWhiteSpace(upload.Id));
-        Require("codice soggetto", !string.IsNullOrWhiteSpace(upload.SubjectCode));
-        Require("operatore", !string.IsNullOrWhiteSpace(upload.OperatorId) && !string.IsNullOrWhiteSpace(upload.OperatorName));
-        Require("fine rilevazione", upload.EndedAt is not null);
-        Require("riepilogo", upload.Summary is not null);
+        Require(Loc.N("identificativo"), !string.IsNullOrWhiteSpace(upload.Id));
+        Require(Loc.N("codice soggetto"), !string.IsNullOrWhiteSpace(upload.SubjectCode));
+        Require(Loc.N("operatore"), !string.IsNullOrWhiteSpace(upload.OperatorId) && !string.IsNullOrWhiteSpace(upload.OperatorName));
+        Require(Loc.N("fine rilevazione"), upload.EndedAt is not null);
+        Require(Loc.N("riepilogo"), upload.Summary is not null);
 
         return new PayloadReport(
             json.Length,
@@ -69,13 +70,13 @@ public sealed record PayloadReport(int Bytes, string Sha256, bool RoundTrips, IR
         var c = culture ?? CultureInfo.CurrentCulture;
         return
         [
-            new(Section, "Esito", IsValid ? "valido" : "da verificare", !IsValid),
-            new(Section, "Dimensione", string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
-            new(Section, "Impronta SHA-256", Sha256[..12] + "…"),
-            new(Section, "Rilettura", RoundTrips ? "identica" : "non riuscita", !RoundTrips),
-            new(Section, "Campi obbligatori", MissingFields.Count == 0 ? "completi" : "mancano: " + string.Join(", ", MissingFields), MissingFields.Count > 0),
-            new(Section, "Valori non numerici", NonFiniteNumbers == 0 ? "nessuno" : string.Format(c, "{0} (NaN o infinito)", NonFiniteNumbers), NonFiniteNumbers > 0),
-            new(Section, "Dati dei sensori", string.Format(c, "{0:N0} blocchi · {1:N0} campioni · {2:N1} MB", Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
+            new(Section, Loc.T("Esito"), IsValid ? Loc.T("valido") : Loc.T("da verificare"), !IsValid),
+            new(Section, Loc.T("Dimensione"), string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
+            new(Section, Loc.T("Impronta SHA-256"), Sha256[..12] + "…"),
+            new(Section, Loc.T("Rilettura"), RoundTrips ? Loc.T("identica") : Loc.T("non riuscita"), !RoundTrips),
+            new(Section, Loc.T("Campi obbligatori"), MissingFields.Count == 0 ? Loc.T("completi") : Loc.F("mancano: {0}", string.Join(", ", MissingFields.Select(f => Loc.T(f)))), MissingFields.Count > 0),
+            new(Section, Loc.T("Valori non numerici"), NonFiniteNumbers == 0 ? Loc.T("nessuno") : string.Format(c, Loc.T("{0} (NaN o infinito)"), NonFiniteNumbers), NonFiniteNumbers > 0),
+            new(Section, Loc.T("Dati dei sensori"), string.Format(c, Loc.T("{0:N0} blocchi · {1:N0} campioni · {2:N1} MB"), Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
         ];
     }
 

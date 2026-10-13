@@ -1,10 +1,19 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.Core.Tests;
 
+/// <summary>
+/// Alcuni test cambiano la lingua corrente, che è globale: questa raccolta non gira in parallelo con le altre,
+/// che si aspettano i testi in italiano.
+/// </summary>
+[CollectionDefinition(nameof(LocalizationTests), DisableParallelization = true)]
+public sealed class LocalizationCollection;
+
+[Collection(nameof(LocalizationTests))]
 public sealed partial class LocalizationTests
 {
     [Theory]
@@ -41,7 +50,40 @@ public sealed partial class LocalizationTests
     }
 
     /// <summary>
-    /// Ogni testo che l'app passa a <c>{l:Tr}</c>, <c>Loc.T</c> o <c>Loc.F</c> deve avere la traduzione in ogni
+    /// I contenuti clinici seguono la lingua dell'interfaccia (protocollo, guida vocale, interpretazione, riepilogo),
+    /// ma il nome del test salvato nel riepilogo, e inviato al server, resta quello originale.
+    /// </summary>
+    [Fact]
+    public void Clinical_content_follows_the_interface_language_but_the_saved_test_name_does_not()
+    {
+        try
+        {
+            Loc.Use("en");
+            var tug = ClinicalTests.TimedUpAndGo.Localized();
+            Assert.Equal("Mobility and fall risk.", tug.Purpose);
+            Assert.StartsWith("Walking test", tug.AudioGuide, StringComparison.Ordinal);
+            Assert.Equal("Start the session on “Go”.", tug.Steps[1]);
+            Assert.Equal("Five more seconds.", ClinicalTests.ChairStand30.Localized().Cues[1].Text);
+
+            var outcome = ClinicalTests.Evaluate(tug, new SessionSummary { DurationSeconds = 13, Mode = CaptureMode.BodyLidar }, 13);
+            Assert.Equal(ClinicalTests.TimedUpAndGo.Name, outcome.TestName);
+            Assert.StartsWith("12 seconds or more", outcome.Interpretation, StringComparison.Ordinal);
+
+            var rows = SummaryReport.Build(new SessionSummary { DurationSeconds = 13, Mode = CaptureMode.BodyLidar }, CultureInfo.InvariantCulture);
+            Assert.Equal("General", rows[0].Section);
+            Assert.Equal("Duration", rows[0].Label);
+        }
+        finally
+        {
+            Loc.Use(Loc.Italian);
+        }
+
+        // In italiano (il server non cambia mai lingua) tutto resta com'era.
+        Assert.Equal("Generale", SummaryReport.Build(new SessionSummary { DurationSeconds = 13 }, CultureInfo.InvariantCulture)[0].Section);
+    }
+
+    /// <summary>
+    /// Ogni testo che l'app passa a <c>{l:Tr}</c>, <c>Loc.T</c>, <c>Loc.F</c> o <c>Loc.N</c> deve avere la traduzione in ogni
     /// lingua disponibile: altrimenti chi usa l'app in inglese si ritrova frasi in italiano senza che nessuno se ne accorga.
     /// </summary>
     [Fact]
@@ -121,8 +163,8 @@ public sealed partial class LocalizationTests
     [GeneratedRegex(@"\{l:Tr Text='((?:[^'\\]|\\.)*)'\}")]
     private static partial Regex XamlText();
 
-    // Loc.T("…") e Loc.F("…", …), anche con il testo spezzato in più letterali uniti da +.
-    [GeneratedRegex(@"Loc\.[TF]\(\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)[,)]")]
+    // Loc.T("…"), Loc.F("…", …) e Loc.N("…"), anche con il testo spezzato in più letterali uniti da +.
+    [GeneratedRegex(@"Loc\.[TFN]\(\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)[,)]")]
     private static partial Regex CodeText();
 
     [GeneratedRegex(@"""((?:[^""\\]|\\.)*)""")]
