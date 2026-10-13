@@ -9,6 +9,7 @@ export const en: Record<string, string> = {
   "＋ Nuovo paziente": "＋ New patient",
   "♥ Stato del sistema": "♥ System status",
   "Esci": "Sign out",
+  "Caricamento…": "Loading…",
   "Errore inatteso.": "Unexpected error.",
   "Corpo · LiDAR": "Body · LiDAR",
   "Mani · LiDAR": "Hands · LiDAR",
