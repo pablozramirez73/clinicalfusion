@@ -15,6 +15,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Traduzioni dei testi dell'interfaccia: vedi Localization/Loc.cs. -->
+    <EmbeddedResource Include="Localization/*.json" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="ClinicalSensorFusion.Core.Tests" />
   </ItemGroup>
 </Project>
