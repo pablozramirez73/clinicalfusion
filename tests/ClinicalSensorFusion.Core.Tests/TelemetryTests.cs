@@ -73,36 +73,39 @@ public sealed class TelemetryTests : IDisposable
     public void Operation_records_duration_with_outcome_and_collector_aggregates_by_tags()
     {
         using var collector = new MetricsCollector();
-        using (var ok = CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", CsfTelemetry.Sync.SessionDuration))
+        // Strumenti propri del test: quelli veri sono condivisi con i test che girano in parallelo.
+        var duration = CsfTelemetry.Meter.CreateHistogram<double>("csf.test.operation.duration", "s");
+        var counter = CsfTelemetry.Meter.CreateCounter<long>("csf.test.dropped", "{sample}");
+        using (var ok = CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", duration))
         {
             ok.Succeed();
         }
 
-        using (var failed = CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", CsfTelemetry.Sync.SessionDuration))
+        using (var failed = CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", duration))
         {
             failed.Fail(new TimeoutException());
         }
 
-        using (CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", CsfTelemetry.Sync.SessionDuration))
+        using (CsfTelemetry.StartOperation(NullLogger.Instance, "test.op", duration))
         {
             // Nessun esito dichiarato: conta come errore, mai come successo.
         }
 
-        CsfTelemetry.Capture.DroppedSamples.Add(3, CsfTelemetry.Tag("kind", "TelemetryTest"));
-        CsfTelemetry.Capture.DroppedSamples.Add(2, CsfTelemetry.Tag("kind", "TelemetryTest"));
+        counter.Add(3, CsfTelemetry.Tag("kind", "TelemetryTest"));
+        counter.Add(2, CsfTelemetry.Tag("kind", "TelemetryTest"));
 
         var points = collector.Snapshot();
-        var durations = points.Where(p => p.Name == "csf.sync.session.duration").ToDictionary(p => p.Tags, p => p);
+        var durations = points.Where(p => p.Name == "csf.test.operation.duration").ToDictionary(p => p.Tags, p => p);
         Assert.Equal(1, durations["outcome=success"].Count);
         Assert.Equal(1, durations["outcome=timeout"].Count);
         Assert.Equal(1, durations["outcome=error"].Count);
         Assert.Equal("histogram", durations["outcome=success"].Kind);
         Assert.Equal("s", durations["outcome=success"].Unit);
 
-        var dropped = Assert.Single(points, p => p.Name == "csf.capture.samples.dropped" && p.Tags == "kind=TelemetryTest");
+        var dropped = Assert.Single(points, p => p.Name == "csf.test.dropped" && p.Tags == "kind=TelemetryTest");
         Assert.Equal("counter", dropped.Kind);
         Assert.Equal(5, dropped.Sum);
-        Assert.Contains("csf.capture.samples.dropped{kind=TelemetryTest} n=2 total=5", MetricsCollector.Describe(points), StringComparison.Ordinal);
+        Assert.Contains("csf.test.dropped{kind=TelemetryTest} n=2 total=5", MetricsCollector.Describe(points), StringComparison.Ordinal);
     }
 
     [Fact]

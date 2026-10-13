@@ -38,6 +38,8 @@ dashboard come una iOS. Le differenze da tenere presenti in analisi:
 - **Stato termico.** Le sette classi di Android sono riportate alle quattro di iOS (0 nominale … 3 critico).
 - **Coordinate dei punti.** Come su iOS, MediaPipe usa la rotazione solo per l'inferenza e restituisce i punti nel
   sistema del sensore: così sono archiviati, e solo l'overlay li raddrizza per la vista.
+  Lo stesso vale per i punti 3D: il replay della dashboard li raddrizza (rotazione di 0°, 90°, 180° o 270° ricavata
+  dalla direzione del tronco), altrimenti il soggetto in piedi apparirebbe coricato.
 
 ## 2. Struttura
 

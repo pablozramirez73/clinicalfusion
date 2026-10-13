@@ -146,3 +146,83 @@ public class SummaryReportTests
         Assert.Contains(rows, r => r.Value == "7.500 campioni");
     }
 }
+
+public class PoseUprightTests
+{
+    /// <summary>Soggetto in piedi nel sistema "dritto": spalle sopra le anche (Y verso il basso), sinistra del soggetto a +X.</summary>
+    private static float[] Standing()
+    {
+        var p = new float[PoseLandmark.Count * 3];
+        Array.Fill(p, float.NaN);
+        void Set(int joint, float x, float y)
+        {
+            p[joint * 3] = x;
+            p[(joint * 3) + 1] = y;
+            p[(joint * 3) + 2] = 2f;
+        }
+
+        Set(PoseLandmark.LeftShoulder, 0.2f, -0.5f);
+        Set(PoseLandmark.RightShoulder, -0.2f, -0.5f);
+        Set(PoseLandmark.LeftHip, 0.15f, 0f);
+        Set(PoseLandmark.RightHip, -0.15f, 0f);
+        return p;
+    }
+
+    private static float[] Turned(int quarterTurns)
+    {
+        var p = Standing();
+        PoseUpright.Rotate(p, quarterTurns);
+        return p;
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void A_pose_stored_in_any_sensor_orientation_is_brought_back_upright(int sensorTurns)
+    {
+        var frames = Enumerable.Range(0, 20).Select(_ => Turned(sensorTurns)).ToList();
+
+        var turns = PoseUpright.QuarterTurns(frames);
+        Assert.Equal((4 - sensorTurns) % 4, turns);
+
+        var restored = frames[0];
+        PoseUpright.Rotate(restored, turns);
+        var expected = Standing();
+        for (var i = 0; i < expected.Length; i++)
+        {
+            if (float.IsNaN(expected[i]))
+            {
+                Assert.True(float.IsNaN(restored[i]));
+            }
+            else
+            {
+                Assert.Equal(expected[i], restored[i], 1e-6f);
+            }
+        }
+
+        // Spalle sopra le anche, e la sinistra resta a sinistra (nessuno specchiamento).
+        Assert.True(restored[(PoseLandmark.LeftShoulder * 3) + 1] < restored[(PoseLandmark.LeftHip * 3) + 1]);
+        Assert.True(restored[PoseLandmark.LeftShoulder * 3] > restored[PoseLandmark.RightShoulder * 3]);
+    }
+
+    [Fact]
+    public void Without_a_visible_trunk_nothing_is_rotated()
+    {
+        var empty = new float[PoseLandmark.Count * 3];
+        Array.Fill(empty, float.NaN);
+        Assert.Equal(0, PoseUpright.QuarterTurns([empty, empty]));
+        Assert.Equal(0, PoseUpright.QuarterTurns([]));
+
+        // Direzioni che si annullano (metà dei fotogrammi in un verso, metà nell'altro): nessuna decisione.
+        Assert.Equal(0, PoseUpright.QuarterTurns([Turned(1), Turned(3), Turned(1), Turned(3)]));
+    }
+
+    [Fact]
+    public void A_few_odd_frames_do_not_change_the_decision()
+    {
+        var frames = Enumerable.Range(0, 30).Select(i => Turned(i % 10 == 0 ? 0 : 1)).ToList();
+        Assert.Equal(3, PoseUpright.QuarterTurns(frames));
+    }
+}

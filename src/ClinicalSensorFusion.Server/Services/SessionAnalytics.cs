@@ -47,6 +47,10 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
         var angles = await ReadStreamAsync(sessionId, SensorKind.JointAngles, ct);
         var step = Math.Max(1, (int)Math.Ceiling(poses.Count / (double)Math.Max(1, maxFrames)));
 
+        // I punti sono nel sistema del sensore (orizzontale con il telefono in verticale): senza raddrizzarli
+        // il soggetto in piedi apparirebbe coricato. Una sola rotazione per tutta la rilevazione.
+        var turns = PoseUpright.QuarterTurns(poses.Select(p => p.Values));
+
         var frames = new List<PoseFrame>(poses.Count / step + 1);
         var a = 0;
         for (var i = 0; i < poses.Count; i += step)
@@ -59,6 +63,7 @@ public sealed class SessionAnalytics(ClinicalDbContext db)
             }
 
             var angleValues = a < angles.Count ? angles[a].Values.Take(JointAngleCalculator.JointCount).ToArray() : [];
+            PoseUpright.Rotate(p.Values, turns);
             frames.Add(new PoseFrame(p.Timestamp, ToNullable(p.Values), ToNullable(angleValues)));
         }
 
