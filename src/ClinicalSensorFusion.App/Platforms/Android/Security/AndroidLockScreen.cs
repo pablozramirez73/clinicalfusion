@@ -5,6 +5,7 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using AColor = Android.Graphics.Color;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Security;

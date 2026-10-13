@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Bluetooth;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;

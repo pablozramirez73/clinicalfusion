@@ -2,6 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <!--
+    Lingue dell'interfaccia (Core/Localization/Loc.Supported). Senza questa voce iOS riporta all'app sempre la
+    lingua di sviluppo, qualunque sia quella del telefono; con più lingue compare anche la scelta per app in
+    Impostazioni → SensorFusion Clinic → Lingua.
+  -->
+  <key>CFBundleDevelopmentRegion</key>
+  <string>it</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>it</string>
+    <string>en</string>
+  </array>
   <key>LSRequiresIPhoneOS</key>
   <true/>
   <key>UIDeviceFamily</key>

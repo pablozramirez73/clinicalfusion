@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;

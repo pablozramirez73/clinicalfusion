@@ -3,6 +3,7 @@ using ClinicalSensorFusion.App.Platforms.iOS.Sensors;
 using ClinicalSensorFusion.App.Platforms.iOS.Vision;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using Foundation;
 using Microsoft.Extensions.Logging;

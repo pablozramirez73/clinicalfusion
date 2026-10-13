@@ -4,6 +4,7 @@ using System.Globalization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -98,7 +99,8 @@ public sealed partial class SessionsViewModel(
         }
         catch (DatabaseKeyMismatchException)
         {
-            ErrorMessage = Loc.T("L'archivio clinico esistente non è decifrabile con la chiave di questo dispositivo/installazione. Il file non è stato modificato.");
+            ErrorMessage = Loc.T("L'archivio clinico esistente non è decifrabile con la chiave di questo dispositivo/installazione. " +
+                                 "Il file non è stato modificato. Vedere docs/architettura.md, sezione \"Migrazione dall'app originale\".");
         }
         catch (Exception ex)
         {
@@ -137,7 +139,7 @@ public sealed partial class SessionsViewModel(
         {
             0 => string.IsNullOrWhiteSpace(SearchText) ? Loc.T("Archivio cifrato su questo dispositivo") : Loc.T("Nessun risultato"),
             1 => Loc.T("1 rilevazione"),
-            var n => string.Create(CultureInfo.CurrentCulture, $"{n} rilevazioni"),
+            var n => Loc.F("{0} rilevazioni", n),
         };
     }
 
@@ -178,7 +180,7 @@ public sealed partial class SessionsViewModel(
         {
             0 => Loc.T("Oggi"),
             1 => Loc.T("Ieri"),
-            _ => local.ToString(local.Year == DateTimeOffset.Now.Year ? "d MMM" : Loc.T("d MMM yyyy"), c),
+            _ => local.ToString(local.Year == DateTimeOffset.Now.Year ? "d MMM" : "d MMM yyyy", c),
         };
         return $"{day}, {local.ToString("t", c)}";
     }

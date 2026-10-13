@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Hardware.Biometrics;
 using Android.OS;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Security;
 

@@ -32,7 +32,7 @@
         <Border Grid.Column="1" Style="{StaticResource Hud}" BackgroundColor="{StaticResource Danger}" IsVisible="{Binding IsRecording}">
           <HorizontalStackLayout Spacing="6">
             <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="White" VerticalOptions="Center" />
-            <Label Text="{l:Tr Text='REC'}" Style="{StaticResource HudText}" />
+            <Label Text="REC" Style="{StaticResource HudText}" />
             <Label Text="{Binding Elapsed}" Style="{StaticResource HudText}" />
           </HorizontalStackLayout>
         </Border>
@@ -173,7 +173,7 @@
           <Border Style="{StaticResource Tile}" Padding="14,10" IsVisible="{Binding ShowLidarOption}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <VerticalStackLayout Spacing="1" VerticalOptions="Center">
-                <Label Text="{l:Tr Text='LiDAR'}" FontAttributes="Bold" />
+                <Label Text="LiDAR" FontAttributes="Bold" />
                 <Label Text="{l:Tr Text='Angoli e distanza in metri reali. Spento, li stima MediaPipe.'}" Style="{StaticResource Muted}" FontSize="12" />
               </VerticalStackLayout>
               <Switch Grid.Column="1" IsToggled="{Binding UseLidar}" IsEnabled="{Binding CanChangeLidar}" VerticalOptions="Center"

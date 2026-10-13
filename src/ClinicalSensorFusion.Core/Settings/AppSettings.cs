@@ -16,6 +16,12 @@ public static class SettingsKeys
     public const string OperatorId = "operator.id";
     public const string OperatorName = "operator.name";
 
+    /// <summary>
+    /// Lingua dell'interfaccia (codice di <see cref="Localization.Loc.Supported"/>; vuoto = quella del telefono).
+    /// Diversa da <see cref="OllamaLanguage"/>, che è la lingua in cui risponde il modello.
+    /// </summary>
+    public const string UiLanguage = "ui.language";
+
     /// <summary>Credenziali di servizio Cloudflare Access: solo nel Portachiavi, mai nelle preferenze in chiaro.</summary>
     public const string CloudflareClientId = "cloudflare.access.client_id";
     public const string CloudflareClientSecret = "cloudflare.access.client_secret";

@@ -2,6 +2,7 @@ using ClinicalSensorFusion.Core.Localization;
 using Android.Content;
 using Android.Hardware;
 using Android.OS;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Sensors;

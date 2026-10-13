@@ -39,6 +39,25 @@
           </VerticalStackLayout>
         </Border>
 
+        <!-- Lingua dell'interfaccia: distinta da quella delle risposte del modello, più sotto. -->
+        <Border Style="{StaticResource Card}">
+          <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                <Path Style="{StaticResource IconGlobe}" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="{l:Tr Text='Lingua dell\'app'}" Style="{StaticResource Headline}" />
+                <Label Text="{l:Tr Text='Ha effetto al prossimo avvio dell\'app.'}" Style="{StaticResource Muted}" />
+              </VerticalStackLayout>
+            </Grid>
+            <controls:FormField Label="{l:Tr Text='Lingua dell\'interfaccia'}">
+              <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding UiLanguages}" ItemDisplayBinding="{Binding Name, x:DataType=vm:UiLanguageOption}"
+                      SelectedItem="{Binding UiLanguage}" />
+            </controls:FormField>
+          </VerticalStackLayout>
+        </Border>
+
         <!-- Stima sperimentale del rischio di caduta -->
         <Border Style="{StaticResource Card}">
           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
@@ -140,10 +159,10 @@
                        Style="{StaticResource Muted}" />
               </VerticalStackLayout>
             </Grid>
-            <controls:FormField Label="{l:Tr Text='CF-Access-Client-Id'}">
+            <controls:FormField Label="CF-Access-Client-Id">
               <Entry Text="{Binding CloudflareClientId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </controls:FormField>
-            <controls:FormField Label="{l:Tr Text='CF-Access-Client-Secret'}">
+            <controls:FormField Label="CF-Access-Client-Secret">
               <Entry Text="{Binding CloudflareClientSecret}" IsPassword="True" />
             </controls:FormField>
             <Button Text="{l:Tr Text='Accedi nella WebView'}" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />

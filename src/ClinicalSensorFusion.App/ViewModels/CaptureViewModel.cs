@@ -6,6 +6,7 @@ using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Recording;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -54,7 +55,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly MetricTile _knee = new(Loc.T("Ginocchio dx"));
     private readonly MetricTile _elbow = new(Loc.T("Gomito dx"));
     private readonly MetricTile _distance = new(Loc.T("Distanza"));
-    private readonly MetricTile _audio = new(Loc.T("Audio"));
+    private readonly MetricTile _audio = new("Audio");
     private readonly MetricTile _steps = new(Loc.T("Passi"));
     private readonly MetricTile _altitude = new(Loc.T("Quota rel."));
     private readonly MetricTile _light = new(Loc.T("Luce"));
@@ -559,8 +560,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         _light.Value = live.AmbientLux is { } lux ? string.Format(c, "{0:F0} lm", lux) : "—";
         _thermal.Value = live.ThermalState switch
         {
-            0 => "normale",
-            1 => "discreta",
+            0 => Loc.T("normale"),
+            1 => Loc.T("discreta"),
             2 => Loc.T("elevata ⚠"),
             _ => Loc.T("critica ⚠"),
         };

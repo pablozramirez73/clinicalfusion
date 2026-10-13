@@ -1,6 +1,7 @@
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Ai;
+using ClinicalSensorFusion.Core.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 

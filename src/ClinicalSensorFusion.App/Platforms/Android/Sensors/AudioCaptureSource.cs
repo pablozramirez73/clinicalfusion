@@ -4,6 +4,7 @@ using Android.Media;
 using Android.OS;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
 using Microsoft.Extensions.Logging;

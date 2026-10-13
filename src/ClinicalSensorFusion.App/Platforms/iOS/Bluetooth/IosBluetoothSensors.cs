@@ -1,6 +1,7 @@
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Bluetooth;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreBluetooth;
 using CoreFoundation;

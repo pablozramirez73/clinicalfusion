@@ -4,6 +4,7 @@ using AudioToolbox;
 using AVFoundation;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
 using Foundation;

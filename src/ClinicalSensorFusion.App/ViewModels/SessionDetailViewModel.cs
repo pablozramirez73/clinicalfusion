@@ -6,6 +6,7 @@ using System.Text.Json;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -247,7 +248,7 @@ public sealed partial class SessionDetailViewModel(
             var mode = ClinicalPromptBuilder.Describe(_session.Mode);
             ModeText = mode.Length > 0 ? char.ToUpper(mode[0], c) + mode[1..] : mode;
             WhenText = _session.StartedAt.ToLocalTime().ToString("f", c);
-            DurationText = _session.Duration is { } d ? d.ToString(@"mm\:ss", c) : "incompleta";
+            DurationText = _session.Duration is { } d ? d.ToString(@"mm\:ss", c) : Loc.T("incompleta");
             OperatorName = _session.OperatorName;
             HasSummary = _session.Summary is not null;
             TestResult = _session.Summary?.Test;
@@ -379,7 +380,7 @@ public sealed partial class SessionDetailViewModel(
 
     private static string FactorName(string feature) => feature switch
     {
-        "tug_time_s" => Loc.T("Timed Up and Go"),
+        "tug_time_s" => "Timed Up and Go",
         "gait_speed_m_s" => Loc.T("Velocità del cammino"),
         "sppb_chair_index" => Loc.T("Alzate dalla sedia (SPPB)"),
         "sppb_balance_index" => Loc.T("Equilibrio (SPPB)"),
@@ -415,7 +416,7 @@ public sealed partial class SessionDetailViewModel(
         else if (_session.SyncedAt is { } at)
         {
             SyncState = SyncState.Sent;
-            SyncText = Loc.F("Inviata il {0}. I grafici sono nella dashboard.", at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
+            SyncText = Loc.F("Inviata il {0:g}. I grafici sono nella dashboard.", at.ToLocalTime());
         }
         else
         {
@@ -532,14 +533,14 @@ public sealed partial class SessionDetailViewModel(
         }
         catch (OperationCanceledException) when (_analysisCts.IsCancellationRequested)
         {
-            AnalysisText = text.Append("\n\n[interrotta]").ToString();
+            AnalysisText = text.Append("\n\n").Append(Loc.T("[interrotta]")).ToString();
         }
         catch (Exception ex) when (ex is OllamaException or HttpRequestException or OperationCanceledException)
         {
             // Timeout, rete caduta o stream troncato: il testo parziale resta visibile ma non viene salvato.
             if (text.Length > 0)
             {
-                AnalysisText = text.Append(Loc.T("\n\n[incompleta: non salvata]")).ToString();
+                AnalysisText = text.Append("\n\n").Append(Loc.T("[incompleta: non salvata]")).ToString();
             }
 
             await dialogs.AlertAsync(

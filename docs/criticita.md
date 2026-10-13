@@ -31,7 +31,15 @@ Aree nate dopo la prima stesura di questo documento, non coperte dalla revisione
 
 - **`Core/Localization/`** — traduzione in stile gettext: la chiave è il testo italiano scritto nel
   codice, le traduzioni sono JSON incorporati, una voce mancante ricade sull'italiano. Più
-  `App/Localization/TrExtension.cs`.
+  `App/Localization/TrExtension.cs`. Nella prima versione la lingua non veniva mai impostata
+  (`Loc.Use` non era chiamato), nessun testo passava da `{l:Tr}` o `Loc.T` ed `en.json` era vuoto: l'app
+  era sempre in italiano. Ora la lingua si sceglie in Impostazioni → «Lingua dell'app» (preferenza
+  `ui.language`, vuota = quella del telefono), si applica all'avvio in `MauiProgram`, e i testi
+  dell'interfaccia (XAML, ViewModel, servizi e piattaforme) sono tradotti; `LocalizationTests` fallisce se
+  un testo nuovo non ha la traduzione. **Restano in italiano** i contenuti clinici del Core: protocolli dei
+  test (`ClinicalTests`), guida vocale (voce italiana), righe del riepilogo (`SummaryReport`,
+  `MeasurementReliability`, `PayloadReport`) e descrizioni delle modalità nel prompt: vanno tradotti con
+  una revisione clinica, non come testi dell'interfaccia.
 - **`Core/Bluetooth/`** e `Platforms/iOS/Bluetooth/IosBluetoothSensors.cs` — frequenza cardiaca,
   saturimetro, termometro.
 - **Server** — `FhirEndpoints` (HL7 FHIR R4 in sola lettura ed esportazione), `AuditEndpoints`,

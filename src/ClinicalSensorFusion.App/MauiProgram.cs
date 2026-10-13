@@ -3,6 +3,7 @@ using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.App.ViewModels;
 using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Ai;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Settings;
 using ClinicalSensorFusion.Core.Sync;
@@ -27,6 +28,10 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         _ = AppDiagnostics.SinceLaunch; // fa partire il cronometro dell'avvio
+
+        // Lingua dell'interfaccia: va fissata prima che si carichi qualunque XAML, perché {l:Tr} traduce una
+        // volta sola, quando la pagina viene creata. Per questo cambiarla dalle Impostazioni vale dal riavvio.
+        Loc.Use(Loc.Resolve(Preferences.Default.Get(SettingsKeys.UiLanguage, string.Empty), System.Globalization.CultureInfo.CurrentUICulture));
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()

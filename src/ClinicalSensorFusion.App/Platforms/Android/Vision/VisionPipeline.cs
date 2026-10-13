@@ -4,6 +4,7 @@ using System.Numerics;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.MediaPipe;
 using Microsoft.Extensions.Logging;
@@ -259,7 +260,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         }
 
         var caption = string.Join(" · ", Enumerable.Range(0, count).Select(h =>
-            h < handedness.Length ? (handedness[h] == "Right" ? "Mano dx" : "Mano sx") : "Mano"));
+            h < handedness.Length ? (handedness[h] == "Right" ? Loc.T("Mano dx") : Loc.T("Mano sx")) : Loc.T("Mano")));
         return new OverlayFrame(points, connections, caption, result.InferenceMs);
     }
 

@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using UIKit;
 
 namespace ClinicalSensorFusion.App.Platforms.iOS.Security;

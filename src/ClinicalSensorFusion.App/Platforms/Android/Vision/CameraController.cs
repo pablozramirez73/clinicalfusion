@@ -9,6 +9,7 @@ using AndroidX.Camera.View;
 using AndroidX.Core.Content;
 using AndroidX.Lifecycle;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using Java.Util.Concurrent;
 using Microsoft.Extensions.Logging;
 

@@ -9,7 +9,10 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ClinicalSensorFusion.App.ViewModels;
 
-/// <summary>Operatore, server Ollama (indirizzo, modello, lingua), accesso remoto e privacy.</summary>
+/// <summary>Voce della scelta della lingua dell'interfaccia. <see cref="Code"/> vuoto = la lingua del telefono.</summary>
+public sealed record UiLanguageOption(string Code, string Name);
+
+/// <summary>Operatore, lingua dell'interfaccia, server Ollama (indirizzo, modello, lingua), accesso remoto e privacy.</summary>
 public sealed partial class SettingsViewModel(
     MauiAppSettings settings,
     ISecureStorage secureStorage,
@@ -54,6 +57,13 @@ public sealed partial class SettingsViewModel(
     }
 
     public IReadOnlyList<string> Languages { get; } = SettingsDefaults.Languages;
+
+    /// <summary>«Come il telefono» e poi le lingue disponibili, ciascuna col proprio nome (non tradotto: va riconosciuto da chi la parla).</summary>
+    public IReadOnlyList<UiLanguageOption> UiLanguages { get; } =
+        [new(string.Empty, Loc.T("Come il telefono")), .. Loc.Supported.Select(l => new UiLanguageOption(l.Code, l.Name))];
+
+    [ObservableProperty]
+    public partial UiLanguageOption? UiLanguage { get; set; }
 
     public ObservableCollection<string> Models { get; } = [];
 
@@ -107,6 +117,7 @@ public sealed partial class SettingsViewModel(
     {
         OperatorId = settings.OperatorId;
         OperatorName = settings.OperatorName;
+        UiLanguage = UiLanguages.FirstOrDefault(l => l.Code == settings.UiLanguage) ?? UiLanguages[0];
         OllamaServer = settings.OllamaServer;
         OllamaModel = settings.OllamaModel;
         OllamaLanguage = settings.OllamaLanguage;
@@ -155,6 +166,13 @@ public sealed partial class SettingsViewModel(
             return;
         }
 
+        // La lingua scelta vale dal prossimo avvio: le pagine già create restano nella lingua di adesso.
+        var languageChanged = UiLanguage is { } language && language.Code != settings.UiLanguage;
+        if (UiLanguage is { } selected)
+        {
+            settings.UiLanguage = selected.Code;
+        }
+
         settings.RecordLocation = RecordLocation;
         settings.SyncServer = SyncServer;
         settings.AutoSync = AutoSync;
@@ -162,7 +180,9 @@ public sealed partial class SettingsViewModel(
         await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
         await SaveSecretAsync(SettingsKeys.CloudflareClientId, CloudflareClientId);
         await SaveSecretAsync(SettingsKeys.CloudflareClientSecret, CloudflareClientSecret);
-        await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Salvate."));
+        await dialogs.AlertAsync(Loc.T("Impostazioni"), languageChanged
+            ? Loc.T("Salvate. La nuova lingua si applica al prossimo avvio dell'app.")
+            : Loc.T("Salvate."));
     }
 
     /// <summary>Come l'app originale: GET /api/tags per verificare il server ed elencare i modelli.</summary>

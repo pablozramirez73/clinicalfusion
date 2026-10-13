@@ -4,6 +4,7 @@ using ClinicalSensorFusion.App.Platforms.Android.Sensors;
 using ClinicalSensorFusion.App.Platforms.Android.Vision;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using Microsoft.Extensions.Logging;
 

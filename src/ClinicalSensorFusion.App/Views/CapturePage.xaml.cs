@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.ViewModels;
+using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.App.Views;
 
