@@ -55,6 +55,9 @@
   <string>La posizione è registrata solo se attivata nelle impostazioni, per contestualizzare le rilevazioni a domicilio.</string>
   <key>NSFaceIDUsageDescription</key>
   <string>Face ID protegge l'accesso all'app e ai dati clinici dei pazienti.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>L'app si collega a sensori Bluetooth (frequenza cardiaca, saturimetro, termometro) per registrarne le misure durante la rilevazione.</string>
+
   <key>NSLocalNetworkUsageDescription</key>
   <string>L'app si collega al server Ollama sulla rete locale per l'analisi dei dati con il modello linguistico.</string>
 

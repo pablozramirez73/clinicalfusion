@@ -114,10 +114,12 @@ public static class SummaryReport
     /// <summary>Un solo valore se il canale non è mai cambiato, altrimenti intervallo e media.</summary>
     private static string Describe(ChannelStats ch, CultureInfo c)
     {
-        var unit = ch.Unit.Length > 0 ? " " + ch.Unit : string.Empty;
-        return ch.Min == ch.Max
+        // Le scale (0–1, 0–3) non sono unità: vanno tra parentesi per non leggersi come parte del valore.
+        var unit = ch.Unit.Length == 0 ? string.Empty : char.IsDigit(ch.Unit[0]) ? $" (scala {ch.Unit})" : " " + ch.Unit;
+        var (min, max) = (ch.Min.ToString("0.##", c), ch.Max.ToString("0.##", c));
+        return min == max
             ? string.Format(c, "{0:0.##}{1}", ch.Last, unit)
-            : string.Format(c, "{0:0.##}–{1:0.##}{3} (media {2:0.##}, ultimo {4:0.##})", ch.Min, ch.Max, ch.Mean, unit, ch.Last);
+            : string.Format(c, "{0}–{1}{3} (media {2:0.##}, ultimo {4:0.##})", min, max, ch.Mean, unit, ch.Last);
     }
 
     /// <summary>La posizione si legge come coppia di coordinate, non come cinque statistiche separate.</summary>
@@ -158,6 +160,9 @@ public static class SummaryReport
         SensorKind.JointAngles => "Angoli articolari",
         SensorKind.HandLandmarks => "Mani (MediaPipe)",
         SensorKind.FaceBlendshapes => "Blendshape volto (TrueDepth)",
+        SensorKind.HeartRate => "Cardiofrequenzimetro (Bluetooth)",
+        SensorKind.PulseOximeter => "Saturimetro (Bluetooth)",
+        SensorKind.BodyTemperature => "Termometro (Bluetooth)",
         _ => kind.ToString(),
     };
 }

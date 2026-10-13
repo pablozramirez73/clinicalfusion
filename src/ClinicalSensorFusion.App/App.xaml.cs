@@ -18,6 +18,8 @@ public partial class App : Application
         var window = new Window(_services.GetRequiredService<AppShell>()) { Title = "SensorFusion Clinic" };
         _services.GetRequiredService<AppLockController>().Attach(window);
         _services.GetRequiredService<AppDiagnostics>().Attach(window);
+        // I sensori Bluetooth già associati si ricollegano da soli quando sono accesi.
+        window.Created += (_, _) => _services.GetRequiredService<IBluetoothSensors>().ReconnectRemembered();
         return window;
     }
 }

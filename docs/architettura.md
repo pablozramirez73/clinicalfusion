@@ -159,3 +159,17 @@ Da verificare su Mac/iPhone (non eseguibile in un ambiente Linux):
 - compilazione del bridge Swift contro il pod `MediaPipeTasksVision` (versione fissata a 0.10.21) e del binding;
 - orientamento corretto per la fotocamera **frontale** (`.left` assunto) nella modalità Volto;
 - disponibilità del runtime CoreCLR per iOS nella toolchain installata (altrimenti rimuovere `UseMonoRuntime=false`).
+
+## Sensori Bluetooth
+
+Da Impostazioni → «Sensori Bluetooth» l'app cerca e collega sensori Bluetooth Low Energy che espongono un
+profilo GATT standard: **frequenza cardiaca** (servizio `180D`), **saturimetro** (`1822`) e **termometro**
+(`1809`). Non servono app o protocolli del produttore; i dispositivi che usano solo un protocollo proprietario
+non compaiono nella ricerca, che è limitata a questi servizi e non elenca gli altri apparecchi nei dintorni.
+
+- I sensori collegati vengono ricordati e si ricollegano da soli quando sono accesi.
+- Durante una rilevazione le loro misure sono registrate come gli altri flussi (`HeartRate`, `PulseOximeter`,
+  `BodyTemperature`), inviate al server e riassunte nella sezione «Sensori ambientali» del riepilogo.
+- Il timestamp è l'istante di arrivo della notifica: il sensore non ha un orologio in comune con il telefono.
+- La decodifica delle misure è nel Core (`Bluetooth/BleSensors.cs`), con test sugli esempi delle specifiche.
+- **Solo iOS** (CoreBluetooth). Su Android la voce c'è ma la ricerca risponde che non è ancora gestita.

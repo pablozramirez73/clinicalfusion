@@ -16,8 +16,10 @@ public sealed class CaptureCoordinator(
     ICaptureEngine engine,
     ClinicalRepository repository,
     IAppSettings settings,
+    IBluetoothSensors bluetooth,
     ILoggerFactory loggerFactory)
 {
+    private BluetoothSensorSource? _bluetoothSource;
     private SessionRecorder? _recorder;
     private ClinicalSession? _session;
     private SensorClock? _clock;
@@ -80,6 +82,14 @@ public sealed class CaptureCoordinator(
         try
         {
             await engine.StartRecordingAsync(session, recorder, clock, includeLocation);
+
+            // Sensori Bluetooth collegati: qui e non nei motori di acquisizione, perché è uguale su ogni piattaforma.
+            var source = new BluetoothSensorSource(bluetooth, clock);
+            if (source.IsAvailable)
+            {
+                await source.StartAsync(recorder, CancellationToken.None);
+                _bluetoothSource = source;
+            }
         }
         catch
         {
@@ -104,6 +114,13 @@ public sealed class CaptureCoordinator(
         var testSeconds = _testStart is { } start ? Math.Max(0, (_testEnd ?? duration) - start) : (double?)null;
 
         // Prima si fermano le sorgenti (niente più scritture), poi si svuota il registratore.
+        if (_bluetoothSource is { } source)
+        {
+            await source.StopAsync();
+            source.Dispose();
+            _bluetoothSource = null;
+        }
+
         var audio = await engine.StopRecordingAsync();
         var summary = await recorder.CompleteAsync(duration, audio?.Features);
 

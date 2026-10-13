@@ -10,6 +10,7 @@ using ClinicalSensorFusion.Core.Telemetry;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 #if IOS
+using ClinicalSensorFusion.App.Platforms.iOS.Bluetooth;
 using ClinicalSensorFusion.App.Platforms.iOS.Rendering;
 using ClinicalSensorFusion.App.Platforms.iOS.Security;
 using ClinicalSensorFusion.App.Platforms.iOS.Services;
@@ -122,6 +123,7 @@ public static class MauiProgram
         services.AddSingleton<ICaptureEngine, IosCaptureEngine>();
         services.AddSingleton<IWebSessionBridge, IosWebSessionBridge>();
         services.AddSingleton<IAudioPlayback, IosAudioPlayback>();
+        services.AddSingleton<IBluetoothSensors, IosBluetoothSensors>();
 #elif ANDROID
         services.AddSingleton<IDatabaseKeyProvider, KeystoreKeyProvider>();
         services.AddSingleton<IDeviceAuthenticator, AndroidDeviceAuthenticator>();
@@ -129,10 +131,16 @@ public static class MauiProgram
         services.AddSingleton<ICaptureEngine, AndroidCaptureEngine>();
         services.AddSingleton<IWebSessionBridge, AndroidWebSessionBridge>();
         services.AddSingleton<IAudioPlayback, AndroidAudioPlayback>();
+        // Sensori Bluetooth: per ora solo su iOS.
+        services.AddSingleton<IBluetoothSensors, NullBluetoothSensors>();
 #endif
+
+        services.AddSingleton<RememberedBleDevices>();
 
         // UI
         services.AddSingleton<AppShell>();
+        services.AddTransient<BluetoothSensorsViewModel>();
+        services.AddTransient<BluetoothSensorsPage>();
         services.AddTransient<SessionsViewModel>();
         services.AddTransient<SessionsPage>();
         // Singleton: una sola schermata di acquisizione, il cui stato (registrazione in corso) deve

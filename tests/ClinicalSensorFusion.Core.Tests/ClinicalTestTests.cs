@@ -143,7 +143,7 @@ public class ClinicalTestTests
         Assert.Contains(report, r => r is { Section: SummaryReport.SensorsSection, Label: "GPS · Posizione", Value: "45.46425, 9.19002" });
         Assert.Contains(report, r => r.Label == "GPS · Accuratezza" && r.Value == "±8 m (migliore ±8 m)" && !r.Warning);
         Assert.Contains(report, r => r.Label == "Luce ambientale · Intensità" && r.Value.StartsWith("300–500", StringComparison.Ordinal));
-        Assert.Contains(report, r => r.Label == "Stato dispositivo · Batteria" && r.Value == "0,82 0–1");
+        Assert.Contains(report, r => r.Label == "Stato dispositivo · Batteria" && r.Value == "0,82 (scala 0–1)");
 
         // Il riepilogo si rilegge identico dal JSON che va al server.
         var json = System.Text.Json.JsonSerializer.Serialize(summary, ClinicalSensorFusion.Core.Persistence.CsfJsonContext.Default.SessionSummary);

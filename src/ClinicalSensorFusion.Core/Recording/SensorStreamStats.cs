@@ -15,7 +15,7 @@ public sealed record SensorStreamSummary(IReadOnlyList<ChannelStats> Channels);
 
 /// <summary>
 /// Riepilogo per canale dei sensori "ambientali" (barometro, GPS, luce, prossimità, stato del dispositivo,
-/// LiDAR, livelli audio, pedometro): ciò che ogni sensore acceso ha segnalato, in forma compatta. I flussi
+/// LiDAR, livelli audio, pedometro) e dei sensori Bluetooth collegati (frequenza cardiaca, saturimetro, termometro): ciò che ogni sensore acceso ha segnalato, in forma compatta. I flussi
 /// grezzi restano nei blocchi; IMU e visione hanno indicatori clinici propri e non compaiono qui.
 /// </summary>
 public sealed class SensorStreamStats
@@ -32,6 +32,9 @@ public sealed class SensorStreamStats
         [SensorKind.DeviceState] = [("Stato termico", "0–3"), ("Batteria", "0–1")],
         [SensorKind.LidarDepth] = [("Profondità al centro", "m"), ("Pixel validi", "0–1")],
         [SensorKind.AudioLevel] = [("Livello RMS", "dBFS"), ("Picco", "0–1")],
+        [SensorKind.HeartRate] = [("Frequenza cardiaca", "bpm"), ("Contatto con la pelle", "0–1"), ("Intervallo RR", "s")],
+        [SensorKind.PulseOximeter] = [("SpO2", "%"), ("Frequenza del polso", "bpm")],
+        [SensorKind.BodyTemperature] = [("Temperatura", "°C")],
     };
 
     private readonly Dictionary<SensorKind, Channel[]> _streams = [];
@@ -60,6 +63,12 @@ public sealed class SensorStreamStats
         var values = reading.Values;
         for (var i = 0; i < channels.Length && i < values.Length; i++)
         {
+            // CoreLocation segnala con un valore negativo l'accuratezza e la velocità non disponibili.
+            if (reading.Kind == SensorKind.Location && i >= 3 && values[i] < 0)
+            {
+                continue;
+            }
+
             channels[i].Add(values[i]);
         }
     }

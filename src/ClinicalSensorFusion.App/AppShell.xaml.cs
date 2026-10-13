@@ -9,5 +9,6 @@ public partial class AppShell : Shell
         InitializeComponent();
         Routing.RegisterRoute(nameof(SessionDetailPage), typeof(SessionDetailPage));
         Routing.RegisterRoute(nameof(RemoteAccessPage), typeof(RemoteAccessPage));
+        Routing.RegisterRoute(nameof(BluetoothSensorsPage), typeof(BluetoothSensorsPage));
     }
 }

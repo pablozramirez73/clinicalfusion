@@ -239,6 +239,9 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private Task OpenBluetoothSensorsAsync() => Shell.Current.GoToAsync(nameof(BluetoothSensorsPage));
+
+    [RelayCommand]
     private Task OpenRemoteAccessAsync() =>
         Shell.Current.GoToAsync(nameof(RemoteAccessPage), new Dictionary<string, object> { ["Url"] = OllamaServer });
 

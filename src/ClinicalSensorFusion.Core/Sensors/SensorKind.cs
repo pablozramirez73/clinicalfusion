@@ -57,4 +57,14 @@ public enum SensorKind
     /// <summary>Blendshape facciali (ARKit TrueDepth): 52 coefficienti 0..1 in ordine alfabetico dei nomi ARKit
     /// (eyeBlinkLeft, jawOpen, ...). Android: da MediaPipe Face, vedi <see cref="Fusion.FaceBlendshapeLayout"/>.</summary>
     FaceBlendshapes = 24,
+
+    /// <summary>Sensore Bluetooth di frequenza cardiaca (profilo GATT standard): [battiti/min, contatto con la
+    /// pelle (1/0, NaN se il sensore non lo rileva), poi gli intervalli RR della notifica (s), se presenti].</summary>
+    HeartRate = 30,
+
+    /// <summary>Saturimetro Bluetooth (profilo PLX): [SpO2 (%), frequenza del polso (battiti/min)].</summary>
+    PulseOximeter = 31,
+
+    /// <summary>Termometro Bluetooth (profilo Health Thermometer): [temperatura (°C)].</summary>
+    BodyTemperature = 32,
 }

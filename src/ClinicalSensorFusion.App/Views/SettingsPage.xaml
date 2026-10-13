@@ -163,6 +163,22 @@
           </Grid>
         </Border>
 
+        <!-- Sensori esterni: fasce cardio, saturimetri, termometri con profilo Bluetooth standard. -->
+        <Border Style="{StaticResource Card}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Center">
+              <Path Style="{StaticResource IconPulse}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+              <Label Text="Sensori Bluetooth" Style="{StaticResource Headline}" />
+              <Label Text="Frequenza cardiaca, saturazione, temperatura: registrate insieme alla rilevazione." Style="{StaticResource Muted}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="2" Text="Cerca" Style="{StaticResource SecondaryButton}" VerticalOptions="Center"
+                    Command="{Binding OpenBluetoothSensorsCommand}"
+                    SemanticProperties.Hint="Apre la ricerca dei sensori Bluetooth" />
+          </Grid>
+        </Border>
+
         <!-- Assistenza: eventi tecnici e metriche dell'app, condivisi solo su richiesta dell'operatore. -->
         <Button Text="Condividi log diagnostici" Command="{Binding ShareLogsCommand}" Style="{StaticResource SecondaryButton}"
                 SemanticProperties.Hint="Condivide i file di log tecnici dell'app, senza dati dei pazienti" />
