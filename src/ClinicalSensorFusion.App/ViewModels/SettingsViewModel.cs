@@ -187,7 +187,18 @@ public sealed partial class SettingsViewModel(
         }
         catch (OperationCanceledException)
         {
-            ConnectionStatus = "Timeout: il server non risponde (stessa rete Wi-Fi? Ollama avviato con OLLAMA_HOST=0.0.0.0?).";
+            ConnectionStatus = "Timeout: il server non risponde. Controllare che l'app abbia il permesso «Rete locale» " +
+                               "(Impostazioni del telefono → Privacy e sicurezza → Rete locale), che telefono e server siano " +
+                               "sulla stessa rete e che Ollama sia avviato con OLLAMA_HOST=0.0.0.0.";
+        }
+        catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException
+        {
+            SocketErrorCode: System.Net.Sockets.SocketError.HostUnreachable or System.Net.Sockets.SocketError.NetworkUnreachable,
+        })
+        {
+            // Su iOS è il modo in cui si presenta il permesso «Rete locale» negato o non ancora concesso.
+            ConnectionStatus = "Server non raggiungibile: il telefono non ha accesso alla rete locale. Attivare «Rete locale» " +
+                               "per questa app in Impostazioni del telefono → Privacy e sicurezza → Rete locale, poi riprovare.";
         }
         catch (Exception ex)
         {
