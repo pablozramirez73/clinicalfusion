@@ -55,4 +55,31 @@ public sealed class PatientTests(ServerFixture server) : IClassFixture<ServerFix
         Assert.Contains("email", body, StringComparison.Ordinal);
         Assert.Contains("birthDate", body, StringComparison.Ordinal);
     }
+
+    /// <summary>I messaggi seguono la lingua chiesta dal client; senza indicazioni restano in italiano.</summary>
+    [Fact]
+    public async Task Messages_follow_the_language_requested_by_the_client()
+    {
+        const string italian = "Il codice fiscale deve avere 16 caratteri alfanumerici.";
+        const string english = "The tax code must be 16 alphanumeric characters.";
+
+        // Un solo accesso per tutti i casi: il login ha un limite di frequenza.
+        var client = await server.CreateClinicianClientAsync();
+        foreach (var (acceptLanguage, expected) in ((string?, string)[])
+            [(null, italian), ("it-IT,it;q=0.9", italian), ("en", english), ("de-DE,en;q=0.7,it;q=0.2", english)])
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/patients")
+            {
+                Content = JsonContent.Create(Input("PZ-LANG") with { FiscalCode = "123" }),
+            };
+            if (acceptLanguage is not null)
+            {
+                request.Headers.TryAddWithoutValidation("Accept-Language", acceptLanguage);
+            }
+
+            var response = await client.SendAsync(request, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(expected, System.Text.RegularExpressions.Regex.Unescape(await response.Content.ReadAsStringAsync(Ct)), StringComparison.Ordinal);
+        }
+    }
 }

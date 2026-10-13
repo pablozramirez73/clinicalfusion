@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -44,7 +45,7 @@ public static class FhirEndpoints
         // Le scritture (POST, PUT, PATCH, DELETE) ricevono 405: l'interfaccia è in sola lettura.
         fhir.Map("/{**path}", (HttpContext http) => HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method)
             ? Outcome(StatusCodes.Status404NotFound, "not-supported", "Risorsa o interazione FHIR non supportata: vedi /fhir/metadata.")
-            : Outcome(StatusCodes.Status405MethodNotAllowed, "not-supported", "Interfaccia FHIR in sola lettura: scritture non ammesse."));
+            : Outcome(StatusCodes.Status405MethodNotAllowed, "not-supported", Loc.T("Interfaccia FHIR in sola lettura: scritture non ammesse.", Ui.Culture)));
         return app;
     }
 
@@ -64,7 +65,7 @@ public static class FhirEndpoints
     {
         var format = context.HttpContext.Request.Query["_format"].ToString();
         return format.Length > 0 && !format.Contains("json", StringComparison.OrdinalIgnoreCase)
-            ? Outcome(StatusCodes.Status406NotAcceptable, "not-supported", "È supportato solo il formato JSON (application/fhir+json).")
+            ? Outcome(StatusCodes.Status406NotAcceptable, "not-supported", Loc.T("È supportato solo il formato JSON (application/fhir+json).", Ui.Culture))
             : await next(context);
     }
 
@@ -89,22 +90,22 @@ public static class FhirEndpoints
             ["publisher"] = "Clinical Sensor Fusion",
             ["kind"] = "instance",
             ["software"] = new JsonObject { ["name"] = "Clinical Sensor Fusion Server", ["version"] = ServerTelemetry.Version },
-            ["implementation"] = new JsonObject { ["description"] = "Rilevazioni di movimento, postura e parametri vitali da smartphone", ["url"] = Base(http) },
+            ["implementation"] = new JsonObject { ["description"] = Loc.T("Rilevazioni di movimento, postura e parametri vitali da smartphone", Ui.Culture), ["url"] = Base(http) },
             ["fhirVersion"] = FhirMapper.FhirVersion,
             ["format"] = new JsonArray("json", "application/fhir+json"),
             ["rest"] = new JsonArray(new JsonObject
             {
                 ["mode"] = "server",
-                ["documentation"] = "Sola lettura. Le risorse sono generate dai dati archiviati; non si accettano scritture. "
+                ["documentation"] = Loc.T("Sola lettura. Le risorse sono generate dai dati archiviati; non si accettano scritture. "
                     + "Le ricerche restituiscono un Bundle searchset con total esatto — il conteggio copre tutte le rilevazioni "
                     + "che soddisfano i filtri, non un campione — e la paginazione si segue con link.next. "
                     + "Dove il conteggio esatto richiederebbe di scandire troppe rilevazioni la risposta è 413 con "
                     + "OperationOutcome too-costly, invece di un totale incompleto. Patient/{id}/$everything non è paginato "
-                    + "e restituisce tutte le rilevazioni del paziente, oppure 413 too-costly se superano il limite.",
+                    + "e restituisce tutte le rilevazioni del paziente, oppure 413 too-costly se superano il limite.", Ui.Culture),
                 ["security"] = new JsonObject
                 {
                     ["cors"] = false,
-                    ["description"] = "Intestazione Authorization: Bearer con il token JWT di POST /api/v1/auth/token (credenziali dei clinici), oppure il cookie di sessione della dashboard.",
+                    ["description"] = Loc.T("Intestazione Authorization: Bearer con il token JWT di POST /api/v1/auth/token (credenziali dei clinici), oppure il cookie di sessione della dashboard.", Ui.Culture),
                 },
                 ["resource"] = new JsonArray(
                     new JsonObject
@@ -112,10 +113,10 @@ public static class FhirEndpoints
                         ["type"] = "Patient",
                         ["interaction"] = ReadAndSearch(),
                         ["searchParam"] = Paged(new JsonArray(
-                            Param("_id", "token", "Identificativo della risorsa"),
-                            Param("identifier", "token", "Codice paziente o codice fiscale, anche come sistema|valore"),
-                            Param("name", "string", "Parte del nome o del cognome"),
-                            Param("family", "string", "Parte del cognome"),
+                            Param("_id", "token", Loc.T("Identificativo della risorsa", Ui.Culture)),
+                            Param("identifier", "token", Loc.T("Codice paziente o codice fiscale, anche come sistema|valore", Ui.Culture)),
+                            Param("name", "string", Loc.T("Parte del nome o del cognome", Ui.Culture)),
+                            Param("family", "string", Loc.T("Parte del cognome", Ui.Culture)),
                             Param("birthdate", "date", "Data di nascita (uguaglianza)"))),
                         ["operation"] = new JsonArray(new JsonObject { ["name"] = "everything", ["definition"] = "http://hl7.org/fhir/OperationDefinition/Patient-everything" }),
                     },
@@ -129,9 +130,9 @@ public static class FhirEndpoints
                         ["interaction"] = ReadAndSearch(),
                         ["searchParam"] = Paged(new JsonArray(
                             Param("patient", "reference", "Paziente (identificativo o Patient/identificativo)"),
-                            Param("code", "token", "Codice LOINC o locale, anche come sistema|codice"),
+                            Param("code", "token", Loc.T("Codice LOINC o locale, anche come sistema|codice", Ui.Culture)),
                             Param("category", "token", "vital-signs, activity, exam"),
-                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq"))),
+                            Param("date", "date", Loc.T("Inizio della rilevazione, con prefissi ge, gt, le, lt, eq", Ui.Culture)))),
                     },
                     new JsonObject
                     {
@@ -139,7 +140,7 @@ public static class FhirEndpoints
                         ["interaction"] = ReadAndSearch(),
                         ["searchParam"] = Paged(new JsonArray(
                             Param("patient", "reference", "Paziente (identificativo o Patient/identificativo)"),
-                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq"))),
+                            Param("date", "date", Loc.T("Inizio della rilevazione, con prefissi ge, gt, le, lt, eq", Ui.Culture)))),
                     }),
             }),
         };
@@ -199,7 +200,7 @@ public static class FhirEndpoints
         {
             if (!DateOnly.TryParseExact(birthdate.StartsWith("eq", StringComparison.Ordinal) ? birthdate[2..] : birthdate, "yyyy-MM-dd", out var date))
             {
-                return Outcome(StatusCodes.Status400BadRequest, "invalid", "birthdate deve essere nel formato AAAA-MM-GG.");
+                return Outcome(StatusCodes.Status400BadRequest, "invalid", Loc.T("birthdate deve essere nel formato AAAA-MM-GG.", Ui.Culture));
             }
 
             query = query.Where(p => p.BirthDate == date);
@@ -364,7 +365,7 @@ public static class FhirEndpoints
         {
             if (PatientId(q) is not { } patientId)
             {
-                problem = Outcome(StatusCodes.Status400BadRequest, "invalid", "patient deve essere un identificativo o Patient/identificativo.");
+                problem = Outcome(StatusCodes.Status400BadRequest, "invalid", Loc.T("patient deve essere un identificativo o Patient/identificativo.", Ui.Culture));
                 return false;
             }
 
@@ -382,7 +383,7 @@ public static class FhirEndpoints
             var text = prefix == "eq" && !char.IsLetter(value[0]) ? value : value[2..];
             if (!DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date))
             {
-                problem = Outcome(StatusCodes.Status400BadRequest, "invalid", $"date non valida: {value}.");
+                problem = Outcome(StatusCodes.Status400BadRequest, "invalid", string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("date non valida: {0}.", Ui.Culture), value));
                 return false;
             }
 
@@ -399,7 +400,7 @@ public static class FhirEndpoints
                 case "lt": sessions = sessions.Where(s => s.StartedAt < date); break;
                 case "eq": sessions = dayOnly ? sessions.Where(s => s.StartedAt >= date && s.StartedAt < end) : sessions.Where(s => s.StartedAt == date); break;
                 default:
-                    problem = Outcome(StatusCodes.Status400BadRequest, "invalid", $"Prefisso di data non supportato: {prefix}.");
+                    problem = Outcome(StatusCodes.Status400BadRequest, "invalid", string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("Prefisso di data non supportato: {0}.", Ui.Culture), prefix));
                     return false;
             }
         }

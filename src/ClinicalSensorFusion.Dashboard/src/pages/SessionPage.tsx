@@ -7,6 +7,7 @@ import { fmtDateTime } from '../components/format';
 import { SkeletonReplay3D } from '../three/SkeletonReplay3D';
 import { Spectrogram3D } from '../three/Spectrogram3D';
 import { Stage } from '../three/Stage';
+import { locale, t } from '../i18n';
 
 export default function SessionPage() {
   const { id = '' } = useParams();
@@ -25,47 +26,47 @@ export default function SessionPage() {
       <header className="page-header">
         <div>
           <p className="breadcrumb"><Link to={`/patients/${s.patientId}`}>← {s.patientName ?? s.patientCode}</Link></p>
-          <h1>Rilevazione del {fmtDateTime(s.startedAt)}</h1>
-          <p className="muted">{modeLabel[s.mode]} · {s.operatorName} · {s.deviceModel ?? 'dispositivo sconosciuto'}</p>
+          <h1>{t('Rilevazione del {0}', fmtDateTime(s.startedAt))}</h1>
+          <p className="muted">{t(modeLabel[s.mode])} · {s.operatorName} · {s.deviceModel ?? t('dispositivo sconosciuto')}</p>
         </div>
       </header>
       {s.notes && <div className="note">{s.notes}</div>}
 
       {hasPose && (
-        <Panel title="Replay 3D dello scheletro" subtitle="Punti MediaPipe fusi con la profondità LiDAR, in metri · colore = flessione del ginocchio dx">
+        <Panel title={t('Replay 3D dello scheletro')} subtitle={t('Punti MediaPipe fusi con la profondità LiDAR, in metri · colore = flessione del ginocchio dx')}>
           {pose.isPending ? <Loading /> : pose.error ? <ErrorBox error={pose.error} /> : <PoseReplayPlayer replay={pose.data} />}
         </Panel>
       )}
 
       {hasMotion && (
-        <Panel title="Spettrogramma 3D del tremore" subtitle="Accelerometro 100 Hz · potenza per frequenza nel tempo (somma dei tre assi)">
+        <Panel title={t('Spettrogramma 3D del tremore')} subtitle={t('Accelerometro 100 Hz · potenza per frequenza nel tempo (somma dei tre assi)')}>
           {spectrogram.isPending ? <Loading /> : spectrogram.error ? <ErrorBox error={spectrogram.error} /> : (
-            <Stage label="Superficie 3D dello spettrogramma del tremore" camera={[0, 5.5, 8.5]} height={460}>
+            <Stage label={t('Superficie 3D dello spettrogramma del tremore')} camera={[0, 5.5, 8.5]} height={460}>
               <Spectrogram3D data={spectrogram.data} />
             </Stage>
           )}
-          <Legend items={[['4–6 Hz: tipico del tremore parkinsoniano a riposo', '#fb7185'], ['8–12 Hz: fisiologico potenziato / essenziale', '#fbbf24']]} />
+          <Legend items={[[t('4–6 Hz: tipico del tremore parkinsoniano a riposo'), '#fb7185'], [t('8–12 Hz: fisiologico potenziato / essenziale'), '#fbbf24']]} />
         </Panel>
       )}
 
       <div className="grid-2">
-        <Panel title="Indicatori">
+        <Panel title={t('Indicatori')}>
           <Report rows={s.report} />
         </Panel>
         <div className="stack">
           <Panel title="Audio">
-            {s.audio.length === 0 && <p className="muted">Nessuna registrazione.</p>}
+            {s.audio.length === 0 && <p className="muted">{t('Nessuna registrazione.')}</p>}
             {s.audio.map((a) => (
               <div key={a.id} className="audio">
                 <span className="muted">{a.durationSeconds.toFixed(1)} s · CAF 48 kHz Float32</span>
                 {a.available
                   ? <audio controls preload="none" src={`/api/v1/sessions/${s.id}/audio/${a.id}.wav`} />
-                  : <span className="chip chip--warn">file non ancora caricato</span>}
+                  : <span className="chip chip--warn">{t('file non ancora caricato')}</span>}
               </div>
             ))}
           </Panel>
-          <Panel title="Analisi IA (Ollama)" subtitle="Testo di supporto, non sostituisce la valutazione clinica">
-            {s.analyses.length === 0 && <p className="muted">Nessuna analisi.</p>}
+          <Panel title={t('Analisi IA (Ollama)')} subtitle={t('Testo di supporto, non sostituisce la valutazione clinica')}>
+            {s.analyses.length === 0 && <p className="muted">{t('Nessuna analisi.')}</p>}
             {s.analyses.map((a) => (
               <article key={a.id} className="analysis">
                 <header className="muted">{fmtDateTime(a.createdAt)} · {a.model} · {a.language}</header>
@@ -73,9 +74,9 @@ export default function SessionPage() {
               </article>
             ))}
           </Panel>
-          <Panel title="Flussi registrati">
+          <Panel title={t('Flussi registrati')}>
             <ul className="streams">
-              {Object.entries(s.streams).map(([kind, n]) => <li key={kind}><span>{kind}</span><strong>{n.toLocaleString('it-IT')}</strong></li>)}
+              {Object.entries(s.streams).map(([kind, n]) => <li key={kind}><span>{kind}</span><strong>{n.toLocaleString(locale())}</strong></li>)}
             </ul>
           </Panel>
         </div>
@@ -97,20 +98,20 @@ function PoseReplayPlayer({ replay }: { replay: import('../api/types').PoseRepla
 
   const current = replay.frames[frame];
   const angles = useMemo(
-    () => replay.jointNames.map((j, i) => [jointLabel[j], current?.angles[i]] as const).filter(([, v]) => v != null),
+    () => replay.jointNames.map((j, i) => [t(jointLabel[j]), current?.angles[i]] as const).filter(([, v]) => v != null),
     [replay.jointNames, current],
   );
 
   return (
     <div className="replay">
-      <Stage label="Scheletro 3D animato della rilevazione" camera={[1.3, 1.3, 2.1]} target={[0, 0.8, 0]} height={480}>
+      <Stage label={t('Scheletro 3D animato della rilevazione')} camera={[1.3, 1.3, 2.1]} target={[0, 0.8, 0]} height={480}>
         <SkeletonReplay3D replay={replay} frame={frame} />
       </Stage>
       <div className="replay-side">
         <div className="timeline">
-          <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pausa' : 'Riproduci'}>{playing ? '❚❚' : '▶'}</button>
+          <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? t('Pausa') : t('Riproduci')}>{playing ? '❚❚' : '▶'}</button>
           <input type="range" min={0} max={replay.frameCount - 1} value={frame}
-                 onChange={(e) => { setPlaying(false); setFrame(Number(e.target.value)); }} aria-label="Posizione nel replay" />
+                 onChange={(e) => { setPlaying(false); setFrame(Number(e.target.value)); }} aria-label={t('Posizione nel replay')} />
           <span className="muted">{(current?.t ?? 0).toFixed(1)} s</span>
         </div>
         <ul className="angles">
@@ -134,7 +135,7 @@ function Report({ rows }: { rows: SummaryRow[] }) {
     return [...map.entries()];
   }, [rows]);
 
-  if (rows.length === 0) return <p className="muted">Riepilogo non disponibile.</p>;
+  if (rows.length === 0) return <p className="muted">{t('Riepilogo non disponibile.')}</p>;
   return (
     <div className="report">
       {sections.map(([section, items]) => (

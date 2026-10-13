@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useLogout } from '../api/hooks';
 import type { CurrentUser } from '../api/types';
+import { t } from '../i18n';
+import { LanguageSelect } from '../i18n/LanguageSelect';
 
 export function Layout({ user, children }: { user: CurrentUser; children: ReactNode }) {
   const logout = useLogout();
@@ -17,18 +19,19 @@ export function Layout({ user, children }: { user: CurrentUser; children: ReactN
           </div>
         </div>
         <nav>
-          <NavLink to="/" end>◈ Panoramica</NavLink>
-          <NavLink to="/patients">☰ Pazienti</NavLink>
-          <NavLink to="/patients/new">＋ Nuovo paziente</NavLink>
-          <NavLink to="/system">♥ Stato del sistema</NavLink>
+          <NavLink to="/" end>{t('◈ Panoramica')}</NavLink>
+          <NavLink to="/patients">{t('☰ Pazienti')}</NavLink>
+          <NavLink to="/patients/new">{t('＋ Nuovo paziente')}</NavLink>
+          <NavLink to="/system">{t('♥ Stato del sistema')}</NavLink>
         </nav>
         <div className="sidebar-footer">
+          <LanguageSelect />
           <span className="muted">{user.displayName}</span>
           <button
             className="link"
             onClick={() => logout.mutate(undefined, { onSettled: () => navigate('/login', { replace: true }) })}
           >
-            Esci
+            {t('Esci')}
           </button>
         </div>
       </aside>

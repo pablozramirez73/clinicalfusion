@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -53,7 +54,7 @@ public sealed class ApiKeyAuthenticationHandler(
             }
         }
 
-        return Task.FromResult(AuthenticateResult.Fail("Chiave del dispositivo non valida."));
+        return Task.FromResult(AuthenticateResult.Fail(Loc.T("Chiave del dispositivo non valida.", Ui.Culture)));
     }
 
     public static string Hash(string key) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant();

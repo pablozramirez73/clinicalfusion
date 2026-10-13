@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react';
+import { t } from '../i18n';
 
 export function Loading({ full = false }: { full?: boolean }) {
   return (
     <div className={full ? 'loading loading--full' : 'loading'} role="status" aria-live="polite">
-      <span className="pulse" /> Caricamento…
+      <span className="pulse" /> {t('Caricamento…')}
     </div>
   );
 }
 
 export function ErrorBox({ error }: { error: unknown }) {
-  const message = error instanceof Error ? error.message : 'Errore inatteso.';
+  const message = error instanceof Error ? error.message : t('Errore inatteso.');
   return <div className="alert" role="alert">{message}</div>;
 }
 

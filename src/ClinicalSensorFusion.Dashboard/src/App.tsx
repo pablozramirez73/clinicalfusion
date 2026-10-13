@@ -1,11 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect } from 'react';
+import { Fragment, lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { setUnauthorizedHandler } from './api/client';
 import { keys, useMe } from './api/hooks';
 import { Layout } from './components/Layout';
 import { Loading } from './components/Feedback';
 import { LoginPage } from './pages/LoginPage';
+import { useLanguage } from './i18n';
 
 // Le pagine con grafici 3D sono caricate su richiesta: il login resta leggero.
 const OverviewPage = lazy(() => import('./pages/OverviewPage'));
@@ -16,6 +17,8 @@ const SystemPage = lazy(() => import('./pages/SystemPage'));
 
 export function App() {
   const me = useMe();
+  // Cambiando lingua l'albero si rimonta: i testi si traducono mentre si disegnano, senza hook in ogni componente.
+  const language = useLanguage();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -29,13 +32,14 @@ export function App() {
   if (me.isPending) return <Loading full />;
   if (!me.data) {
     return (
-      <Routes>
+      <Routes key={language}>
         <Route path="*" element={<LoginPage />} />
       </Routes>
     );
   }
 
   return (
+    <Fragment key={language}>
     <Layout user={me.data}>
       <Suspense fallback={<Loading />}>
         <Routes>
@@ -50,5 +54,6 @@ export function App() {
         </Routes>
       </Suspense>
     </Layout>
+    </Fragment>
   );
 }

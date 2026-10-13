@@ -198,3 +198,6 @@ input[type='range'] { padding: 0; accent-color: var(--cyan); }
   .toolbar input[type='search'] { min-width: 0; }
   .table { display: block; overflow-x: auto; }
 }
+
+/* Scelta della lingua: compatta, nel piede della barra laterale e nel riquadro di accesso. */
+select.language { width: auto; align-self: flex-start; padding: 4px 8px; font-size: 12px; }

@@ -4,6 +4,7 @@ import type { Group } from 'three';
 import type { TremorPoint } from '../api/types';
 import { normalize, palette } from './colormap';
 import { Label } from './Label';
+import { t } from '../i18n';
 
 interface Props {
   points: TremorPoint[];
@@ -58,8 +59,8 @@ export function TremorGalaxy3D({ points, onSelect }: Props) {
           <Label position={[0, 0, SIZE / 2 + 0.4]} center className="axis-label">{hz} Hz</Label>
         </group>
       ))}
-      <Label position={[-SIZE / 2 - 0.6, 3, 0]} center className="axis-label">ampiezza ↑</Label>
-      <Label position={[SIZE / 2 + 0.6, 0, -SIZE / 2]} center className="axis-label">tempo →</Label>
+      <Label position={[-SIZE / 2 - 0.6, 3, 0]} center className="axis-label">{t('ampiezza ↑')}</Label>
+      <Label position={[SIZE / 2 + 0.6, 0, -SIZE / 2]} center className="axis-label">{t('tempo →')}</Label>
 
       {layout.map(({ p, position, radius }) => (
         <group key={p.sessionId} position={position}>
