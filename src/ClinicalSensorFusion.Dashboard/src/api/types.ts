@@ -87,3 +87,20 @@ export const jointLabel: Record<Joint, string> = {
 };
 
 export const allJoints = Object.keys(jointLabel) as Joint[];
+
+export type HealthStatus = 'Healthy' | 'Degraded' | 'Unhealthy';
+
+export interface HealthCheckItem { name: string; status: HealthStatus; description: string | null; durationMs: number; data: Record<string, unknown> }
+
+export interface SystemHealth {
+  status: HealthStatus; version: string; environment: string; startedAt: string; uptimeSeconds: number;
+  workingSetMb: number; gcHeapMb: number; threadCount: number; checks: HealthCheckItem[];
+}
+
+/** Serie aggregata dall'avvio del server: per un contatore conta `sum`, per un istogramma `mean`/`max`. */
+export interface MetricPoint {
+  name: string; unit: string | null; kind: 'counter' | 'histogram' | 'gauge'; tags: string;
+  count: number; sum: number; min: number; max: number; last: number; mean: number;
+}
+
+export interface SystemMetrics { since: string; points: MetricPoint[] }

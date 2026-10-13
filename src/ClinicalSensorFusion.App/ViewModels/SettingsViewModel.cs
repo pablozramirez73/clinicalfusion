@@ -14,6 +14,7 @@ public sealed partial class SettingsViewModel(
     ISecureStorage secureStorage,
     OllamaClient ollama,
     AppLockController appLock,
+    AppDiagnostics diagnostics,
     IDialogService dialogs) : ObservableObject
 {
     private bool _loadingLock;
@@ -195,6 +196,34 @@ public sealed partial class SettingsViewModel(
         finally
         {
             IsTesting = false;
+        }
+    }
+
+    /// <summary>
+    /// Condivide i log diagnostici (eventi tecnici e metriche, senza dati dei pazienti): è l'operatore a
+    /// scegliere a chi mandarli, l'app non li invia mai da sola.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShareLogsAsync()
+    {
+        try
+        {
+            var logs = await diagnostics.ExportAsync();
+            if (logs.Count == 0)
+            {
+                await dialogs.AlertAsync("Log diagnostici", "Non ci sono ancora log da condividere.");
+                return;
+            }
+
+            await Share.Default.RequestAsync(new ShareMultipleFilesRequest
+            {
+                Title = "Log diagnostici",
+                Files = [.. logs.Select(path => new ShareFile(path, "application/x-ndjson"))],
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            await dialogs.AlertAsync("Log diagnostici", ex.Message);
         }
     }
 

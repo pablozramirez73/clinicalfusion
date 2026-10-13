@@ -17,6 +17,7 @@ public partial class App : Application
     {
         var window = new Window(_services.GetRequiredService<AppShell>()) { Title = "SensorFusion Clinic" };
         _services.GetRequiredService<AppLockController>().Attach(window);
+        _services.GetRequiredService<AppDiagnostics>().Attach(window);
         return window;
     }
 }

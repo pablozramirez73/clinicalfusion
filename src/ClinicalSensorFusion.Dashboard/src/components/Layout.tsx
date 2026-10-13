@@ -20,6 +20,7 @@ export function Layout({ user, children }: { user: CurrentUser; children: ReactN
           <NavLink to="/" end>◈ Panoramica</NavLink>
           <NavLink to="/patients">☰ Pazienti</NavLink>
           <NavLink to="/patients/new">＋ Nuovo paziente</NavLink>
+          <NavLink to="/system">♥ Stato del sistema</NavLink>
         </nav>
         <div className="sidebar-footer">
           <span className="muted">{user.displayName}</span>

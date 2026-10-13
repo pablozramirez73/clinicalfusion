@@ -9,6 +9,7 @@ Backend **ASP.NET Core 11** (`src/ClinicalSensorFusion.Server`) con **PostgreSQL
 |---|---|
 | Anagrafica pazienti | Codice pseudonimo (lo stesso inserito nell'app), nome, cognome, data di nascita, sesso, codice fiscale, contatti, indirizzo, diagnosi, note. Ricerca, paginazione, modifica con **concorrenza ottimistica**, cancellazione definitiva (diritto all'oblio, anche dei file audio). |
 | Ricezione dall'app | Metadati della rilevazione, riepilogo clinico, **tutti i flussi dei sensori** (blocchi compressi identici a quelli del telefono), file **CAF**, analisi IA. Invio idempotente: si può ripetere senza duplicati. Un codice sconosciuto crea un'anagrafica "da completare". |
+| Osservabilità | Log strutturati, metriche e tracce (vedi [telemetria.md](telemetria.md)); pagina **Stato del sistema** con controlli di salute, traffico/errori/latenza per rotta, ingestione e accessi. |
 | Dashboard | Panoramica (KPI, attività settimanale 3D, **galassia dei tremori** 3D, ROM medio 3D, rilevazioni recenti); paziente (**paesaggio 3D dell'escursione articolare** nel tempo, trend, anagrafica); rilevazione (**replay 3D dello scheletro** LiDAR, **spettrogramma 3D** del tremore, indicatori, audio, analisi IA). |
 
 ## 2. Architettura
@@ -41,6 +42,7 @@ flowchart LR
 | Blocchi dei sensori malevoli | Ogni blocco è verificato all'arrivo (decodificabile, numero di campioni coerente) e la decompressione ha un tetto di 8 MB per blocco, anche in lettura: una "bomba" Brotli è rifiutata con 400 invece di esaurire la memoria quando si apre la rilevazione. |
 | Abuso / saturazione | Limiti di frequenza su **tutte** le rotte (sezione `RateLimits`): 600 richieste/minuto per IP, 300/minuto per dispositivo in ingestione, 2 caricamenti audio contemporanei per dispositivo; risposta `429` con `Retry-After`. Lotti di blocchi fino a 16 MB; audio fino a `AudioStorage:MaxFileBytes`, applicato durante la scrittura. |
 | Credenziali della dashboard | Password PBKDF2 (ASP.NET Core Identity v3); verifica a tempo costante anche per utenti inesistenti; **rate limit** 5 login/minuto per IP. |
+| Accesso alle API senza browser | `POST /api/v1/auth/token` emette un **JWT** (HMAC-SHA256, 30 minuti) con le stesse credenziali, lo stesso limite di tentativi e lo stesso audit del login. Dà gli stessi permessi del cookie, non quelli dei dispositivi. `Jwt:SigningKey` (≥ 32 byte) va impostata fuori dal repository; senza, la chiave è casuale e i token scadono al riavvio. |
 | Furto di sessione / CSRF | Cookie `HttpOnly`, `Secure`, `SameSite=Strict`, scadenza 8 h; SPA sulla stessa origine, nessun token in `localStorage`. |
 | XSS / clickjacking | CSP `default-src 'self'` (niente CDN), `frame-ancestors 'none'`, `nosniff`, `no-referrer`. |
 | Path traversal sui file | Id validati (32 hex) prima di comporre i percorsi; file scritti in modo atomico e verificati come CAF. |
@@ -106,7 +108,10 @@ ConnectionStrings__Clinical=Host=…;Database=clinical;Username=…;Password=…
 Dashboard__Users__0__UserName=…            Dashboard__Users__0__PasswordHash=…
 Ingest__Devices__0__Name=iphone-1           Ingest__Devices__0__KeySha256=…
 AudioStorage__Root=/var/lib/clinical/audio
+Jwt__SigningKey=<almeno 32 byte casuali>    # senza: chiave temporanea, token validi fino al riavvio
 # Facoltativi (valori predefiniti indicati)
+ApiDocs__Enabled=false                      # true: espone /swagger e /openapi/v1.json anche fuori dallo sviluppo
+Telemetry__OtlpEndpoint=                    Telemetry__LogDirectory=          # vedi docs/telemetria.md
 RateLimits__GlobalPerMinute=600             RateLimits__LoginPerMinute=5
 RateLimits__IngestPerMinute=300             RateLimits__ConcurrentAudioUploads=2
 ```
@@ -115,7 +120,9 @@ Nell'app iOS: Impostazioni → *Server clinico* → indirizzo HTTPS e chiave del
 
 ## 6. API
 
-OpenAPI su `/openapi/v1.json` e interfaccia Scalar su `/scalar` (solo in sviluppo). Principali rotte:
+OpenAPI su `/openapi/v1.json`, **Swagger UI su `/swagger`** e Scalar su `/scalar`: attivi in sviluppo, altrove
+solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`, copiare `access_token` in
+«Authorize» (schema *Bearer*); le rotte di ingestione usano invece lo schema *ApiKey* (`X-Api-Key`). Principali rotte:
 
 | Metodo | Rotta | Autorizzazione |
 |---|---|---|
@@ -123,23 +130,26 @@ OpenAPI su `/openapi/v1.json` e interfaccia Scalar su `/scalar` (solo in svilupp
 | `POST` | `/api/v1/ingest/sessions/{id}/chunks` | dispositivo |
 | `PUT` | `/api/v1/ingest/sessions/{id}/audio/{audioId}` | dispositivo |
 | `POST` | `/api/v1/auth/login` · `logout` · `GET me` | — / clinico |
+| `POST` | `/api/v1/auth/token` | — (restituisce il JWT) |
 | `GET/POST/PUT/DELETE` | `/api/v1/patients[/{id}]` | clinico |
 | `GET` | `/api/v1/patients/{id}/sessions` · `/trends` | clinico |
 | `GET` | `/api/v1/sessions/{id}` · `/pose` · `/spectrogram` · `/streams/{kind}` · `/audio/{audioId}.wav` | clinico |
 | `GET` | `/api/v1/dashboard/overview` | clinico |
 | `GET` | `/api/v1/audit?actor=&action=&entityId=&from=&to=&page=&pageSize=` | clinico |
-| `GET` | `/health` | — |
+| `GET` | `/api/v1/system/health` · `/system/metrics` | clinico |
+| `GET` | `/health` · `/health/ready` · `/health/live` | — |
 
 ## 7. Verifiche
 
-- **Server: 23 test di integrazione** su PostgreSQL reale. Coprono:
+- **Server: 32 test di integrazione** su PostgreSQL reale. Coprono:
   - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
+  - stato del servizio, metriche, token JWT (anche contraffatti) e documentazione Swagger;
   - rifiuto dei blocchi non decodificabili e degli audio fuori misura, limiti di frequenza, registro di audit;
   - header di sicurezza;
   - anagrafica CRUD, validazione e concorrenza ottimistica;
   - percorso completo **DB cifrato del telefono → sincronizzatore → API → PostgreSQL → dashboard**, incluso il reinvio idempotente;
   - conversione CAF→WAV, path traversal e dati demo.
-- **Core: 81 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
+- **Core: 85 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
   modulo dell'accelerazione raddoppiava la frequenza) e la necessità di una soglia di significatività. Entrambi corretti.
 - **Dashboard:** typecheck TypeScript strict, test Vitest, build Vite e verifica visiva con Chromium headless
   (WebGL software) di tutte le pagine, senza errori in console.

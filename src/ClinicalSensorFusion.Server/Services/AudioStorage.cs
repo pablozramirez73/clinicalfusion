@@ -25,6 +25,9 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
 
     public long MaxFileBytes => options.Value.MaxFileBytes;
 
+    /// <summary>Cartella assoluta dell'archivio.</summary>
+    public string Root => _root;
+
     [GeneratedRegex("^[0-9a-f]{32}$")]
     public static partial Regex IdPattern();
 

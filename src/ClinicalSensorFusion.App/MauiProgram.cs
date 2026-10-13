@@ -6,6 +6,7 @@ using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Settings;
 using ClinicalSensorFusion.Core.Sync;
+using ClinicalSensorFusion.Core.Telemetry;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 #if IOS
@@ -24,6 +25,7 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        _ = AppDiagnostics.SinceLaunch; // fa partire il cronometro dell'avvio
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
@@ -57,6 +59,13 @@ public static class MauiProgram
 #endif
 
         var services = builder.Services;
+
+        // Diagnostica: log su file a rotazione (anche nelle build di rilascio, dove non c'è altro) e metriche.
+        var fileLogs = new RollingFileLoggerProvider(AppDiagnostics.FileOptions);
+        builder.Logging.AddProvider(fileLogs);
+        services.AddSingleton(fileLogs);
+        services.AddSingleton(new MetricsCollector());
+        services.AddSingleton<AppDiagnostics>();
 
         // Impostazioni e sicurezza
         services.AddSingleton(Preferences.Default);
@@ -138,6 +147,7 @@ public static class MauiProgram
         services.AddTransient<RemoteAccessPage>();
 
         var app = builder.Build();
+        app.Services.GetRequiredService<AppDiagnostics>().HookUnhandledExceptions();
 
         // Server clinico preimpostato in fase di compilazione, se presente (non blocca l'avvio).
         _ = BuildProvisioning.ApplyAsync(

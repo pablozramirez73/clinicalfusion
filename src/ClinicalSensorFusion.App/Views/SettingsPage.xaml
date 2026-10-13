@@ -163,6 +163,10 @@
           </Grid>
         </Border>
 
+        <!-- Assistenza: eventi tecnici e metriche dell'app, condivisi solo su richiesta dell'operatore. -->
+        <Button Text="Condividi log diagnostici" Command="{Binding ShareLogsCommand}" Style="{StaticResource SecondaryButton}"
+                SemanticProperties.Hint="Condivide i file di log tecnici dell'app, senza dati dei pazienti" />
+
         <!-- Per sapere con certezza quale build è installata sul telefono. -->
         <Label Text="{Binding AppVersion}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
       </VerticalStackLayout>

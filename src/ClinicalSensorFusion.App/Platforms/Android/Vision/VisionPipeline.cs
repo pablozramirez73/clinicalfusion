@@ -130,7 +130,11 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
 
     private void Process(CsfVisionEngine engine, CaptureMode mode, CameraFrame frame)
     {
+        var inferenceStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         using var result = engine.Detect(frame.Image, frame.RotationDegrees, (long)(frame.Timestamp * 1000));
+        ClinicalSensorFusion.Core.Telemetry.CsfTelemetry.Capture.VisionInferenceDuration.Record(
+            System.Diagnostics.Stopwatch.GetElapsedTime(inferenceStarted).TotalSeconds,
+            ClinicalSensorFusion.Core.Telemetry.CsfTelemetry.Tag("mode", mode.ToString()));
         if (result is null)
         {
             return;

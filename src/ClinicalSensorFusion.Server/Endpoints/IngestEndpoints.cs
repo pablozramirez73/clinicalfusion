@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sync;
+using ClinicalSensorFusion.Core.Telemetry;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Security;
 using ClinicalSensorFusion.Server.Services;
@@ -99,6 +100,7 @@ public static class IngestEndpoints
         {
             if (InvalidChunk(c) is { } problem)
             {
+                CsfTelemetry.Server.IngestedChunks.Add(batch.Chunks.Count, CsfTelemetry.Tag("result", "rejected"));
                 return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["chunks"] = [$"Blocco {c.Kind} n. {c.Sequence}: {problem}"] });
             }
         }
@@ -141,6 +143,7 @@ public static class IngestEndpoints
             recording.UploadedAt = clock.GetUtcNow();
             audit.Record(request.HttpContext.User, "audio.ingest", audioId);
             await db.SaveChangesAsync(ct);
+            CsfTelemetry.Server.IngestedBytes.Add(size, CsfTelemetry.Tag("kind", "audio"));
             return TypedResults.Ok();
         }
         catch (InvalidDataException ex)

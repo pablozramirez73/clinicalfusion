@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, del, post, put } from './client';
 import type {
   CurrentUser, Overview, PagedResult, PatientDetail, PatientInput, PatientListItem, PoseReplay,
-  SessionDetail, SessionListItem, Spectrogram, TrendPoint,
+  SessionDetail, SessionListItem, Spectrogram, SystemHealth, SystemMetrics, TrendPoint,
 } from './types';
 
 export const keys = {
@@ -15,6 +15,8 @@ export const keys = {
   session: (id: string) => ['session', id] as const,
   pose: (id: string) => ['session', id, 'pose'] as const,
   spectrogram: (id: string) => ['session', id, 'spectrogram'] as const,
+  systemHealth: ['system', 'health'] as const,
+  systemMetrics: ['system', 'metrics'] as const,
 };
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api<CurrentUser>('auth/me'), retry: false, staleTime: Infinity });
@@ -75,3 +77,7 @@ export const usePose = (id: string, enabled: boolean) =>
   useQuery({ queryKey: keys.pose(id), queryFn: () => api<PoseReplay>(`sessions/${id}/pose?maxFrames=900`), enabled, staleTime: Infinity });
 export const useSpectrogram = (id: string, enabled: boolean) =>
   useQuery({ queryKey: keys.spectrogram(id), queryFn: () => api<Spectrogram>(`sessions/${id}/spectrogram?window=256&columns=160&maxHz=20`), enabled, staleTime: Infinity });
+
+// Stato del sistema: aggiornato da solo, la pagina serve a guardare cosa succede adesso.
+export const useSystemHealth = () => useQuery({ queryKey: keys.systemHealth, queryFn: () => api<SystemHealth>('system/health'), refetchInterval: 15_000 });
+export const useSystemMetrics = () => useQuery({ queryKey: keys.systemMetrics, queryFn: () => api<SystemMetrics>('system/metrics'), refetchInterval: 15_000 });

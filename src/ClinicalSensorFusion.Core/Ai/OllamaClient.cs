@@ -1,6 +1,9 @@
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using ClinicalSensorFusion.Core.Telemetry;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ClinicalSensorFusion.Core.Ai;
 
@@ -9,8 +12,10 @@ namespace ClinicalSensorFusion.Core.Ai;
 /// e chat in streaming (<c>POST /api/chat</c>, NDJSON). L'indirizzo è passato a ogni chiamata perché può
 /// cambiare dalle impostazioni senza ricreare l'HttpClient.
 /// </summary>
-public sealed class OllamaClient(HttpClient http)
+public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger = null)
 {
+    private readonly ILogger _logger = logger ?? NullLogger<OllamaClient>.Instance;
+
     public async Task<IReadOnlyList<OllamaModelInfo>> GetModelsAsync(Uri baseUri, CancellationToken ct = default)
     {
         using var response = await http.GetAsync(new Uri(baseUri, "api/tags"), ct).ConfigureAwait(false);
@@ -36,6 +41,43 @@ public sealed class OllamaClient(HttpClient http)
         string model,
         IReadOnlyList<OllamaMessage> messages,
         [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        // Il nome del modello è configurazione, non un dato del paziente; il prompt non si registra mai.
+        using var operation = CsfTelemetry.StartOperation(_logger, "ai.chat", CsfTelemetry.Ai.RequestDuration).Tag("model", model);
+        var characters = 0L;
+        var completed = false;
+        try
+        {
+            await foreach (var text in ChatStreamCoreAsync(baseUri, model, messages, ct).ConfigureAwait(false))
+            {
+                if (characters == 0)
+                {
+                    CsfTelemetry.Ai.TimeToFirstToken.Record(operation.Elapsed.TotalSeconds);
+                }
+
+                characters += text.Length;
+                yield return text;
+            }
+
+            CsfTelemetry.Ai.ResponseSize.Record(characters);
+            operation.Succeed();
+            completed = true;
+        }
+        finally
+        {
+            // Un iteratore non può avere catch attorno a yield: l'esito diverso da "riuscito" si deduce qui.
+            if (!completed && ct.IsCancellationRequested)
+            {
+                operation.Fail(new OperationCanceledException(ct), cancelledByCaller: true);
+            }
+        }
+    }
+
+    private async IAsyncEnumerable<string> ChatStreamCoreAsync(
+        Uri baseUri,
+        string model,
+        IReadOnlyList<OllamaMessage> messages,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         var body = new OllamaChatRequest(model, [.. messages], Stream: true, new OllamaOptions(), KeepAlive: "10m");
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(baseUri, "api/chat"))

@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
+using ClinicalSensorFusion.Core.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace ClinicalSensorFusion.Core.Recording;
@@ -79,6 +80,7 @@ public sealed class SessionRecorder : ISensorSink, IAsyncDisposable
         }
 
         Interlocked.Increment(ref _dropped);
+        CsfTelemetry.Capture.DroppedSamples.Add(1, CsfTelemetry.Tag("kind", reading.Kind.ToString()));
         return false;
     }
 
@@ -99,6 +101,14 @@ public sealed class SessionRecorder : ISensorSink, IAsyncDisposable
         if (_writeErrors > 0)
         {
             _logger.LogWarning("Rilevazione {SessionId}: {Errors} blocchi non salvati.", _session.Id, _writeErrors);
+        }
+
+        var mode = CsfTelemetry.Tag("mode", _session.Mode.ToString());
+        CsfTelemetry.Capture.Sessions.Add(1, mode);
+        CsfTelemetry.Capture.SessionDuration.Record(durationSeconds, mode);
+        if (DroppedSamples > 0)
+        {
+            _logger.LogWarning("Rilevazione {SessionId}: {Dropped} campioni scartati per saturazione del registratore.", _session.Id, DroppedSamples);
         }
 
         return _aggregator.Build(durationSeconds, audio, DroppedSamples);
@@ -156,6 +166,8 @@ public sealed class SessionRecorder : ISensorSink, IAsyncDisposable
         }
 
         var items = buffer.Items;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var kind = CsfTelemetry.Tag("kind", buffer.Kind.ToString());
         var chunk = new SensorChunk(
             buffer.Kind,
             buffer.NextSequence++,
@@ -168,11 +180,15 @@ public sealed class SessionRecorder : ISensorSink, IAsyncDisposable
         try
         {
             await _store.AppendChunkAsync(_session.Id, chunk).ConfigureAwait(false);
+            CsfTelemetry.Capture.Samples.Add(chunk.SampleCount, kind);
+            CsfTelemetry.Capture.ChunkSize.Record(chunk.Payload.Length, kind);
+            CsfTelemetry.Capture.ChunkWriteDuration.Record(System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds, kind);
         }
         catch (Exception ex)
         {
             // Non si interrompe l'acquisizione per un errore di scrittura: si registra e si prosegue.
             _writeErrors++;
+            CsfTelemetry.Capture.ChunkWriteErrors.Add(1, kind);
             _logger.LogError(ex, "Salvataggio del blocco {Kind}#{Seq} fallito.", chunk.Kind, chunk.Sequence);
         }
     }

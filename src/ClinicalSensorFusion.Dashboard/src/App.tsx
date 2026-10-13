@@ -12,6 +12,7 @@ const OverviewPage = lazy(() => import('./pages/OverviewPage'));
 const PatientsPage = lazy(() => import('./pages/PatientsPage'));
 const PatientPage = lazy(() => import('./pages/PatientPage'));
 const SessionPage = lazy(() => import('./pages/SessionPage'));
+const SystemPage = lazy(() => import('./pages/SystemPage'));
 
 export function App() {
   const me = useMe();
@@ -43,6 +44,7 @@ export function App() {
           <Route path="/patients/new" element={<PatientPage />} />
           <Route path="/patients/:id" element={<PatientPage />} />
           <Route path="/sessions/:id" element={<SessionPage />} />
+          <Route path="/system" element={<SystemPage />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -58,7 +58,8 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
             var report = await synchronizer.SyncSessionAsync(server!, sessionId, AppPaths.Audio, ct);
             if (report.Errors.Count > 0)
             {
-                logger.LogWarning("Invio della rilevazione {SessionId} incompleto: {Errors}", sessionId, string.Join("; ", report.Errors));
+                // Solo il numero: il testo degli errori è per l'operatore e può contenere il codice soggetto.
+                logger.LogWarning("Invio della rilevazione {SessionId} incompleto: {ErrorCount} errori.", sessionId, report.Errors.Count);
             }
 
             return report;

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Sync;
+using ClinicalSensorFusion.Core.Telemetry;
 using ClinicalSensorFusion.Server.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,7 @@ namespace ClinicalSensorFusion.Server.Services;
 /// Ogni rilevazione appartiene al dispositivo che l'ha creata: una chiave valida non basta per modificare
 /// i dati inviati da un altro dispositivo.
 /// </summary>
-public sealed class IngestService(ClinicalDbContext db, AuditService audit, TimeProvider clock)
+public sealed class IngestService(ClinicalDbContext db, AuditService audit, TimeProvider clock, ILogger<IngestService> logger)
 {
     /// <summary>
     /// Vero se la rilevazione esiste ed è del dispositivo. Il tentativo su una rilevazione altrui finisce
@@ -136,6 +137,7 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
 
         audit.Record(device, "session.ingest", session.Id);
         await db.SaveChangesAsync(ct);
+        CsfTelemetry.Server.IngestedSessions.Add(1, CsfTelemetry.Tag("result", "accepted"));
         return session;
     }
 
@@ -155,6 +157,13 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
         }
 
         await tx.CommitAsync(ct);
+        CsfTelemetry.Server.IngestedChunks.Add(inserted, CsfTelemetry.Tag("result", "inserted"));
+        if (inserted < chunks.Count)
+        {
+            CsfTelemetry.Server.IngestedChunks.Add(chunks.Count - inserted, CsfTelemetry.Tag("result", "duplicate"));
+        }
+
+        CsfTelemetry.Server.IngestedBytes.Add(chunks.Sum(c => (long)c.Payload.Length), CsfTelemetry.Tag("kind", "chunks"));
         return inserted;
     }
 
@@ -165,5 +174,7 @@ public sealed class IngestService(ClinicalDbContext db, AuditService audit, Time
     {
         audit.Record(device, "ingest.denied", sessionId);
         await db.SaveChangesAsync(ct);
+        CsfTelemetry.Server.IngestedSessions.Add(1, CsfTelemetry.Tag("result", "denied"));
+        logger.LogWarning("Ingestione rifiutata: il dispositivo {Device} non possiede la rilevazione {SessionId}.", device.Identity?.Name, sessionId);
     }
 }

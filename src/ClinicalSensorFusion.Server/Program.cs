@@ -4,13 +4,16 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using ClinicalSensorFusion.Core.Sync;
+using ClinicalSensorFusion.Core.Telemetry;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Demo;
 using ClinicalSensorFusion.Server.Endpoints;
 using ClinicalSensorFusion.Server.Security;
 using ClinicalSensorFusion.Server.Services;
+using ClinicalSensorFusion.Server.Telemetry;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +38,7 @@ if (args is ["new-device-key", var deviceName])
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddCsfTelemetry();
 var services = builder.Services;
 
 services.AddSingleton(TimeProvider.System);
@@ -49,12 +53,16 @@ services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
 });
 services.AddProblemDetails();
-services.AddOpenApi();
-services.AddHealthChecks().AddDbContextCheck<ClinicalDbContext>("database");
+services.AddCsfOpenApi();
+services.AddHealthChecks()
+    .AddDbContextCheck<ClinicalDbContext>("database", tags: [SystemEndpoints.ReadyTag])
+    .AddCheck<AudioStorageHealthCheck>("audio-storage", tags: [SystemEndpoints.ReadyTag]);
 
 services.Configure<IngestOptions>(builder.Configuration.GetSection("Ingest"));
 services.Configure<DashboardOptions>(builder.Configuration.GetSection("Dashboard"));
 services.Configure<AudioStorageOptions>(builder.Configuration.GetSection("AudioStorage"));
+services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+services.AddSingleton<JwtTokenService>();
 services.AddHttpContextAccessor();
 services.AddSingleton<DashboardUserService>();
 services.AddSingleton<AudioStorage>();
@@ -63,7 +71,8 @@ services.AddScoped<IngestService>();
 services.AddScoped<SessionAnalytics>();
 services.AddScoped<DemoDataSeeder>();
 
-// Due mondi separati: i dispositivi (chiave API, solo ingestione) e i clinici (cookie, solo dashboard).
+// Due mondi separati: i dispositivi (chiave API, solo ingestione) e i clinici (cookie della dashboard,
+// oppure token JWT per chi usa le API senza browser: Swagger, script).
 services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
     {
@@ -77,11 +86,16 @@ services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
         o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
     })
+    .AddJwtBearer(o => o.MapInboundClaims = false)
     .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null);
+services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<JwtTokenService>((o, tokens) => o.TokenValidationParameters = tokens.ValidationParameters);
 
 services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Ingest, p => p.AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName).RequireRole(Roles.Device))
-    .AddPolicy(Policies.Clinician, p => p.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme).RequireRole(Roles.Clinician));
+    .AddPolicy(Policies.Clinician, p => p
+        .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, JwtBearerDefaults.AuthenticationScheme)
+        .RequireRole(Roles.Clinician));
 
 // Limiti letti dalle opzioni al primo uso (non qui): così valgono anche le configurazioni aggiunte dopo, es. nei test.
 services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimits"));
@@ -97,6 +111,7 @@ services.AddOptions<RateLimiterOptions>().Configure<IOptions<RateLimitOptions>>(
             ctx.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
         }
 
+        CsfTelemetry.Server.RateLimitRejections.Add(1);
         return ValueTask.CompletedTask;
     };
 
@@ -137,6 +152,7 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
+app.UseCsfRequestLogging();
 app.UseStatusCodePages();
 if (!app.Environment.IsDevelopment())
 {
@@ -149,7 +165,8 @@ app.Use(async (ctx, next) =>
     h.XContentTypeOptions = "nosniff";
     h["Referrer-Policy"] = "no-referrer";
     h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-    if (!ctx.Request.Path.StartsWithSegments("/scalar"))
+    // Le interfacce della documentazione (solo se attivate) usano script in linea: niente CSP restrittiva lì.
+    if (!ctx.Request.Path.StartsWithSegments("/scalar") && !ctx.Request.Path.StartsWithSegments("/swagger"))
     {
         h.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
                                   "media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'";
@@ -165,13 +182,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
-api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapIngest();
+api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
-app.MapHealthChecks("/health").AllowAnonymous().DisableRateLimiting();
-
-if (app.Environment.IsDevelopment())
+app.MapHealth();
+app.MapApiDocs();
+if (ApiDocs.IsEnabled(app))
 {
-    app.MapOpenApi();
     app.MapScalarApiReference();
 }
 

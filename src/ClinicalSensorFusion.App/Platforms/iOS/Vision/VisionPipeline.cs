@@ -157,7 +157,11 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         const ImageOrientation orientation = ImageOrientation.Up;
         var uiOrientation = job.FrontCamera ? UIImageOrientation.Left : UIImageOrientation.Right;
 
+        var inferenceStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         using var result = engine.Detect(job.Image, uiOrientation, (nint)(job.Timestamp * 1000), out var error);
+        ClinicalSensorFusion.Core.Telemetry.CsfTelemetry.Capture.VisionInferenceDuration.Record(
+            System.Diagnostics.Stopwatch.GetElapsedTime(inferenceStarted).TotalSeconds,
+            ClinicalSensorFusion.Core.Telemetry.CsfTelemetry.Tag("mode", mode.ToString()));
         if (result is null)
         {
             logger.LogWarning("Inferenza MediaPipe fallita: {Error}", error?.LocalizedDescription);

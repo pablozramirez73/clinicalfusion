@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Persistence;
+using ClinicalSensorFusion.Core.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace ClinicalSensorFusion.Core.Sync;
@@ -25,6 +26,7 @@ public sealed class SessionSynchronizer(
     public async Task<SyncReport> SyncPendingAsync(Uri server, Func<AudioRecording, string> audioPathResolver, CancellationToken ct = default)
     {
         var pending = await repository.ListUnsyncedSessionsAsync(ct).ConfigureAwait(false);
+        CsfTelemetry.Sync.PendingSessions.Record(pending.Count);
         int sessions = 0, chunks = 0, audioFiles = 0;
         var errors = new List<string>();
 
@@ -50,6 +52,7 @@ public sealed class SessionSynchronizer(
             }
         }
 
+        CsfTelemetry.Sync.PendingSessions.Record(pending.Count - sessions);
         return new SyncReport(sessions, chunks, audioFiles, errors);
     }
 
@@ -108,6 +111,25 @@ public sealed class SessionSynchronizer(
     private async Task<(int Chunks, int Audio)> UploadAsync(
         Uri server, ClinicalSession session, Func<AudioRecording, string> audioPathResolver, CancellationToken ct)
     {
+        using var operation = CsfTelemetry.StartOperation(logger, "sync.session", CsfTelemetry.Sync.SessionDuration);
+        // L'identificativo è casuale (non è un dato del paziente) e lega tra loro le righe di log dell'invio.
+        using var scope = logger.BeginScope(new Dictionary<string, object?> { ["SessionId"] = session.Id });
+        try
+        {
+            var result = await UploadCoreAsync(server, session, audioPathResolver, ct).ConfigureAwait(false);
+            operation.Succeed();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            operation.Fail(ex, cancelledByCaller: ct.IsCancellationRequested);
+            throw;
+        }
+    }
+
+    private async Task<(int Chunks, int Audio)> UploadCoreAsync(
+        Uri server, ClinicalSession session, Func<AudioRecording, string> audioPathResolver, CancellationToken ct)
+    {
         var audio = await repository.ListAudioRecordingsAsync(session.Id, ct).ConfigureAwait(false);
         await client.UploadSessionAsync(server, await BuildUploadAsync(session, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
 
@@ -135,12 +157,16 @@ public sealed class SessionSynchronizer(
             {
                 // Si prosegue con gli altri file, ma la rilevazione non risulterà sincronizzata.
                 logger.LogWarning("File audio {AudioId} assente sul dispositivo.", recording.Id);
+                CsfTelemetry.Sync.AudioFiles.Add(1, CsfTelemetry.Tag("result", "missing"));
                 missingAudio++;
                 continue;
             }
 
             await using var stream = File.OpenRead(path);
+            var audioBytes = stream.Length; // letta prima: l'invio chiude lo stream
             await client.UploadAudioAsync(server, session.Id, recording.Id, stream, ct).ConfigureAwait(false);
+            CsfTelemetry.Sync.AudioFiles.Add(1, CsfTelemetry.Tag("result", "sent"));
+            CsfTelemetry.Sync.Bytes.Add(audioBytes, CsfTelemetry.Tag("kind", "audio"));
             uploadedAudio++;
         }
 
@@ -165,6 +191,8 @@ public sealed class SessionSynchronizer(
 
             await client.UploadChunksAsync(server, session.Id, batch, ct).ConfigureAwait(false);
             var count = batch.Count;
+            CsfTelemetry.Sync.Chunks.Add(count);
+            CsfTelemetry.Sync.Bytes.Add(batchBytes, CsfTelemetry.Tag("kind", "chunks"));
             batch.Clear();
             batchBytes = 0;
             return count;
