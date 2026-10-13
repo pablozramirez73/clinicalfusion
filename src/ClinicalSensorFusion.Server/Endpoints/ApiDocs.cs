@@ -43,7 +43,8 @@ public static class ApiDocs
 
             foreach (var (path, item) in document.Paths)
             {
-                if (path.StartsWith("/api/v1/auth/login", StringComparison.Ordinal) || path.StartsWith("/api/v1/auth/token", StringComparison.Ordinal))
+                if (path.StartsWith("/api/v1/auth/login", StringComparison.Ordinal) || path.StartsWith("/api/v1/auth/token", StringComparison.Ordinal)
+                    || path == "/fhir/metadata" || path.StartsWith("/health", StringComparison.Ordinal))
                 {
                     continue;
                 }

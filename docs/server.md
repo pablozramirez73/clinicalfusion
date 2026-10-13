@@ -137,12 +137,14 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
 | `GET` | `/api/v1/dashboard/overview` | clinico |
 | `GET` | `/api/v1/audit?actor=&action=&entityId=&from=&to=&page=&pageSize=` | clinico |
 | `GET` | `/api/v1/system/health` · `/system/metrics` | clinico |
+| `GET` | `/fhir/metadata` · `/fhir/Patient` · `/fhir/Observation` · `/fhir/DiagnosticReport` · `/fhir/Patient/{id}/$everything` | — (metadata) / clinico: HL7 FHIR R4, vedi [fhir.md](fhir.md) |
 | `GET` | `/health` · `/health/ready` · `/health/live` | — |
 
 ## 7. Verifiche
 
-- **Server: 33 test di integrazione** su PostgreSQL reale. Coprono:
+- **Server: 55 test di integrazione** su PostgreSQL reale. Coprono:
   - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
+  - interfaccia HL7 FHIR R4, con ogni risposta riletta dal modello R4 di riferimento;
   - stato del servizio, metriche, token JWT (anche contraffatti) e documentazione Swagger;
   - rifiuto dei blocchi non decodificabili e degli audio fuori misura, limiti di frequenza, registro di audit;
   - header di sicurezza;

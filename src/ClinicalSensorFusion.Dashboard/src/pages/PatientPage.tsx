@@ -43,6 +43,11 @@ function ExistingPatient({ id }: { id: string }) {
             {p.diagnosis && ` · ${p.diagnosis}`}
           </p>
         </div>
+        {/* Esportazione HL7 FHIR R4: anagrafica, rilevazioni e osservazioni in un unico Bundle JSON. */}
+        <a className="button" href={`/fhir/Patient/${p.id}/$everything`} download={`paziente-${p.code}.fhir.json`}
+           title="Scarica i dati del paziente in formato HL7 FHIR R4 (Bundle JSON)">
+          Esporta FHIR
+        </a>
       </header>
 
       <div className="kpis">

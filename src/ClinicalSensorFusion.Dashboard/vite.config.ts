@@ -19,7 +19,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:5180', '/health': 'http://localhost:5180' },
+    proxy: { '/api': 'http://localhost:5180', '/health': 'http://localhost:5180', '/fhir': 'http://localhost:5180' },
   },
   test: { environment: 'node' },
 });

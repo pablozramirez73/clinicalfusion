@@ -184,6 +184,7 @@ app.UseAuthorization();
 var api = app.MapGroup("/api/v1");
 api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
+app.MapFhir();
 app.MapHealth();
 app.MapApiDocs();
 if (ApiDocs.IsEnabled(app))

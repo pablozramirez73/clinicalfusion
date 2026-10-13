@@ -46,5 +46,7 @@
     <!-- Test -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetCoreVersion)" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <!-- Solo nei test: modello FHIR R4 di riferimento (Firely) per verificare che le risorse prodotte siano valide. -->
+    <PackageVersion Include="Hl7.Fhir.R4" Version="6.6.0" />
   </ItemGroup>
 </Project>
