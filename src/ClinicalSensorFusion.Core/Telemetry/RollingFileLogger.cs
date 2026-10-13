@@ -45,6 +45,7 @@ public sealed class RollingFileLoggerProvider : ILoggerProvider, ISupportExterna
     private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
     private long _dropped;
     private int _disposed;
+    private int _sequence;
 
     public RollingFileLoggerProvider(RollingFileLoggerOptions options)
     {
@@ -163,8 +164,12 @@ public sealed class RollingFileLoggerProvider : ILoggerProvider, ISupportExterna
 
         current?.Dispose();
 
-        // Nome ordinabile; il suffisso evita collisioni se si ruota due volte nello stesso millisecondo.
-        var path = Path.Combine(_options.Directory, $"{_options.FilePrefix}-{DateTimeOffset.UtcNow:yyyyMMdd'T'HHmmssfff}-{Guid.NewGuid().ToString("N")[..6]}.jsonl");
+        // Il nome ordina i file dal più vecchio al più recente, ed è da quell'ordine che si sceglie cosa cancellare.
+        // Due rotazioni nello stesso millisecondo le separa il progressivo (con un suffisso casuale l'ordine era a
+        // caso, e capitava di cancellare il file appena aperto); il suffisso resta per non collidere con un'altra
+        // istanza che scrive nella stessa cartella.
+        var sequence = Interlocked.Increment(ref _sequence);
+        var path = Path.Combine(_options.Directory, $"{_options.FilePrefix}-{DateTimeOffset.UtcNow:yyyyMMdd'T'HHmmssfff}-{sequence:D6}-{Guid.NewGuid().ToString("N")[..6]}.jsonl");
         var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 16_384, useAsync: true);
         foreach (var old in ListFiles(_options).Skip(Math.Max(1, _options.MaxFiles)))
         {
