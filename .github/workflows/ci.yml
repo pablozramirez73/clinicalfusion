@@ -40,10 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # SDK fissato alla RC1, la stessa dei pacchetti MAUI in Directory.Packages.props: con "11.0.x" la CI
+      # prende l'ultima anteprima appena esce, e il suo workload Android può non essere ancora su NuGet.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 11.0.x
-          dotnet-quality: preview
+          dotnet-version: 11.0.100-rc.1.26425.128
       - uses: actions/setup-java@v4
         with:
           distribution: microsoft
