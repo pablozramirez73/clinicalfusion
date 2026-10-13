@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sync;
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +30,7 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
 
         if (!await _gate.WaitAsync(0, ct))
         {
-            return new SyncReport(0, 0, 0, ["Sincronizzazione già in corso."]);
+            return new SyncReport(0, 0, 0, [Loc.T("Sincronizzazione già in corso.")]);
         }
 
         try
@@ -82,11 +83,11 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
     {
         if (!IsConfigured)
         {
-            return new SyncReport(0, 0, 0, ["Server clinico non configurato nelle Impostazioni."]);
+            return new SyncReport(0, 0, 0, [Loc.T("Server clinico non configurato nelle Impostazioni.")]);
         }
 
         return string.IsNullOrEmpty(await secureStorage.GetAsync(ApiKeyStorageKey))
-            ? new SyncReport(0, 0, 0, ["Chiave del dispositivo mancante nelle Impostazioni."])
+            ? new SyncReport(0, 0, 0, [Loc.T("Chiave del dispositivo mancante nelle Impostazioni.")])
             : null;
     }
 

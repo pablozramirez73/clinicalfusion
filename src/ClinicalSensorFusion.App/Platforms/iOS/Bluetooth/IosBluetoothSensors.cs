@@ -1,5 +1,6 @@
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Bluetooth;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreBluetooth;
 using CoreFoundation;
@@ -136,10 +137,10 @@ internal sealed class IosBluetoothSensors(RememberedBleDevices remembered, ILogg
     private static string? Problem(CBManagerState state) => state switch
     {
         CBManagerState.PoweredOn => null,
-        CBManagerState.PoweredOff => "Il Bluetooth è spento: attivarlo dal Centro di Controllo o dalle Impostazioni.",
-        CBManagerState.Unauthorized => "L'app non ha il permesso di usare il Bluetooth: Impostazioni → Privacy e sicurezza → Bluetooth.",
-        CBManagerState.Unsupported => "Questo dispositivo non supporta il Bluetooth Low Energy.",
-        _ => "Il Bluetooth non è pronto: riprovare tra qualche secondo.",
+        CBManagerState.PoweredOff => Loc.T("Il Bluetooth è spento: attivarlo dal Centro di Controllo o dalle Impostazioni."),
+        CBManagerState.Unauthorized => Loc.T("L'app non ha il permesso di usare il Bluetooth: Impostazioni → Privacy e sicurezza → Bluetooth."),
+        CBManagerState.Unsupported => Loc.T("Questo dispositivo non supporta il Bluetooth Low Energy."),
+        _ => Loc.T("Il Bluetooth non è pronto: riprovare tra qualche secondo."),
     };
 
     /// <summary>Crea il gestore al primo uso e attende che lo stato sia noto (acceso, spento, non autorizzato).</summary>
@@ -229,7 +230,7 @@ internal sealed class IosBluetoothSensors(RememberedBleDevices remembered, ILogg
         }
 
         var id = peripheral.Identifier.AsString();
-        var name = peripheral.Name ?? (advertisement[CBAdvertisement.DataLocalNameKey] as NSString)?.ToString() ?? "Sensore senza nome";
+        var name = peripheral.Name ?? (advertisement[CBAdvertisement.DataLocalNameKey] as NSString)?.ToString() ?? Loc.T("Sensore senza nome");
         var device = new BleDevice(id, name, rssi, type.Value);
         lock (_gate)
         {

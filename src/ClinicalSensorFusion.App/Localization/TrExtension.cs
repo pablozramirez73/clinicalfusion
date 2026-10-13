@@ -4,7 +4,9 @@ namespace ClinicalSensorFusion.App.Localization;
 
 /// <summary>
 /// Testo tradotto in XAML: <c>Text="{l:Tr Text='Salva'}"</c>. La chiave è il testo italiano (vedi <see cref="Loc"/>).
-/// La lingua si decide all'avvio dell'app: cambiarla dalle Impostazioni ha effetto al riavvio.
+/// Il testo si traduce una volta sola, quando la pagina viene creata: per questo la lingua si fissa all'avvio
+/// (<c>Loc.Use</c> in <see cref="MauiProgram"/>, dalla preferenza «Lingua dell'app» o dalla lingua del telefono)
+/// e cambiarla dalle Impostazioni ha effetto al riavvio.
 /// </summary>
 [ContentProperty(nameof(Text))]
 [AcceptEmptyServiceProvider]

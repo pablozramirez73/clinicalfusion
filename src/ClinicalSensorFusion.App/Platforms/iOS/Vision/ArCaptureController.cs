@@ -1,5 +1,6 @@
 using ARKit;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreFoundation;
 using CoreGraphics;
@@ -92,7 +93,7 @@ internal sealed class ArCaptureController : ARSessionDelegate
         {
             if (!FaceTrackingSupported)
             {
-                throw new NotSupportedException("Questo iPhone non ha la fotocamera TrueDepth.");
+                throw new NotSupportedException(Loc.T("Questo iPhone non ha la fotocamera TrueDepth."));
             }
 
             configuration = new ARFaceTrackingConfiguration { LightEstimationEnabled = true, MaximumNumberOfTrackedFaces = 1 };

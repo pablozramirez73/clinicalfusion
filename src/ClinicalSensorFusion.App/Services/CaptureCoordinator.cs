@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;
@@ -52,12 +53,12 @@ public sealed class CaptureCoordinator(
     {
         if (_session is not null)
         {
-            throw new InvalidOperationException("Una rilevazione è già in corso.");
+            throw new InvalidOperationException(Loc.T("Una rilevazione è già in corso."));
         }
 
         if (!settings.IsOperatorConfigured)
         {
-            throw new InvalidOperationException("Configurare l'operatore nelle Impostazioni prima di iniziare.");
+            throw new InvalidOperationException(Loc.T("Configurare l'operatore nelle Impostazioni prima di iniziare."));
         }
 
         var session = new ClinicalSession
@@ -108,7 +109,7 @@ public sealed class CaptureCoordinator(
 
     public async Task<ClinicalSession> StopAsync()
     {
-        var session = _session ?? throw new InvalidOperationException("Nessuna rilevazione in corso.");
+        var session = _session ?? throw new InvalidOperationException(Loc.T("Nessuna rilevazione in corso."));
         var recorder = _recorder!;
         var duration = _clock!.Now;
         var testSeconds = _testStart is { } start ? Math.Max(0, (_testEnd ?? duration) - start) : (double?)null;

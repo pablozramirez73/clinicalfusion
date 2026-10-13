@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using Foundation;
 using LocalAuthentication;
 
@@ -31,7 +32,7 @@ internal sealed class BiometricAuthenticator : IDeviceAuthenticator
             {
                 LABiometryType.FaceId => "Face ID",
                 LABiometryType.TouchId => "Touch ID",
-                _ => "codice del telefono",
+                _ => Loc.T("codice del telefono"),
             };
         }
     }

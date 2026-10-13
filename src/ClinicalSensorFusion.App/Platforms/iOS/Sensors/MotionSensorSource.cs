@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreMotion;
 using Foundation;
@@ -21,7 +22,7 @@ internal sealed class MotionSensorSource(SensorClock clock) : ISensorSource
         QualityOfService = NSQualityOfService.UserInitiated,
     };
 
-    public string DisplayName => "Accelerometro · giroscopio · magnetometro";
+    public string DisplayName => Loc.T("Accelerometro · giroscopio · magnetometro");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Motion];
 

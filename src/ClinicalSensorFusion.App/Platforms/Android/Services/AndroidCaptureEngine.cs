@@ -3,6 +3,7 @@ using ClinicalSensorFusion.App.Platforms.Android.Sensors;
 using ClinicalSensorFusion.App.Platforms.Android.Vision;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using Microsoft.Extensions.Logging;
 
@@ -51,7 +52,7 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
         var mode = Camera.Mode;
         var list = new List<SensorStatus>
         {
-            new(mode == CaptureMode.FaceTrueDepth ? "Fotocamera frontale" : "Fotocamera posteriore", true, Camera.IsRunning),
+            new(mode == CaptureMode.FaceTrueDepth ? Loc.T("Fotocamera frontale") : Loc.T("Fotocamera posteriore"), true, Camera.IsRunning),
             new($"MediaPipe {ModeModel(mode)} · {(_vision.IsGpu ? "GPU" : "CPU")}", _vision.IsReady, Camera.IsRunning && _vision.IsReady),
         };
 
@@ -100,7 +101,7 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
     {
         if (IsRecording)
         {
-            throw new InvalidOperationException("Registrazione già in corso.");
+            throw new InvalidOperationException(Loc.T("Registrazione già in corso."));
         }
 
         if (!Camera.IsRunning || Camera.Mode != session.Mode)

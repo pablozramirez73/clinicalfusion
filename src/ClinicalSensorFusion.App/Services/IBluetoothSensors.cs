@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.Core.Bluetooth;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.App.Services;
@@ -58,7 +59,7 @@ internal sealed class NullBluetoothSensors : IBluetoothSensors
     public event EventHandler<SensorReading>? Measurement;
 #pragma warning restore CS0067
 
-    public Task<string?> StartScanAsync() => Task.FromResult<string?>("I sensori Bluetooth non sono ancora gestiti su questo dispositivo.");
+    public Task<string?> StartScanAsync() => Task.FromResult<string?>(Loc.T("I sensori Bluetooth non sono ancora gestiti su questo dispositivo."));
 
     public void StopScan()
     {
@@ -111,7 +112,7 @@ internal sealed class BluetoothSensorSource(IBluetoothSensors bluetooth, SensorC
 {
     private ISensorSink? _sink;
 
-    public string DisplayName => "Sensori Bluetooth";
+    public string DisplayName => Loc.T("Sensori Bluetooth");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.HeartRate, SensorKind.PulseOximeter, SensorKind.BodyTemperature];
 

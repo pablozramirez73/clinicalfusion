@@ -3,6 +3,7 @@ using System.Numerics;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.MediaPipe;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,7 @@ namespace ClinicalSensorFusion.App.Platforms.Android.Vision;
 /// <remarks>
 /// Differenze rispetto a iOS, tutte dovute all'hardware:
 /// <list type="bullet">
-/// <item>senza LiDAR i punti 3D sono sempre i <i>world landmarks</i> di MediaPipe ("stima 3D");</item>
+/// <item>senza LiDAR i punti 3D sono sempre i <i>world landmarks</i> di MediaPipe (Loc.T("stima 3D"));</item>
 /// <item>senza TrueDepth le blendshape del volto vengono da MediaPipe Face, riordinate nel layout ARKit;</item>
 /// <item>come su iOS, MediaPipe usa la rotazione solo per l'inferenza e restituisce i punti nel sistema
 /// del sensore (immagine orizzontale): così vanno in archivio, mentre per l'overlay si raddrizzano.</item>
@@ -27,7 +28,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     private const float MinVisibility = 0.5f;
 
     private static readonly (int From, int To)[] NoConnections = [];
-    private static readonly string[] JointLabels = ["Spalla sx", "Spalla dx", "Gomito sx", "Gomito dx", "Anca sx", "Anca dx", "Ginocchio sx", "Ginocchio dx", "Caviglia sx", "Caviglia dx"];
+    private static readonly string[] JointLabels = [Loc.T("Spalla sx"), Loc.T("Spalla dx"), Loc.T("Gomito sx"), Loc.T("Gomito dx"), Loc.T("Anca sx"), Loc.T("Anca dx"), Loc.T("Ginocchio sx"), Loc.T("Ginocchio dx"), Loc.T("Caviglia sx"), Loc.T("Caviglia dx")];
 
     // Protegge il motore nativo: un cambio di modalità non deve rilasciarlo mentre un'inferenza lo sta usando.
     private readonly Lock _engineLock = new();
@@ -159,7 +160,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             _ => null,
         };
 
-        OverlayUpdated?.Invoke(this, overlay ?? new OverlayFrame([], NoConnections, "Nessun soggetto rilevato", result.InferenceMs));
+        OverlayUpdated?.Invoke(this, overlay ?? new OverlayFrame([], NoConnections, Loc.T("Nessun soggetto rilevato"), result.InferenceMs));
     }
 
     private static OverlayFrame ProcessPose(CsfVisionResult result, ViewMapping view, (ISensorSink Sink, SensorClock Clock)? recording, double t)
@@ -168,7 +169,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         var rawWorld = result.GetPoseWorldLandmarks() ?? [];
         if (raw.Length < PoseLandmark.Count * Values)
         {
-            return new OverlayFrame([], NoConnections, "Nessun soggetto rilevato", result.InferenceMs);
+            return new OverlayFrame([], NoConnections, Loc.T("Nessun soggetto rilevato"), result.InferenceMs);
         }
 
         // Come su iOS senza LiDAR: punti 3D di MediaPipe, NaN per le articolazioni poco visibili.
@@ -264,7 +265,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         }
 
         var caption = string.Join(" · ", Enumerable.Range(0, count).Select(h =>
-            h < handedness.Length ? (handedness[h] == "Right" ? "Mano dx" : "Mano sx") : "Mano"));
+            h < handedness.Length ? (handedness[h] == "Right" ? Loc.T("Mano dx") : Loc.T("Mano sx")) : Loc.T("Mano")));
         return new OverlayFrame(points, connections, caption, result.InferenceMs);
     }
 
@@ -284,7 +285,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             points[i] = view.ToView(raw[i * Values], raw[(i * Values) + 1], true, OverlayPointKind.Face);
         }
 
-        return new OverlayFrame(points, NoConnections, "Volto rilevato", result.InferenceMs);
+        return new OverlayFrame(points, NoConnections, Loc.T("Volto rilevato"), result.InferenceMs);
     }
 
     private static string PoseCaption(float[] angles)
@@ -299,7 +300,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             }
         }
 
-        parts.Add("stima 3D");
+        parts.Add(Loc.T("stima 3D"));
         return string.Join(" · ", parts);
     }
 

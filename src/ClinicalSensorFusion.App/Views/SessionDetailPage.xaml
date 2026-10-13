@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:l="clr-namespace:ClinicalSensorFusion.App.Localization"
              xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
              xmlns:controls="clr-namespace:ClinicalSensorFusion.App.Controls"
              xmlns:domain="clr-namespace:ClinicalSensorFusion.Core.Domain;assembly=ClinicalSensorFusion.Core"
              x:Class="ClinicalSensorFusion.App.Views.SessionDetailPage"
              x:DataType="vm:SessionDetailViewModel"
-             Title="Rilevazione">
+             Title="{l:Tr Text='Rilevazione'}">
   <ContentPage.ToolbarItems>
-    <ToolbarItem Text="Condividi" Command="{Binding ShareSummaryCommand}" />
+    <ToolbarItem Text="{l:Tr Text='Condividi'}" Command="{Binding ShareSummaryCommand}" />
   </ContentPage.ToolbarItems>
 
   <ScrollView>
@@ -34,13 +35,13 @@
           <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
             <Border StrokeThickness="0" StrokeShape="RoundRectangle 14" BackgroundColor="#1FFFFFFF" Padding="12,8">
               <VerticalStackLayout Spacing="1">
-                <Label Text="Durata" FontSize="11" TextColor="#CFE3EC" />
+                <Label Text="{l:Tr Text='Durata'}" FontSize="11" TextColor="#CFE3EC" />
                 <Label Text="{Binding DurationText}" FontSize="17" FontAttributes="Bold" TextColor="White" />
               </VerticalStackLayout>
             </Border>
             <Border Grid.Column="1" StrokeThickness="0" StrokeShape="RoundRectangle 14" BackgroundColor="#1FFFFFFF" Padding="12,8">
               <VerticalStackLayout Spacing="1">
-                <Label Text="Operatore" FontSize="11" TextColor="#CFE3EC" />
+                <Label Text="{l:Tr Text='Operatore'}" FontSize="11" TextColor="#CFE3EC" />
                 <Label Text="{Binding OperatorName}" FontSize="17" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation" />
               </VerticalStackLayout>
             </Border>
@@ -56,11 +57,11 @@
               <Path Style="{StaticResource IconUpload}" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="2">
-              <Label Text="Server clinico" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Server clinico'}" Style="{StaticResource Headline}" />
               <Label Text="{Binding SyncText}" Style="{StaticResource Muted}" />
             </VerticalStackLayout>
             <Border Grid.Column="2" Style="{StaticResource Chip}" VerticalOptions="Start" IsVisible="{Binding IsSyncSent}">
-              <Label Text="✓ Inviata" Style="{StaticResource ChipText}" />
+              <Label Text="{l:Tr Text='✓ Inviata'}" Style="{StaticResource ChipText}" />
             </Border>
           </Grid>
 
@@ -68,22 +69,22 @@
             <Label Text="{Binding SyncError}" Style="{StaticResource BannerDangerText}" />
           </Border>
 
-          <Button Text="Invia al server" Command="{Binding SendToServerCommand}" IsVisible="{Binding IsSyncPending}" />
+          <Button Text="{l:Tr Text='Invia al server'}" Command="{Binding SendToServerCommand}" IsVisible="{Binding IsSyncPending}" />
 
           <Border Style="{StaticResource BannerInfo}" IsVisible="{Binding IsSyncSending}">
             <HorizontalStackLayout Spacing="10">
               <ActivityIndicator IsRunning="{Binding IsSyncSending}" WidthRequest="18" HeightRequest="18" />
-              <Label Text="Invio in corso: puoi continuare a consultare la rilevazione." Style="{StaticResource BannerInfoText}" VerticalOptions="Center" />
+              <Label Text="{l:Tr Text='Invio in corso: puoi continuare a consultare la rilevazione.'}" Style="{StaticResource BannerInfoText}" VerticalOptions="Center" />
             </HorizontalStackLayout>
           </Border>
 
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding IsSyncSent}">
-            <Button Text="Apri i grafici" Command="{Binding OpenDashboardCommand}" />
-            <Button Grid.Column="1" Text="Invia di nuovo" Style="{StaticResource SecondaryButton}" HeightRequest="52" CornerRadius="16"
+            <Button Text="{l:Tr Text='Apri i grafici'}" Command="{Binding OpenDashboardCommand}" />
+            <Button Grid.Column="1" Text="{l:Tr Text='Invia di nuovo'}" Style="{StaticResource SecondaryButton}" HeightRequest="52" CornerRadius="16"
                     Command="{Binding SendToServerCommand}" />
           </Grid>
 
-          <Button Text="Apri le Impostazioni" Style="{StaticResource SecondaryButton}" Command="{Binding OpenSettingsCommand}"
+          <Button Text="{l:Tr Text='Apri le Impostazioni'}" Style="{StaticResource SecondaryButton}" Command="{Binding OpenSettingsCommand}"
                   IsVisible="{Binding IsSyncNotConfigured}" />
         </VerticalStackLayout>
       </Border>
@@ -100,7 +101,7 @@
               <HorizontalStackLayout Spacing="8">
                 <Label Text="{Binding TestValue}" FontSize="28" FontAttributes="Bold" />
                 <Border Style="{StaticResource Chip}" VerticalOptions="Center" IsVisible="{Binding TestEstimated}">
-                  <Label Text="stima" Style="{StaticResource ChipText}" />
+                  <Label Text="{l:Tr Text='stima'}" Style="{StaticResource ChipText}" />
                 </Border>
               </HorizontalStackLayout>
             </VerticalStackLayout>
@@ -119,14 +120,14 @@
 
       <Border Style="{StaticResource Card}" IsVisible="{Binding Notes, Converter={StaticResource IsNotNullOrEmpty}}">
         <VerticalStackLayout Spacing="4">
-          <Label Text="Note" Style="{StaticResource FieldLabel}" Margin="0" />
+          <Label Text="{l:Tr Text='Note'}" Style="{StaticResource FieldLabel}" Margin="0" />
           <Label Text="{Binding Notes}" />
         </VerticalStackLayout>
       </Border>
 
       <Border Style="{StaticResource BannerDanger}" BackgroundColor="{AppThemeBinding Light={StaticResource WarningSoftLight}, Dark={StaticResource WarningSoftDark}}"
               IsVisible="{Binding HasSummary, Converter={StaticResource InvertedBool}}">
-        <Label Text="Rilevazione interrotta: gli indicatori non sono stati calcolati." Style="{StaticResource ChipWarningText}" FontSize="13" FontAttributes="None" />
+        <Label Text="{l:Tr Text='Rilevazione interrotta: gli indicatori non sono stati calcolati.'}" Style="{StaticResource ChipWarningText}" FontSize="13" FontAttributes="None" />
       </Border>
 
       <!-- Indicatori -->
@@ -158,10 +159,10 @@
       </VerticalStackLayout>
 
       <!-- Audio -->
-      <Label Text="Registrazioni audio" Style="{StaticResource Section}" />
+      <Label Text="{l:Tr Text='Registrazioni audio'}" Style="{StaticResource Section}" />
       <VerticalStackLayout BindableLayout.ItemsSource="{Binding Audio}" Spacing="8">
         <BindableLayout.EmptyView>
-          <Label Text="Nessuna registrazione." Style="{StaticResource Muted}" Margin="4,0" />
+          <Label Text="{l:Tr Text='Nessuna registrazione.'}" Style="{StaticResource Muted}" Margin="4,0" />
         </BindableLayout.EmptyView>
         <BindableLayout.ItemTemplate>
           <DataTemplate x:DataType="vm:AudioItem">
@@ -177,7 +178,7 @@
                 <Button Grid.Column="2" Text="▶" Style="{StaticResource SecondaryButton}" WidthRequest="46" Padding="0" CornerRadius="23"
                         VerticalOptions="Center"
                         Command="{Binding PlayCommand, Source={RelativeSource AncestorType={x:Type vm:SessionDetailViewModel}}, x:DataType=vm:SessionDetailViewModel}"
-                        CommandParameter="{Binding .}" SemanticProperties.Description="Riproduci o ferma" />
+                        CommandParameter="{Binding .}" SemanticProperties.Description="{l:Tr Text='Riproduci o ferma'}" />
               </Grid>
             </Border>
           </DataTemplate>
@@ -185,7 +186,7 @@
       </VerticalStackLayout>
 
       <!-- Modello linguistico -->
-      <Label Text="Analisi con IA (Ollama)" Style="{StaticResource Section}" />
+      <Label Text="{l:Tr Text='Analisi con IA (Ollama)'}" Style="{StaticResource Section}" />
       <Border Style="{StaticResource Card}">
         <VerticalStackLayout Spacing="12">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -193,25 +194,25 @@
               <Path Style="{StaticResource IconSparkle}" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="2">
-              <Label Text="Chiedi al modello" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Chiedi al modello'}" Style="{StaticResource Headline}" />
               <Label Style="{StaticResource Muted}"
-                     Text="Riceve solo gli indicatori numerici, senza codice soggetto né nome operatore. Il testo generato è di supporto e non sostituisce la valutazione clinica." />
+                     Text="{l:Tr Text='Riceve solo gli indicatori numerici, senza codice soggetto né nome operatore. Il testo generato è di supporto e non sostituisce la valutazione clinica.'}" />
             </VerticalStackLayout>
           </Grid>
           <controls:FormField>
-            <Entry Placeholder="Domanda specifica (facoltativa)" Text="{Binding Question}" ReturnType="Done" />
+            <Entry Placeholder="{l:Tr Text='Domanda specifica (facoltativa)'}" Text="{Binding Question}" ReturnType="Done" />
           </controls:FormField>
           <!-- Un solo pulsante: durante la generazione diventa «Interrompi» -->
           <Grid>
-            <Button Text="Analizza" Command="{Binding AnalyzeCommand}"
+            <Button Text="{l:Tr Text='Analizza'}" Command="{Binding AnalyzeCommand}"
                     IsVisible="{Binding IsAnalyzing, Converter={StaticResource InvertedBool}}" />
-            <Button Text="Interrompi" Style="{StaticResource SecondaryButton}" HeightRequest="52" CornerRadius="16"
+            <Button Text="{l:Tr Text='Interrompi'}" Style="{StaticResource SecondaryButton}" HeightRequest="52" CornerRadius="16"
                     Command="{Binding CancelAnalysisCommand}" IsVisible="{Binding IsAnalyzing}" />
           </Grid>
           <Border Style="{StaticResource BannerInfo}" IsVisible="{Binding IsAnalyzing}">
             <HorizontalStackLayout Spacing="10">
               <ActivityIndicator IsRunning="{Binding IsAnalyzing}" WidthRequest="18" HeightRequest="18" />
-              <Label Text="Il modello sta scrivendo…" Style="{StaticResource BannerInfoText}" VerticalOptions="Center" />
+              <Label Text="{l:Tr Text='Il modello sta scrivendo…'}" Style="{StaticResource BannerInfoText}" VerticalOptions="Center" />
             </HorizontalStackLayout>
           </Border>
           <Label Text="{Binding AnalysisText}" LineHeight="1.15" IsVisible="{Binding AnalysisText, Converter={StaticResource IsNotNullOrEmpty}}" />

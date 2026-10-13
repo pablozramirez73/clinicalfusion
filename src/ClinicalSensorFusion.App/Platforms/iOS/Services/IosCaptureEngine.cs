@@ -2,6 +2,7 @@ using ClinicalSensorFusion.App.Platforms.iOS.Sensors;
 using ClinicalSensorFusion.App.Platforms.iOS.Vision;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Domain;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using Foundation;
 using Microsoft.Extensions.Logging;
@@ -53,7 +54,7 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
         var mode = Ar.Mode;
         var list = new List<SensorStatus>
         {
-            new(mode == CaptureMode.FaceTrueDepth ? "Fotocamera TrueDepth" : "Fotocamera posteriore", true, Ar.IsRunning),
+            new(mode == CaptureMode.FaceTrueDepth ? Loc.T("Fotocamera TrueDepth") : Loc.T("Fotocamera posteriore"), true, Ar.IsRunning),
             new("LiDAR", IsLidarSupported, Ar.IsRunning && Ar.IsLidarActive),
             new($"MediaPipe {ModeModel(mode)}", _vision.IsReady, Ar.IsRunning && _vision.IsReady),
         };
@@ -104,7 +105,7 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
     {
         if (IsRecording)
         {
-            throw new InvalidOperationException("Registrazione già in corso.");
+            throw new InvalidOperationException(Loc.T("Registrazione già in corso."));
         }
 
         if (!Ar.IsRunning || Ar.Mode != session.Mode)

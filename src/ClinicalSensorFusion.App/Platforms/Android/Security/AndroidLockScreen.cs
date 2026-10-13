@@ -4,6 +4,7 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using AColor = Android.Graphics.Color;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Security;
@@ -38,7 +39,7 @@ internal sealed class AndroidLockScreen : ILockScreen
         title.SetTextSize(ComplexUnitType.Sp, 28);
         title.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
 
-        _message = new TextView(activity) { Text = "I dati clinici sono protetti.", Gravity = GravityFlags.Center };
+        _message = new TextView(activity) { Text = Loc.T("I dati clinici sono protetti."), Gravity = GravityFlags.Center };
         _message.SetTextColor(AColor.Rgb(0xCF, 0xE3, 0xEC));
         _message.SetTextSize(ComplexUnitType.Sp, 15);
 

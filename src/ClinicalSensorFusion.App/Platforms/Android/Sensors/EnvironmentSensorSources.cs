@@ -1,6 +1,7 @@
 using Android.Content;
 using Android.Hardware;
 using Android.OS;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Sensors;
@@ -66,7 +67,7 @@ internal sealed class LightSensorSource(SensorClock clock) : AndroidSensorSource
 {
     private double _last = double.NegativeInfinity;
 
-    public override string DisplayName => "Luce ambientale";
+    public override string DisplayName => Loc.T("Luce ambientale");
 
     public override IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.AmbientLight];
 
@@ -95,7 +96,7 @@ internal sealed class SystemSensorSource(SensorClock clock) : AndroidSensorSourc
 {
     private Timer? _timer;
 
-    public override string DisplayName => "Prossimità · stato termico · batteria";
+    public override string DisplayName => Loc.T("Prossimità · stato termico · batteria");
 
     public override IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Proximity, SensorKind.DeviceState];
 
@@ -152,7 +153,7 @@ internal sealed class LocationSensorSource(SensorClock clock) : ISensorSource
 {
     private ISensorSink? _sink;
 
-    public string DisplayName => "Posizione (GPS)";
+    public string DisplayName => Loc.T("Posizione (GPS)");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Location];
 

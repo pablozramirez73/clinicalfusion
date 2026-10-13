@@ -1,5 +1,6 @@
 using AVFoundation;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using Foundation;
 
 namespace ClinicalSensorFusion.App.Platforms.iOS.Services;
@@ -16,7 +17,7 @@ internal sealed class IosAudioPlayback : IAudioPlayback
         AVAudioSession.SharedInstance().SetCategory(AVAudioSessionCategory.Playback);
         AVAudioSession.SharedInstance().SetActive(true, out _);
         _player = AVAudioPlayer.FromUrl(NSUrl.FromFilename(absolutePath), out var error)
-            ?? throw new InvalidOperationException(error?.LocalizedDescription ?? "File audio non leggibile.");
+            ?? throw new InvalidOperationException(error?.LocalizedDescription ?? Loc.T("File audio non leggibile."));
         _player.Play();
     }
 

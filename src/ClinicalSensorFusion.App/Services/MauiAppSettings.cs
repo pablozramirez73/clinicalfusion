@@ -48,6 +48,13 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
         set => preferences.Set(SettingsKeys.OperatorName, value?.Trim() ?? string.Empty);
     }
 
+    /// <summary>Lingua dell'interfaccia scelta dall'utente; vuoto = quella del telefono. Letta all'avvio (vedi <see cref="MauiProgram"/>).</summary>
+    public string UiLanguage
+    {
+        get => preferences.Get(SettingsKeys.UiLanguage, string.Empty);
+        set => preferences.Set(SettingsKeys.UiLanguage, value ?? string.Empty);
+    }
+
     /// <summary>Registrazione GPS: disattivata per default (minimizzazione dei dati).</summary>
     public bool RecordLocation
     {

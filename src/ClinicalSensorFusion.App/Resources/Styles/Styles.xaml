@@ -306,4 +306,7 @@
   <Style x:Key="IconPulse" TargetType="Path" BasedOn="{StaticResource Icon}">
     <Setter Property="Data" Value="M3,12 H7.5 L10,6 L14,18 L16.5,12 H21" />
   </Style>
+  <Style x:Key="IconGlobe" TargetType="Path" BasedOn="{StaticResource Icon}">
+    <Setter Property="Data" Value="M12,3 C24,3 24,21 12,21 C0,21 0,3 12,3 Z M3.5,12 H20.5 M12,3 C7.5,8 7.5,16 12,21 M12,3 C16.5,8 16.5,16 12,21" />
+  </Style>
 </ResourceDictionary>

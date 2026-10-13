@@ -26,6 +26,10 @@ public static class Loc
     private static readonly Dictionary<string, FrozenDictionary<string, string>> Catalogs = [];
     private static readonly Lock Gate = new();
 
+    // Catalogo della lingua corrente, letto senza lock: T() si chiama anche a ogni fotogramma (didascalie
+    // dell'overlay). Lingua e voci stanno nello stesso oggetto, così un cambio di lingua non le scompagina.
+    private static volatile CurrentCatalog? _current;
+
     /// <summary>Lingua corrente dell'interfaccia (codice a due lettere).</summary>
     public static string Language { get; private set; } = Italian;
 
@@ -37,8 +41,18 @@ public static class Loc
     }
 
     /// <summary>Imposta la lingua dell'interfaccia; un codice non disponibile equivale all'inglese.</summary>
-    public static void Use(string languageCode) =>
+    public static void Use(string languageCode)
+    {
         Language = Supported.Any(l => l.Code == languageCode) ? languageCode : "en";
+        _current = new CurrentCatalog(Language, Catalog(Language));
+    }
+
+    /// <summary>
+    /// Lingua dell'interfaccia per una preferenza dell'utente: la lingua scelta se è disponibile, altrimenti
+    /// (preferenza vuota, cioè «come il telefono», o non più disponibile) quella di <paramref name="system"/>.
+    /// </summary>
+    public static string Resolve(string? preference, CultureInfo system) =>
+        Supported.Any(l => l.Code == preference) ? preference! : LanguageFor(system);
 
     /// <summary>Traduce nella lingua corrente.</summary>
     public static string T(string italian) => Translate(italian, Language);
@@ -53,8 +67,16 @@ public static class Loc
     /// <summary>Vero se <paramref name="italian"/> ha una traduzione in <paramref name="languageCode"/> (per i test di completezza).</summary>
     public static bool Has(string italian, string languageCode) => languageCode == Italian || Catalog(languageCode).ContainsKey(italian);
 
-    private static string Translate(string italian, string language) =>
-        language == Italian || string.IsNullOrEmpty(italian) || !Catalog(language).TryGetValue(italian, out var translated) ? italian : translated;
+    private static string Translate(string italian, string language)
+    {
+        if (language == Italian || string.IsNullOrEmpty(italian))
+        {
+            return italian;
+        }
+
+        var catalog = _current is { } current && current.Language == language ? current.Entries : Catalog(language);
+        return catalog.TryGetValue(italian, out var translated) ? translated : italian;
+    }
 
     private static FrozenDictionary<string, string> Catalog(string language)
     {
@@ -83,4 +105,6 @@ public static class Loc
             return Catalogs[language] = entries.ToFrozenDictionary(StringComparer.Ordinal);
         }
     }
+
+    private sealed record CurrentCatalog(string Language, FrozenDictionary<string, string> Entries);
 }
