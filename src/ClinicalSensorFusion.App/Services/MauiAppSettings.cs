@@ -8,6 +8,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     private const string RecordLocationKey = "capture.location";
     private const string DepthOverlayKey = "capture.depth_overlay";
     private const string UseLidarKey = "capture.use_lidar";
+    private const string SetupCompletedKey = "setup.completed";
     private const string RequireAuthKey = "security.require_auth";
     private const string SyncServerKey = "sync.server";
     private const string AutoSyncKey = "sync.auto";
@@ -88,6 +89,13 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(RequireAuthKey, false);
         set => preferences.Set(RequireAuthKey, value);
+    }
+
+    /// <summary>La pagina iniziale di scelta della lingua è già stata completata (o non serviva).</summary>
+    public bool SetupCompleted
+    {
+        get => preferences.Get(SetupCompletedKey, false);
+        set => preferences.Set(SetupCompletedKey, value);
     }
 
     public bool ShowDepthOverlay

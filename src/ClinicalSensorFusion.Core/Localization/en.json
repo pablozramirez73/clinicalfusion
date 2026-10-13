@@ -474,5 +474,9 @@
   "±{0:F0} m (migliore ±{1:F0} m)": "±{0:F0} m (best ±{1:F0} m)",
   "≥ 12 s: rischio di caduta aumentato nell'anziano.": "≥ 12 s: increased fall risk in older adults.",
   "✓ Inviata": "✓ Sent",
-  "＋ Nuova": "＋ New"
+  "＋ Nuova": "＋ New",
+  "Scegli la lingua": "Choose your language",
+  "L'app userà questa lingua per le schermate, la guida vocale e i rapporti. Potrai cambiarla quando vuoi dalle Impostazioni.": "The app will use this language for its screens, the voice guide and reports. You can change it at any time in Settings.",
+  "Continua": "Continue",
+  "Selezionata": "Selected"
 }

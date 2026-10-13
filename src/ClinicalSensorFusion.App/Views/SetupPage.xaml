@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Prima pagina dopo l'installazione: si sceglie la lingua dell'app prima che venga creata qualunque altra
+  pagina, così la scelta vale subito e non al riavvio. I testi li imposta il codice: cambiano mentre si sceglie.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ClinicalSensorFusion.App.Views.SetupPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+  <Grid RowDefinitions="*,Auto" Padding="24,0,24,24">
+    <ScrollView>
+      <VerticalStackLayout Spacing="14" VerticalOptions="Center" Padding="0,32">
+        <Label Text="SensorFusion Clinic" Style="{StaticResource Muted}" FontAttributes="Bold" />
+        <Label x:Name="Heading" Style="{StaticResource LargeTitle}" SemanticProperties.HeadingLevel="Level1" />
+        <Label x:Name="Explanation" Style="{StaticResource Muted}" FontSize="15" />
+        <VerticalStackLayout x:Name="Options" Spacing="10" Margin="0,10,0,0" />
+      </VerticalStackLayout>
+    </ScrollView>
+    <Button x:Name="Continue" Grid.Row="1" Clicked="OnContinueClicked" />
+  </Grid>
+</ContentPage>
