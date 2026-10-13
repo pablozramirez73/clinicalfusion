@@ -3,6 +3,7 @@ import { BufferAttribute, DoubleSide, PlaneGeometry } from 'three';
 import type { Spectrogram } from '../api/types';
 import { turbo } from './colormap';
 import { Label } from './Label';
+import { t } from '../i18n';
 
 /**
  * Scala in dB FISSA, uguale per tutte le rilevazioni: così due sessioni sono confrontabili a colpo d'occhio
@@ -49,7 +50,7 @@ export function Spectrogram3D({ data, width = 8, depth = 6, height = 2.4 }: Prop
   }, [data, width, depth, height]);
 
   if (data.times.length < 2) {
-    return <Label center className="empty-3d">Dati IMU insufficienti per lo spettrogramma</Label>;
+    return <Label center className="empty-3d">{t('Dati IMU insufficienti per lo spettrogramma')}</Label>;
   }
 
   const fMin = data.frequencies[0] ?? 0;

@@ -1,4 +1,5 @@
 import type { MetricPoint } from '../api/types';
+import { t } from '../i18n';
 
 /** Riga della tabella delle rotte: traffico, errori e latenza (i "segnali d'oro") di una rotta HTTP. */
 export interface RouteStats { route: string; requests: number; serverErrors: number; clientErrors: number; meanMs: number; maxMs: number }
@@ -18,7 +19,7 @@ export function routeStats(points: MetricPoint[]): RouteStats[] {
   for (const p of points) {
     if (p.name !== 'http.server.request.duration') continue;
     const tags = parseTags(p.tags);
-    const route = `${tags['http.request.method'] ?? '?'} ${tags['http.route'] ?? '(altre)'}`;
+    const route = `${tags['http.request.method'] ?? '?'} ${tags['http.route'] ?? t('(altre)')}`;
     const status = Number(tags['http.response.status_code'] ?? 0);
     const row = byRoute.get(route) ?? { route, requests: 0, serverErrors: 0, clientErrors: 0, meanMs: 0, maxMs: 0, totalSeconds: 0 };
     row.requests += p.count;
@@ -48,7 +49,7 @@ export function fmtUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d} g ${h} h`;
+  if (d > 0) return t('{0} g {1} h', d, h);
   if (h > 0) return `${h} h ${m} min`;
   return `${m} min`;
 }

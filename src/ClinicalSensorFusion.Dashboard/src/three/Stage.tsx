@@ -3,6 +3,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import { useRef, type ReactNode } from 'react';
 import { LabelLayerContext } from './Label';
+import { t } from '../i18n';
 
 interface StageProps {
   children: ReactNode;
@@ -38,7 +39,7 @@ export function Stage({ children, camera = [6, 5, 8], target = [0, 0, 0], height
       </Canvas>
       </LabelLayerContext.Provider>
       <div ref={labels} className="stage-labels" />
-      <span className="stage-hint">trascina per ruotare · rotella per lo zoom</span>
+      <span className="stage-hint">{t('trascina per ruotare · rotella per lo zoom')}</span>
     </div>
   );
 }

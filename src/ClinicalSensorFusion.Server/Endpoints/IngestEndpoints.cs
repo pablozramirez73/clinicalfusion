@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Core.Telemetry;
@@ -47,22 +48,22 @@ public static class IngestEndpoints
         var errors = new Dictionary<string, string[]>();
         if (!AudioStorage.IsValidId(id) || upload.Id != id)
         {
-            errors["id"] = ["Identificativo di sessione non valido o diverso da quello dell'URL."];
+            errors["id"] = [Loc.T("Identificativo di sessione non valido o diverso da quello dell'URL.", Ui.Culture)];
         }
 
         if (string.IsNullOrWhiteSpace(upload.SubjectCode) || upload.SubjectCode.Trim().Length > 64)
         {
-            errors["subjectCode"] = ["Codice soggetto obbligatorio (max 64)."];
+            errors["subjectCode"] = [Loc.T("Codice soggetto obbligatorio (max 64).", Ui.Culture)];
         }
 
         if (string.IsNullOrWhiteSpace(upload.OperatorId) || string.IsNullOrWhiteSpace(upload.OperatorName))
         {
-            errors["operator"] = ["Operatore obbligatorio."];
+            errors["operator"] = [Loc.T("Operatore obbligatorio.", Ui.Culture)];
         }
 
         if (upload.Audio.Any(a => !AudioStorage.IsValidId(a.Id)))
         {
-            errors["audio"] = ["Identificativo audio non valido."];
+            errors["audio"] = [Loc.T("Identificativo audio non valido.", Ui.Culture)];
         }
 
         if (errors.Count > 0)
@@ -75,7 +76,7 @@ public static class IngestEndpoints
             // 409 e non 403: per l'app un 403 significa "chiave revocata" e fermerebbe tutta la coda di invio.
             return TypedResults.Problem(
                 statusCode: StatusCodes.Status409Conflict,
-                detail: "La rilevazione è già stata registrata da un altro dispositivo.");
+                detail: Loc.T("La rilevazione è già stata registrata da un altro dispositivo.", Ui.Culture));
         }
 
         return TypedResults.Ok();
@@ -86,7 +87,7 @@ public static class IngestEndpoints
     {
         if (batch.Chunks.Count is 0 or > MaxChunksPerBatch || batch.Chunks.Any(c => c.Payload is null || c.Payload.Length == 0 || c.Sequence < 0))
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["chunks"] = [$"Da 1 a {MaxChunksPerBatch} blocchi non vuoti."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["chunks"] = [string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("Da 1 a {0} blocchi non vuoti.", Ui.Culture), MaxChunksPerBatch)] });
         }
 
         if (!await ingest.CanWriteAsync(id, http.User, ct))
@@ -115,12 +116,12 @@ public static class IngestEndpoints
     {
         if (!AudioStorage.IsValidId(id) || !AudioStorage.IsValidId(audioId))
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["id"] = ["Identificativo non valido."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["id"] = [Loc.T("Identificativo non valido.", Ui.Culture)] });
         }
 
         if (request.ContentLength > storage.MaxFileBytes)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["File audio troppo grande."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["file"] = [Loc.T("File audio troppo grande.", Ui.Culture)] });
         }
 
         if (!await ingest.CanWriteAsync(id, request.HttpContext.User, ct))
@@ -156,14 +157,14 @@ public static class IngestEndpoints
     {
         if (!Enum.IsDefined(chunk.Kind))
         {
-            return "tipo di flusso sconosciuto.";
+            return Loc.T("tipo di flusso sconosciuto.", Ui.Culture);
         }
 
         try
         {
             var samples = SensorChunkCodec.CountSamples(chunk.Payload);
             return samples != chunk.SampleCount || samples is 0 or > MaxSamplesPerChunk
-                ? "numero di campioni non valido."
+                ? Loc.T("numero di campioni non valido.", Ui.Culture)
                 : null;
         }
         catch (InvalidDataException ex)

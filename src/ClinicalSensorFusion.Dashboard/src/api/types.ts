@@ -1,3 +1,5 @@
+import { n } from '../i18n';
+
 // Tipi del contratto JSON del server (ASP.NET Core, camelCase, enum come stringhe).
 // Mantenere allineati con src/ClinicalSensorFusion.Server/Endpoints/*.cs.
 
@@ -73,17 +75,17 @@ export interface PoseReplay { frameCount: number; duration: number; jointNames: 
 export interface Spectrogram { times: number[]; frequencies: number[]; powerDb: number[][]; sampleRateHz: number }
 
 export const modeLabel: Record<CaptureMode, string> = {
-  BodyLidar: 'Corpo · LiDAR',
-  HandsLidar: 'Mani · LiDAR',
-  FaceTrueDepth: 'Volto · TrueDepth',
+  BodyLidar: n('Corpo · LiDAR'),
+  HandsLidar: n('Mani · LiDAR'),
+  FaceTrueDepth: n('Volto · TrueDepth'),
 };
 
 export const jointLabel: Record<Joint, string> = {
-  LeftShoulderElevation: 'Spalla sx', RightShoulderElevation: 'Spalla dx',
-  LeftElbowFlexion: 'Gomito sx', RightElbowFlexion: 'Gomito dx',
-  LeftHipFlexion: 'Anca sx', RightHipFlexion: 'Anca dx',
-  LeftKneeFlexion: 'Ginocchio sx', RightKneeFlexion: 'Ginocchio dx',
-  LeftAnkle: 'Caviglia sx', RightAnkle: 'Caviglia dx',
+  LeftShoulderElevation: n('Spalla sx'), RightShoulderElevation: n('Spalla dx'),
+  LeftElbowFlexion: n('Gomito sx'), RightElbowFlexion: n('Gomito dx'),
+  LeftHipFlexion: n('Anca sx'), RightHipFlexion: n('Anca dx'),
+  LeftKneeFlexion: n('Ginocchio sx'), RightKneeFlexion: n('Ginocchio dx'),
+  LeftAnkle: n('Caviglia sx'), RightAnkle: n('Caviglia dx'),
 };
 
 export const allJoints = Object.keys(jointLabel) as Joint[];

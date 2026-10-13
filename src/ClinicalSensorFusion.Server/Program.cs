@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Core.Telemetry;
+using ClinicalSensorFusion.Server;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Demo;
 using ClinicalSensorFusion.Server.Endpoints;
@@ -151,6 +152,7 @@ services.Configure<ForwardedHeadersOptions>(o =>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseRequestLanguage();
 app.UseExceptionHandler();
 app.UseCsfRequestLogging();
 app.UseStatusCodePages();

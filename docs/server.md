@@ -91,6 +91,19 @@ basta cancellare il file. Nello stesso file si può indicare un PostgreSQL diver
 Il traffico è HTTP non cifrato: va bene su una rete fidata, non su una Wi-Fi condivisa. Per un uso reale vale
 la sezione seguente.
 
+### Lingua della dashboard e delle risposte del server
+
+La dashboard è in italiano e in inglese: la lingua si sceglie dal menu in fondo alla barra laterale (o nella
+pagina di accesso), vale subito e resta salvata nel browser; alla prima visita segue la lingua del browser.
+I testi stanno nel codice in italiano e le traduzioni in `Dashboard/src/i18n/en.ts`; un test fallisce se ne
+manca una.
+
+Il server risponde nella lingua dell'intestazione `Accept-Language` (la dashboard manda quella scelta):
+messaggi d'errore e di validazione, rapporto della rilevazione, descrizioni delle API FHIR e controlli di
+salute. Senza intestazione resta l'italiano. Le traduzioni sono nel catalogo condiviso con l'app
+(`Core/Localization/en.json`). Restano in italiano i dati (nomi salvati, testi delle risorse FHIR), la
+documentazione OpenAPI e i messaggi di log.
+
 ## 5. Produzione
 
 ```bash

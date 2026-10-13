@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Net.Mail;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Security;
@@ -96,7 +97,7 @@ public static class PatientEndpoints
         var code = Patient.NormalizeCode(input.Code);
         if (await db.Patients.AnyAsync(p => p.Code == code, ct))
         {
-            return TypedResults.Conflict($"Esiste già un paziente con codice {code}.");
+            return TypedResults.Conflict(string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("Esiste già un paziente con codice {0}.", Ui.Culture), code));
         }
 
         var now = clock.GetUtcNow();
@@ -118,7 +119,7 @@ public static class PatientEndpoints
 
         if (input.Version is null)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["version"] = ["Versione mancante."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["version"] = [Loc.T("Versione mancante.", Ui.Culture)] });
         }
 
         var patient = await db.Patients.FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -133,7 +134,7 @@ public static class PatientEndpoints
             // Il codice è il legame con i dati dell'app: cambiarlo è ammesso solo se non collide.
             if (await db.Patients.AnyAsync(p => p.Code == code && p.Id != id, ct))
             {
-                return TypedResults.Conflict($"Esiste già un paziente con codice {code}.");
+                return TypedResults.Conflict(string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("Esiste già un paziente con codice {0}.", Ui.Culture), code));
             }
 
             patient.Code = code;
@@ -149,7 +150,7 @@ public static class PatientEndpoints
         }
         catch (DbUpdateConcurrencyException)
         {
-            return TypedResults.Conflict("L'anagrafica è stata modificata da un altro utente: ricaricare e riprovare.");
+            return TypedResults.Conflict(Loc.T("L'anagrafica è stata modificata da un altro utente: ricaricare e riprovare.", Ui.Culture));
         }
 
         var count = await db.Sessions.CountAsync(s => s.PatientId == id, ct);
@@ -202,22 +203,22 @@ public static class PatientEndpoints
         var code = i.Code?.Trim() ?? "";
         if (code.Length is 0 or > 64 || code.Any(char.IsControl))
         {
-            errors["code"] = ["Codice obbligatorio, massimo 64 caratteri."];
+            errors["code"] = [Loc.T("Codice obbligatorio, massimo 64 caratteri.", Ui.Culture)];
         }
 
         if (Clean(i.FiscalCode) is { } cf && (cf.Length != 16 || !cf.All(char.IsAsciiLetterOrDigit)))
         {
-            errors["fiscalCode"] = ["Il codice fiscale deve avere 16 caratteri alfanumerici."];
+            errors["fiscalCode"] = [Loc.T("Il codice fiscale deve avere 16 caratteri alfanumerici.", Ui.Culture)];
         }
 
         if (Clean(i.Email) is { } email && !MailAddress.TryCreate(email, out _))
         {
-            errors["email"] = ["Indirizzo email non valido."];
+            errors["email"] = [Loc.T("Indirizzo email non valido.", Ui.Culture)];
         }
 
         if (i.BirthDate is { } birth && (birth > DateOnly.FromDateTime(DateTime.UtcNow) || birth.Year < 1900))
         {
-            errors["birthDate"] = ["Data di nascita non plausibile."];
+            errors["birthDate"] = [Loc.T("Data di nascita non plausibile.", Ui.Culture)];
         }
 
         if (i.FirstName?.Length > 100 || i.LastName?.Length > 100)

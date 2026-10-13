@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useLogin } from '../api/hooks';
+import { t } from '../i18n';
+import { LanguageSelect } from '../i18n/LanguageSelect';
 
 export function LoginPage() {
   const login = useLogin();
@@ -15,8 +17,8 @@ export function LoginPage() {
   };
 
   const error = login.error instanceof ApiError
-    ? login.error.status === 429 ? 'Troppi tentativi: riprovare tra un minuto.' : 'Credenziali non valide.'
-    : login.error ? 'Server non raggiungibile.' : null;
+    ? login.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.') : t('Credenziali non valide.')
+    : login.error ? t('Server non raggiungibile.') : null;
 
   return (
     <div className="login">
@@ -24,9 +26,9 @@ export function LoginPage() {
       <form className="login-card" onSubmit={submit}>
         <img src="/favicon.svg" alt="" width={56} height={56} />
         <h1>Clinical Sensor Fusion</h1>
-        <p className="muted">Area riservata al personale sanitario</p>
+        <p className="muted">{t('Area riservata al personale sanitario')}</p>
         <label>
-          Utente
+          {t('Utente')}
           <input autoComplete="username" value={userName} onChange={(e) => setUserName(e.target.value)} required autoFocus />
         </label>
         <label>
@@ -34,7 +36,8 @@ export function LoginPage() {
           <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {error && <div className="alert" role="alert">{error}</div>}
-        <button className="primary" disabled={login.isPending}>{login.isPending ? 'Accesso…' : 'Accedi'}</button>
+        <LanguageSelect />
+        <button className="primary" disabled={login.isPending}>{login.isPending ? t('Accesso…') : t('Accedi')}</button>
       </form>
     </div>
   );

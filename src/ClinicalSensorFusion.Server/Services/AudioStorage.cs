@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Buffers.Binary;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
@@ -38,7 +39,7 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
     {
         if (!IsValidId(sessionId) || !IsValidId(audioId))
         {
-            throw new ArgumentException("Identificativo non valido.");
+            throw new ArgumentException(Loc.T("Identificativo non valido.", Ui.Culture));
         }
 
         var relative = Path.Combine(sessionId, audioId + ".caf");
@@ -55,7 +56,7 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
                 var read = await content.ReadAtLeastAsync(header, 4, throwOnEndOfStream: false, ct);
                 if (read < 4 || header[0] != (byte)'c' || header[1] != (byte)'a' || header[2] != (byte)'f' || header[3] != (byte)'f')
                 {
-                    throw new InvalidDataException("Il file non è in formato CAF.");
+                    throw new InvalidDataException(Loc.T("Il file non è in formato CAF.", Ui.Culture));
                 }
 
                 await file.WriteAsync(header, ct);
@@ -69,7 +70,7 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
                     size += n;
                     if (size > MaxFileBytes)
                     {
-                        throw new InvalidDataException("File audio troppo grande.");
+                        throw new InvalidDataException(Loc.T("File audio troppo grande.", Ui.Culture));
                     }
 
                     await file.WriteAsync(buffer.AsMemory(0, n), ct);
@@ -164,7 +165,7 @@ public static class CafToWav
             {
                 if (!haveDesc)
                 {
-                    throw new InvalidDataException("CAF senza descrizione del formato.");
+                    throw new InvalidDataException(Loc.T("CAF senza descrizione del formato.", Ui.Culture));
                 }
 
                 // Il chunk "data" inizia con 4 byte di edit count. Dimensione -1 = fino a fine file.
@@ -181,7 +182,7 @@ public static class CafToWav
             caf.Position = start + size;
         }
 
-        throw new InvalidDataException("CAF senza dati audio.");
+        throw new InvalidDataException(Loc.T("CAF senza dati audio.", Ui.Culture));
     }
 
     /// <summary>Scrive su <paramref name="output"/> l'intestazione WAV e i campioni (solo PCM little endian).</summary>
@@ -190,7 +191,7 @@ public static class CafToWav
         var info = Parse(caf);
         if (!info.LittleEndian)
         {
-            throw new NotSupportedException("Solo CAF little endian.");
+            throw new NotSupportedException(Loc.T("Solo CAF little endian.", Ui.Culture));
         }
 
         var header = BuildWavHeader(info);

@@ -132,7 +132,7 @@ public static class SessionEndpoints
             summary = summary with { Sensors = await analytics.GetSensorSummaryAsync(id, ct) };
         }
 
-        var report = summary is null ? [] : SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        var report = summary is null ? [] : SummaryReport.Build(summary, Ui.Culture);
 
         audit.Record(http.User, "session.read", id);
         await db.SaveChangesAsync(ct);
