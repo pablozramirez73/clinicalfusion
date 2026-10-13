@@ -1,9 +1,10 @@
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Telemetry;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace ClinicalSensorFusion.Core.Ai;
 
@@ -106,7 +107,7 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
             catch (JsonException ex)
             {
                 // Tipico dietro Cloudflare Access con sessione scaduta: arriva una pagina HTML di login.
-                throw new OllamaException("Risposta non valida dal server (sessione di accesso remoto scaduta?).", ex);
+                throw new OllamaException(Loc.T("Risposta non valida dal server (sessione di accesso remoto scaduta?)."), ex);
             }
 
             if (chunk?.Error is { } error)
@@ -126,7 +127,7 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
         }
 
         // Fine dello stream senza "done": connessione chiusa a metà (proxy, rete, Ollama riavviato).
-        throw new OllamaException("La risposta del modello si è interrotta prima della fine: il testo ricevuto è incompleto.");
+        throw new OllamaException(Loc.T("La risposta del modello si è interrotta prima della fine: il testo ricevuto è incompleto."));
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -139,7 +140,7 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
         catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {
             // Timeout dell'HttpClient: non è un annullamento dell'utente.
-            throw new OllamaException("Il server Ollama non ha risposto in tempo.", ex);
+            throw new OllamaException(Loc.T("Il server Ollama non ha risposto in tempo."), ex);
         }
     }
 
@@ -152,11 +153,11 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
         }
         catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new OllamaException("Il modello ha smesso di rispondere: il testo ricevuto è incompleto.", ex);
+            throw new OllamaException(Loc.T("Il modello ha smesso di rispondere: il testo ricevuto è incompleto."), ex);
         }
         catch (IOException ex)
         {
-            throw new OllamaException("Connessione con Ollama interrotta: il testo ricevuto è incompleto.", ex);
+            throw new OllamaException(Loc.T("Connessione con Ollama interrotta: il testo ricevuto è incompleto."), ex);
         }
     }
 
@@ -167,7 +168,7 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
             var mediaType = response.Content.Headers.ContentType?.MediaType;
             if (mediaType is "text/html")
             {
-                throw new OllamaException("Il server ha risposto con una pagina web: probabilmente serve l'accesso Cloudflare.");
+                throw new OllamaException(Loc.T("Il server ha risposto con una pagina web: probabilmente serve l'accesso Cloudflare."));
             }
 
             return;
@@ -179,7 +180,7 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
             detail = detail[..300];
         }
 
-        throw new OllamaException($"Errore HTTP {(int)response.StatusCode} da Ollama: {detail}");
+        throw new OllamaException(Loc.F("Errore HTTP {0} da Ollama: {1}", (int)response.StatusCode, detail));
     }
 }
 

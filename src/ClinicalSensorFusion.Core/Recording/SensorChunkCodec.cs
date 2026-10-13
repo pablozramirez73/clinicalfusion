@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.Core.Recording;
@@ -119,7 +120,7 @@ public static class SensorChunkCodec
             {
                 if (buffer.Length + read > maxDecodedBytes)
                 {
-                    throw new InvalidDataException("Blocco sensori troppo grande.");
+                    throw new InvalidDataException(Loc.T("Blocco sensori troppo grande."));
                 }
 
                 buffer.Write(block, 0, read);
@@ -128,13 +129,13 @@ public static class SensorChunkCodec
         catch (InvalidOperationException ex)
         {
             // BrotliStream segnala così i dati compressi non validi.
-            throw new InvalidDataException("Blocco sensori non decomprimibile.", ex);
+            throw new InvalidDataException(Loc.T("Blocco sensori non decomprimibile."), ex);
         }
 
         var raw = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
         if (raw.Length == 0 || raw[0] != Version)
         {
-            throw new InvalidDataException("Versione del blocco sensori non supportata.");
+            throw new InvalidDataException(Loc.T("Versione del blocco sensori non supportata."));
         }
 
         return raw;
@@ -145,7 +146,7 @@ public static class SensorChunkCodec
     {
         if (raw.Length - offset < 10)
         {
-            throw new InvalidDataException("Blocco sensori troncato.");
+            throw new InvalidDataException(Loc.T("Blocco sensori troncato."));
         }
 
         timestamp = BinaryPrimitives.ReadDoubleLittleEndian(raw[offset..]);
@@ -154,7 +155,7 @@ public static class SensorChunkCodec
         offset += 2;
         if (raw.Length - offset < 4 * n)
         {
-            throw new InvalidDataException("Blocco sensori troncato.");
+            throw new InvalidDataException(Loc.T("Blocco sensori troncato."));
         }
 
         return n;

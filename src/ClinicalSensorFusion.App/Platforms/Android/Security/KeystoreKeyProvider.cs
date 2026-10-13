@@ -1,12 +1,13 @@
 using ClinicalSensorFusion.Core.Localization;
 using System.Security.Cryptography;
 using Android.Security.Keystore;
+using CipherMode = Javax.Crypto.CipherMode;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
 using Java.Security;
-using Javax.Crypto;
 using Javax.Crypto.Spec;
-using CipherMode = Javax.Crypto.CipherMode;
+using Javax.Crypto;
 
 namespace ClinicalSensorFusion.App.Platforms.Android.Security;
 
@@ -36,7 +37,7 @@ internal sealed class KeystoreKeyProvider : IDatabaseKeyProvider
 
     public Task<byte[]> GetOrCreateKeyAsync(CancellationToken cancellationToken = default)
     {
-        var keyStore = KeyStore.GetInstance(Store) ?? throw new InvalidOperationException("Android Keystore non disponibile.");
+        var keyStore = KeyStore.GetInstance(Store) ?? throw new InvalidOperationException(Loc.T("Android Keystore non disponibile."));
         keyStore.Load(null);
 
         if (File.Exists(WrappedKeyPath))

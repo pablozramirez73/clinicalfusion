@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
@@ -140,7 +141,7 @@ public sealed class ClinicalDatabase : IAsyncDisposable
 /// firma: il Portachiavi non restituisce più la chiave originale). Non si sovrascrive mai il file.
 /// </summary>
 public sealed class DatabaseKeyMismatchException(string path, Exception inner)
-    : Exception($"Impossibile decifrare '{path}': la chiave nel Portachiavi non corrisponde.", inner)
+    : Exception(Loc.F("Impossibile decifrare '{0}': la chiave custodita dal dispositivo non corrisponde.", path), inner)
 {
     public string DatabasePath { get; } = path;
 }

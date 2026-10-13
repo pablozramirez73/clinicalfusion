@@ -2,6 +2,7 @@ using ClinicalSensorFusion.Core.Localization;
 using System.Runtime.InteropServices;
 using ARKit;
 using ClinicalSensorFusion.App.Platforms.iOS.Vision;
+using ClinicalSensorFusion.Core.Localization;
 using CoreGraphics;
 using CoreVideo;
 using Foundation;
@@ -106,7 +107,7 @@ internal sealed class ArPreviewRenderer : NSObject, IMTKViewDelegate
         _textureCache = CVMetalTextureCache.FromDevice(device) ?? throw new InvalidOperationException(Loc.T("Metal: texture cache non disponibile."));
 
         var library = device.CreateLibrary(ShaderSource, new MTLCompileOptions(), out var error)
-            ?? throw new InvalidOperationException($"Compilazione shader fallita: {error?.LocalizedDescription}");
+            ?? throw new InvalidOperationException(Loc.F("Compilazione shader fallita: {0}", error?.LocalizedDescription));
         var descriptor = new MTLRenderPipelineDescriptor
         {
             VertexFunction = library.CreateFunction("vertex_main"),
@@ -114,7 +115,7 @@ internal sealed class ArPreviewRenderer : NSObject, IMTKViewDelegate
         };
         descriptor.ColorAttachments[0].PixelFormat = MTLPixelFormat.BGRA8Unorm;
         _pipeline = device.CreateRenderPipelineState(descriptor, out error)
-            ?? throw new InvalidOperationException($"Pipeline Metal non creata: {error?.LocalizedDescription}");
+            ?? throw new InvalidOperationException(Loc.F("Pipeline Metal non creata: {0}", error?.LocalizedDescription));
 
         // Texture 1×1 a profondità 0 per le modalità senza LiDAR (frontale).
         var depthDescriptor = MTLTextureDescriptor.CreateTexture2DDescriptor(MTLPixelFormat.R32Float, 1, 1, false);

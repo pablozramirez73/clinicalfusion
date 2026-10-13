@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.Core.Sync;
 
@@ -59,7 +60,7 @@ public sealed class ClinicalSyncClient(HttpClient http)
 }
 
 public sealed class SyncException(int statusCode, string detail)
-    : Exception($"Il server ha risposto {statusCode}: {detail}")
+    : Exception(Loc.F("Il server ha risposto {0}: {1}", statusCode, detail))
 {
     public int StatusCode { get; } = statusCode;
 

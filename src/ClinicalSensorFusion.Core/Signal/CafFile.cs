@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
+using ClinicalSensorFusion.Core.Localization;
 
 namespace ClinicalSensorFusion.Core.Signal;
 
@@ -89,7 +90,7 @@ public static class CafReader
         caf.ReadExactly(header);
         if (!header[..4].SequenceEqual("caff"u8))
         {
-            throw new InvalidDataException("Non è un file CAF.");
+            throw new InvalidDataException(Loc.T("Non è un file CAF."));
         }
 
         CafInfo? format = null;
@@ -108,7 +109,7 @@ public static class CafReader
                 var formatId = Encoding.ASCII.GetString(d[8..12]);
                 if (formatId != "lpcm")
                 {
-                    throw new NotSupportedException($"Formato CAF non supportato: {formatId}.");
+                    throw new NotSupportedException(Loc.F("Formato CAF non supportato: {0}.", formatId));
                 }
 
                 var flags = BinaryPrimitives.ReadUInt32BigEndian(d[12..]);
@@ -125,7 +126,7 @@ public static class CafReader
             {
                 if (format is not { } f)
                 {
-                    throw new InvalidDataException("CAF senza descrizione del formato.");
+                    throw new InvalidDataException(Loc.T("CAF senza descrizione del formato."));
                 }
 
                 // Il chunk "data" inizia con 4 byte di edit count. Dimensione −1 = fino a fine file.
@@ -137,6 +138,6 @@ public static class CafReader
             caf.Position = start + size;
         }
 
-        throw new InvalidDataException("CAF senza dati audio.");
+        throw new InvalidDataException(Loc.T("CAF senza dati audio."));
     }
 }

@@ -51,12 +51,12 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         EnsureFreeSpace();
 
         var session = AVAudioSession.SharedInstance();
-        Check(session.SetCategory(AVAudioSessionCategory.PlayAndRecord, AVAudioSessionCategoryOptions.DefaultToSpeaker | AVAudioSessionCategoryOptions.AllowBluetoothA2DP), "categoria");
+        Check(session.SetCategory(AVAudioSessionCategory.PlayAndRecord, AVAudioSessionCategoryOptions.DefaultToSpeaker | AVAudioSessionCategoryOptions.AllowBluetoothA2DP), Loc.T("categoria"));
         session.SetMode(AVAudioSessionMode.Measurement, out var modeError);
         Check(modeError, Loc.T("modalità misura"));
         session.SetPreferredSampleRate(AudioRecording.SampleRate, out _);
         session.SetActive(true, out var activeError);
-        Check(activeError, "attivazione");
+        Check(activeError, Loc.T("attivazione"));
 
         var recording = new AudioRecording
         {

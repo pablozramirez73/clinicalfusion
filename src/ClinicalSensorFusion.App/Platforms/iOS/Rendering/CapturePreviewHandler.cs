@@ -2,9 +2,10 @@ using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Controls;
 using ClinicalSensorFusion.App.Platforms.iOS.Services;
 using ClinicalSensorFusion.App.Services;
+using ClinicalSensorFusion.Core.Localization;
 using Metal;
-using Microsoft.Extensions.DependencyInjection;
 using MetalKit;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Handlers;
 
 namespace ClinicalSensorFusion.App.Platforms.iOS.Rendering;
