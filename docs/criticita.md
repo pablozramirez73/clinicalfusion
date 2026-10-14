@@ -137,10 +137,17 @@ e `Endpoints/PatientEndpoints.cs:84,107`. Il motivo è il registro di audit scri
 
 ### 1.8 Altre voci
 
-- **`/health` anonimo — accettato.** Ora ci sono `/health/live` (il processo risponde), `/health` e
-  `/health/ready` (dipendenze raggiungibili), con un `/health` autenticato nel gruppo di sistema. Gli
-  anonimi espongono "solo lo stato di ogni controllo", scelta dichiarata in
-  `Endpoints/SystemEndpoints.cs:21-22`. Declassata da problema a scelta documentata.
+- **`/health` anonimo — accettato, e ora anche limitato.** Ci sono `/health/live` (il processo risponde),
+  `/health` e `/health/ready` (dipendenze raggiungibili), con un `/health` autenticato nel gruppo di sistema.
+  Gli anonimi espongono "solo lo stato di ogni controllo", scelta dichiarata in
+  `Endpoints/SystemEndpoints.cs:21-22`. Restava però il **costo illimitato dei controlli**, che l'anonimato
+  da solo non copriva: ogni richiesta a `/health` o `/health/ready` apriva una connessione al database e
+  **scriveva e cancellava un file** (`Services/AudioStorageHealthCheck.cs`), e le due rotte erano
+  `DisableRateLimiting()`, cioè fuori anche dal limite globale. Un flood anonimo era amplificazione.
+  **Risolto** in `bf261af`: le due rotte passano da `DisableRateLimiting()` a una policy dedicata per
+  indirizzo IP (`RateLimits:HealthPerMinute`, 60/minuto), mentre `/health/live` — che non esegue controlli —
+  resta esente perché è la sonda degli orchestratori. Attenzione al meccanismo: la policy nominata **si somma**
+  al limite globale, quindi il tetto effettivo per IP è il più stretto dei due.
 - **Schema `http` ammesso per il server di sincronizzazione — aperto.** `App/Services/SyncService.cs:97`
   accetta ancora sia `UriSchemeHttps` sia `UriSchemeHttp`: la chiave del dispositivo può viaggiare in
   chiaro se configurata male.
@@ -228,6 +235,32 @@ stata allineata: `docs/android.md:17` ora dice "copertura assente dal riepilogo 
 - **Android, alias Keystore orfano — aperto** · dedotto. `Platforms/Android/Security/KeystoreKeyProvider.cs:42`
   decide su `File.Exists(WrappedKeyPath)` e a `:51` chiama `CreateWrappingKey()`: se il file avvolto è
   perso ma l'alias resta, la rigenerazione può fallire. Non provato a runtime.
+
+### 2.7 Troncamento silenzioso e `total` falso nell'interfaccia FHIR — gravità alta · **risolto** in `bf261af` · verificato
+
+`/fhir/Observation` e `/fhir/Patient/{id}/$everything` costruivano le risorse in memoria e si fermavano a
+`Take(MaxSessionsScanned)` = 2000 rilevazioni. Oltre quel numero i risultati erano **troncati senza alcun
+avviso**, e `SearchObservationsAsync` passava `all.Count` come `total`: il conteggio dei match *fra le sole
+2000 scansionate*. Un `searchset.total` falso, visto che la specifica lo definisce come il numero di
+risultati, e un `link.next` che non poteva andare oltre le 2000. La dashboard usa `$everything` come download
+in un colpo solo, e `docs/fhir.md` la chiama "esportazione completa di un paziente": un clinico riceveva una
+cartella incompleta che sembrava intera. In più ogni richiesta, anche con `_count=1`, materializzava e
+deserializzava fino a 2000 `SummaryJson`.
+
+**Com'è ora:** mai più dati incompleti presentati come completi.
+
+- **Ricerca Observation** (`Endpoints/FhirEndpoints.cs:285`): un gate in SQL conta le rilevazioni del filtro
+  **prima** di materializzare; oltre il tetto risponde `413` con OperationOutcome `too-costly` e dice di
+  restringere con `patient` o `date`. Sotto il tetto `total` è esatto (`:317`) e la paginazione via `link.next`
+  funziona. `code` e `category` vivono nel riepilogo e non in colonne, quindi il conteggio veritiero impone di
+  leggere tutte le rilevazioni del filtro SQL: è il tetto a rendere il costo prevedibile.
+- **`$everything`** (`:229`): conteggio in SQL, rifiuto esplicito oltre il tetto e scansione in streaming
+  (`AsAsyncEnumerable`). Nessun `Take`: l'esportazione è completa.
+- I tetti sono configurabili — `Fhir:MaxSessionsScanned` (2000) e `Fhir:MaxSessionsPerExport` (5000) — e il
+  `CapabilityStatement` li dichiara, insieme a `_count` e `_offset`, che erano supportati ma non annunciati.
+- Nello stesso commit: `TrySessions` (`:397`) con una data che porta anche l'ora faceva equivalere `gt` a `ge`.
+- Test: sei casi nuovi (61 in totale), fra cui l'esportazione completa con 2001 rilevazioni e il `413` oltre i
+  due tetti.
 
 ---
 
