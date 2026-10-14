@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreLocation;
 
@@ -9,7 +10,7 @@ internal sealed class LocationSensorSource(SensorClock clock) : ISensorSource
     private CLLocationManager? _manager;
     private ISensorSink? _sink;
 
-    public string DisplayName => "Posizione (GPS)";
+    public string DisplayName => Loc.T("Posizione (GPS)");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Location];
 

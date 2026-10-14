@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Android.Content;
 using Android.Media;
 using Android.OS;
@@ -38,7 +39,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
     private long _framesWritten;
     private volatile bool _running;
 
-    public string DisplayName => "Microfono";
+    public string DisplayName => Loc.T("Microfono");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.AudioLevel];
 
@@ -50,7 +51,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         _sink = sink;
         if (new StatFs(AppPaths.Library).AvailableBytes < MinFreeBytes)
         {
-            throw new IOException("Spazio libero insufficiente per la registrazione audio (servono almeno 200 MB).");
+            throw new IOException(Loc.T("Spazio libero insufficiente per la registrazione audio (servono almeno 200 MB)."));
         }
 
         _record = Open();
@@ -68,7 +69,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         _record.StartRecording();
         if (_record.RecordingState != RecordState.Recording)
         {
-            throw new InvalidOperationException("Audio: il microfono è occupato da un'altra app.");
+            throw new InvalidOperationException(Loc.T("Audio: il microfono è occupato da un'altra app."));
         }
 
         _running = true;
@@ -140,7 +141,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         {
             record.Release();
             record.Dispose();
-            throw new InvalidOperationException("Audio: il microfono non accetta la registrazione a 48 kHz in virgola mobile.");
+            throw new InvalidOperationException(Loc.T("Audio: il microfono non accetta la registrazione a 48 kHz in virgola mobile."));
         }
 
         return record;

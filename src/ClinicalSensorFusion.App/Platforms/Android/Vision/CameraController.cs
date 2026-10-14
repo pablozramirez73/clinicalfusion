@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Android.Content;
 using Android.Content.PM;
 using Android.Graphics;
@@ -68,7 +69,7 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
     {
         if (mode == CaptureMode.FaceTrueDepth && !HasFrontCamera)
         {
-            throw new NotSupportedException("Questo telefono non ha una fotocamera frontale.");
+            throw new NotSupportedException(Loc.T("Questo telefono non ha una fotocamera frontale."));
         }
 
         vision.Configure(mode);

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Globalization;
 using ClinicalSensorFusion.Core.Fusion;
 using ClinicalSensorFusion.Core.Recording;
@@ -35,55 +36,55 @@ public static class SummaryReport
         var c = culture ?? CultureInfo.CurrentCulture;
         var rows = new List<SummaryRow>
         {
-            new("Generale", "Durata", TimeSpan.FromSeconds(s.DurationSeconds).ToString(@"mm\:ss", c)),
+            new(Loc.T("Generale", c), Loc.T("Durata", c), TimeSpan.FromSeconds(s.DurationSeconds).ToString(@"mm\:ss", c)),
         };
 
         if (s.MedianSubjectDistanceMeters is { } distance)
         {
-            rows.Add(new("Generale", "Distanza mediana soggetto", string.Format(c, "{0:F2} m", distance), distance > 4.5));
+            rows.Add(new(Loc.T("Generale", c), Loc.T("Distanza mediana soggetto", c), string.Format(c, "{0:F2} m", distance), distance > 4.5));
         }
 
         if (s.LidarCoverage is { } coverage)
         {
-            rows.Add(new("Generale", "Copertura LiDAR", string.Format(c, "{0:P0}", coverage), coverage < 0.6));
+            rows.Add(new(Loc.T("Generale", c), Loc.T("Copertura LiDAR", c), string.Format(c, "{0:P0}", coverage), coverage < 0.6));
         }
 
         foreach (var (joint, range) in s.JointRanges.OrderBy(j => j.Key))
         {
-            rows.Add(new("Escursione articolare (ROM)", JointName(joint),
+            rows.Add(new(Loc.T("Escursione articolare (ROM)", c), JointName(joint),
                 string.Format(c, "{0:F0}°–{1:F0}° (ROM {2:F0}°)", range.Min, range.Max, range.RangeOfMotion), range.Samples < 30));
         }
 
         if (s.Tremor is { } tremor)
         {
-            rows.Add(new("Tremore (accelerometro)", "Frequenza dominante",
-                tremor.IsSignificant ? string.Format(c, "{0:F1} Hz", tremor.DominantFrequencyHz) : "nessun tremore significativo"));
-            rows.Add(new("Tremore (accelerometro)", "Potenza in banda 3–12 Hz", string.Format(c, "{0:P0}", tremor.BandPowerRatio)));
-            rows.Add(new("Tremore (accelerometro)", "Ampiezza RMS", string.Format(c, "{0:F3} m/s²", tremor.BandRmsMs2)));
+            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Frequenza dominante", c),
+                tremor.IsSignificant ? string.Format(c, "{0:F1} Hz", tremor.DominantFrequencyHz) : Loc.T("nessun tremore significativo", c)));
+            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Potenza in banda 3–12 Hz", c), string.Format(c, "{0:P0}", tremor.BandPowerRatio)));
+            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Ampiezza RMS", c), string.Format(c, "{0:F3} m/s²", tremor.BandRmsMs2)));
         }
 
         if (s.Gait is { } gait)
         {
-            rows.Add(new("Cammino (pedometro)", "Passi", gait.Steps.ToString(c)));
-            rows.Add(new("Cammino (pedometro)", "Distanza", double.IsFinite(gait.DistanceMeters) ? string.Format(c, "{0:F1} m", gait.DistanceMeters) : "—"));
+            rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Passi", c), gait.Steps.ToString(c)));
+            rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Distanza", c), double.IsFinite(gait.DistanceMeters) ? string.Format(c, "{0:F1} m", gait.DistanceMeters) : "—"));
             if (gait.CadenceStepsPerMinute is { } cadence)
             {
-                rows.Add(new("Cammino (pedometro)", "Cadenza", string.Format(c, "{0:F0} passi/min", cadence)));
+                rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), cadence)));
             }
 
             if (gait.FloorsAscended + gait.FloorsDescended > 0)
             {
-                rows.Add(new("Cammino (pedometro)", "Piani saliti / scesi", string.Format(c, "{0} / {1}", gait.FloorsAscended, gait.FloorsDescended)));
+                rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Piani saliti / scesi", c), string.Format(c, "{0} / {1}", gait.FloorsAscended, gait.FloorsDescended)));
             }
         }
 
         if (s.Audio is { } audio)
         {
-            rows.Add(new("Voce e suoni (microfono)", "Durata registrazione", string.Format(c, "{0:F1} s", audio.DurationSeconds)));
-            rows.Add(new("Voce e suoni (microfono)", "Livello RMS", string.Format(c, "{0:F1} dBFS", audio.RmsDbfs)));
-            rows.Add(new("Voce e suoni (microfono)", "Picco", string.Format(c, "{0:F1} dBFS", audio.PeakDbfs)));
-            rows.Add(new("Voce e suoni (microfono)", "Tempo con segnale attivo", string.Format(c, "{0:P0}", audio.ActiveRatio)));
-            rows.Add(new("Voce e suoni (microfono)", "Saturazione", string.Format(c, "{0:P2}", audio.ClippingRatio), audio.ClippingRatio > 0.001));
+            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Durata registrazione", c), string.Format(c, "{0:F1} s", audio.DurationSeconds)));
+            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Livello RMS", c), string.Format(c, "{0:F1} dBFS", audio.RmsDbfs)));
+            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Picco", c), string.Format(c, "{0:F1} dBFS", audio.PeakDbfs)));
+            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Tempo con segnale attivo", c), string.Format(c, "{0:P0}", audio.ActiveRatio)));
+            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Saturazione", c), string.Format(c, "{0:P2}", audio.ClippingRatio), audio.ClippingRatio > 0.001));
         }
 
         foreach (var (kind, stream) in (s.Sensors ?? []).OrderBy(k => k.Key))
@@ -102,10 +103,10 @@ public static class SummaryReport
 
         foreach (var (kind, count) in s.SampleCounts.OrderBy(k => k.Key))
         {
-            rows.Add(new("Qualità del dato", StreamName(kind), string.Format(c, "{0:N0} campioni", count)));
+            rows.Add(new(Loc.T("Qualità del dato", c), StreamName(kind), string.Format(c, Loc.T("{0:N0} campioni", c), count)));
         }
 
-        rows.Add(new("Qualità del dato", "Campioni persi", s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
+        rows.Add(new(Loc.T("Qualità del dato", c), Loc.T("Campioni persi", c), s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
         return rows;
     }
 
@@ -119,7 +120,7 @@ public static class SummaryReport
         var (min, max) = (ch.Min.ToString("0.##", c), ch.Max.ToString("0.##", c));
         return min == max
             ? string.Format(c, "{0:0.##}{1}", ch.Last, unit)
-            : string.Format(c, "{0}–{1}{3} (media {2:0.##}, ultimo {4:0.##})", min, max, ch.Mean, unit, ch.Last);
+            : string.Format(c, Loc.T("{0}–{1}{3} (media {2:0.##}, ultimo {4:0.##})", c), min, max, ch.Mean, unit, ch.Last);
     }
 
     /// <summary>La posizione si legge come coppia di coordinate, non come cinque statistiche separate.</summary>
@@ -135,7 +136,7 @@ public static class SummaryReport
 
         if (byName.TryGetValue("Accuratezza orizzontale", out var accuracy))
         {
-            rows.Add(new(SensorsSection, $"{name} · Accuratezza", string.Format(c, "±{0:F0} m (migliore ±{1:F0} m)", accuracy.Last, accuracy.Min), accuracy.Min > 50));
+            rows.Add(new(SensorsSection, $"{name} · Accuratezza", string.Format(c, Loc.T("±{0:F0} m (migliore ±{1:F0} m)", c), accuracy.Last, accuracy.Min), accuracy.Min > 50));
         }
 
         foreach (var channel in stream.Channels.Where(ch => ch.Name is "Altitudine" or "Velocità"))

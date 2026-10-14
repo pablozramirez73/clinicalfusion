@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Controls;
 using ClinicalSensorFusion.App.Platforms.iOS.Services;
 using ClinicalSensorFusion.App.Services;
@@ -25,11 +26,11 @@ internal sealed class CapturePreviewHandler : ViewHandler<CapturePreview, MTKVie
     }
 
     private IosCaptureEngine Engine =>
-        (IosCaptureEngine)(MauiContext ?? throw new InvalidOperationException("Handler non connesso.")).Services.GetRequiredService<ICaptureEngine>();
+        (IosCaptureEngine)(MauiContext ?? throw new InvalidOperationException(Loc.T("Handler non connesso."))).Services.GetRequiredService<ICaptureEngine>();
 
     protected override MTKView CreatePlatformView()
     {
-        var device = MTLDevice.SystemDefault ?? throw new NotSupportedException("Metal non disponibile.");
+        var device = MTLDevice.SystemDefault ?? throw new NotSupportedException(Loc.T("Metal non disponibile."));
         _renderer = new ArPreviewRenderer(device, Engine.Ar);
         return new MTKView(CoreGraphics.CGRect.Empty, device)
         {

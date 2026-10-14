@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Ai;
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -25,6 +26,9 @@ public sealed partial class SettingsViewModel(
 
     public string UnlockMethod => appLock.Authenticator.MethodName;
 
+    public string UnlockDescription =>
+        Loc.F("Chiedi {0} all'apertura e al ritorno dal background. Attivo subito, senza «Salva».", Loc.T(UnlockMethod));
+
     public string AppVersion => $"SensorFusion Clinic {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
 
     async partial void OnRequireUnlockChanged(bool value)
@@ -45,7 +49,7 @@ public sealed partial class SettingsViewModel(
         _loadingLock = false;
         if (!appLock.Authenticator.IsAvailable)
         {
-            await dialogs.AlertAsync("Blocco dell'app", "Su questo telefono non sono impostati né il riconoscimento biometrico né un codice di sblocco: attivali nelle impostazioni di sistema.");
+            await dialogs.AlertAsync(Loc.T("Blocco dell'app"), Loc.T("Su questo telefono non sono impostati né il riconoscimento biometrico né un codice di sblocco: attivali nelle impostazioni di sistema."));
         }
     }
 
@@ -124,13 +128,13 @@ public sealed partial class SettingsViewModel(
     {
         if (string.IsNullOrWhiteSpace(OperatorId) || string.IsNullOrWhiteSpace(OperatorName))
         {
-            await dialogs.AlertAsync("Impostazioni", "Identificativo e nome dell'operatore sono obbligatori: ogni rilevazione viene firmata dall'operatore.");
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Identificativo e nome dell'operatore sono obbligatori: ogni rilevazione viene firmata dall'operatore."));
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(OllamaServer) && !OllamaEndpoint.TryParse(OllamaServer, out _))
         {
-            await dialogs.AlertAsync("Impostazioni", "Indirizzo del server Ollama non valido (es. 192.168.1.20 oppure https://ai.esempio.it).");
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Indirizzo del server Ollama non valido (es. 192.168.1.20 oppure https://ai.esempio.it)."));
             return;
         }
 
@@ -143,7 +147,7 @@ public sealed partial class SettingsViewModel(
         if (!string.IsNullOrWhiteSpace(SyncServer) &&
             (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps && !syncUri.IsLoopback && !IsPrivateHost(syncUri.Host)))
         {
-            await dialogs.AlertAsync("Impostazioni", "Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale).");
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale)."));
             return;
         }
 
@@ -153,7 +157,7 @@ public sealed partial class SettingsViewModel(
         await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
         await SaveSecretAsync(SettingsKeys.CloudflareClientId, CloudflareClientId);
         await SaveSecretAsync(SettingsKeys.CloudflareClientSecret, CloudflareClientSecret);
-        await dialogs.AlertAsync("Impostazioni", "Salvate.");
+        await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Salvate."));
     }
 
     /// <summary>Come l'app originale: GET /api/tags per verificare il server ed elencare i modelli.</summary>
@@ -162,12 +166,12 @@ public sealed partial class SettingsViewModel(
     {
         if (!OllamaEndpoint.TryParse(OllamaServer, out var server) || server is null)
         {
-            ConnectionStatus = "Indirizzo non valido.";
+            ConnectionStatus = Loc.T("Indirizzo non valido.");
             return;
         }
 
         IsTesting = true;
-        ConnectionStatus = $"Connessione a {server}…";
+        ConnectionStatus = Loc.F("Connessione a {0}…", server);
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -183,13 +187,11 @@ public sealed partial class SettingsViewModel(
                 OllamaModel = Models[0];
             }
 
-            ConnectionStatus = $"OK: {Models.Count} modelli disponibili.";
+            ConnectionStatus = Loc.F("OK: {0} modelli disponibili.", Models.Count);
         }
         catch (OperationCanceledException)
         {
-            ConnectionStatus = "Timeout: il server non risponde. Controllare che l'app abbia il permesso «Rete locale» " +
-                               "(Impostazioni del telefono → Privacy e sicurezza → Rete locale), che telefono e server siano " +
-                               "sulla stessa rete e che Ollama sia avviato con OLLAMA_HOST=0.0.0.0.";
+            ConnectionStatus = Loc.T("Timeout: il server non risponde. Controllare che l'app abbia il permesso «Rete locale» (Impostazioni del telefono → Privacy e sicurezza → Rete locale), che telefono e server siano sulla stessa rete e che Ollama sia avviato con OLLAMA_HOST=0.0.0.0.");
         }
         catch (HttpRequestException ex) when (ex.InnerException is System.Net.Sockets.SocketException
         {
@@ -197,8 +199,7 @@ public sealed partial class SettingsViewModel(
         })
         {
             // Su iOS è il modo in cui si presenta il permesso «Rete locale» negato o non ancora concesso.
-            ConnectionStatus = "Server non raggiungibile: il telefono non ha accesso alla rete locale. Attivare «Rete locale» " +
-                               "per questa app in Impostazioni del telefono → Privacy e sicurezza → Rete locale, poi riprovare.";
+            ConnectionStatus = Loc.T("Server non raggiungibile: il telefono non ha accesso alla rete locale. Attivare «Rete locale» per questa app in Impostazioni del telefono → Privacy e sicurezza → Rete locale, poi riprovare.");
         }
         catch (Exception ex)
         {
@@ -222,19 +223,19 @@ public sealed partial class SettingsViewModel(
             var logs = await diagnostics.ExportAsync();
             if (logs.Count == 0)
             {
-                await dialogs.AlertAsync("Log diagnostici", "Non ci sono ancora log da condividere.");
+                await dialogs.AlertAsync(Loc.T("Log diagnostici"), Loc.T("Non ci sono ancora log da condividere."));
                 return;
             }
 
             await Share.Default.RequestAsync(new ShareMultipleFilesRequest
             {
-                Title = "Log diagnostici",
+                Title = Loc.T("Log diagnostici"),
                 Files = [.. logs.Select(path => new ShareFile(path, "application/x-ndjson"))],
             });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            await dialogs.AlertAsync("Log diagnostici", ex.Message);
+            await dialogs.AlertAsync(Loc.T("Log diagnostici"), ex.Message);
         }
     }
 

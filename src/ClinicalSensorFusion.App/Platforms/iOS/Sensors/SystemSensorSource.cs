@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using Foundation;
 using UIKit;
@@ -19,7 +20,7 @@ internal sealed class SystemSensorSource(SensorClock clock) : ISensorSource
     private Timer? _timer;
     private ISensorSink? _sink;
 
-    public string DisplayName => "Prossimità · stato termico · batteria";
+    public string DisplayName => Loc.T("Prossimità · stato termico · batteria");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Proximity, SensorKind.DeviceState];
 

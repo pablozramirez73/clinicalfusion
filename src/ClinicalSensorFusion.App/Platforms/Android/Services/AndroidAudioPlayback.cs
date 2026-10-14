@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Android.Media;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Signal;
@@ -28,7 +29,7 @@ internal sealed class AndroidAudioPlayback : IAudioPlayback
             info = CafReader.ReadInfo(file);
             if (!info.IsFloat || !info.IsLittleEndian || info.BitsPerChannel != 32 || info.Channels is < 1 or > 2)
             {
-                throw new NotSupportedException("Formato audio non riproducibile su questo dispositivo.");
+                throw new NotSupportedException(Loc.T("Formato audio non riproducibile su questo dispositivo."));
             }
 
             var format = new AudioFormat.Builder()

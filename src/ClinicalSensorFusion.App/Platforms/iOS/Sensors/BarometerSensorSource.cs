@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreMotion;
 using Foundation;
@@ -10,7 +11,7 @@ internal sealed class BarometerSensorSource(SensorClock clock) : ISensorSource
     private readonly CMAltimeter _altimeter = new();
     private readonly NSOperationQueue _queue = new() { Name = "csf.altimeter", MaxConcurrentOperationCount = 1 };
 
-    public string DisplayName => "Barometro";
+    public string DisplayName => Loc.T("Barometro");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Barometer];
 

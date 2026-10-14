@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Android.Content;
 using Android.Hardware.Biometrics;
 using Android.OS;
@@ -20,8 +21,8 @@ internal sealed class AndroidDeviceAuthenticator : IDeviceAuthenticator
     public bool IsAvailable => Manager?.CanAuthenticate(BiometricOrCredential) == BiometricCode.Success;
 
     public string MethodName => Manager?.CanAuthenticate(Biometric) == BiometricCode.Success
-        ? "impronta o volto"
-        : "codice del telefono";
+        ? Loc.T("impronta o volto")
+        : Loc.T("codice del telefono");
 
     public Task<bool> AuthenticateAsync(string reason)
     {

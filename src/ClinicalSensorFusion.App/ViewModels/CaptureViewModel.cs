@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using ClinicalSensorFusion.App.Controls;
@@ -50,15 +51,15 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
-    private readonly MetricTile _elapsed = new("Tempo");
-    private readonly MetricTile _knee = new("Ginocchio dx");
-    private readonly MetricTile _elbow = new("Gomito dx");
-    private readonly MetricTile _distance = new("Distanza");
-    private readonly MetricTile _audio = new("Audio");
-    private readonly MetricTile _steps = new("Passi");
-    private readonly MetricTile _altitude = new("Quota rel.");
-    private readonly MetricTile _light = new("Luce");
-    private readonly MetricTile _thermal = new("Temperatura");
+    private readonly MetricTile _elapsed = new(Loc.T("Tempo"));
+    private readonly MetricTile _knee = new(Loc.T("Ginocchio dx"));
+    private readonly MetricTile _elbow = new(Loc.T("Gomito dx"));
+    private readonly MetricTile _distance = new(Loc.T("Distanza"));
+    private readonly MetricTile _audio = new(Loc.T("Audio"));
+    private readonly MetricTile _steps = new(Loc.T("Passi"));
+    private readonly MetricTile _altitude = new(Loc.T("Quota rel."));
+    private readonly MetricTile _light = new(Loc.T("Luce"));
+    private readonly MetricTile _thermal = new(Loc.T("Temperatura"));
 
     public CaptureViewModel(ICaptureEngine engine, CaptureCoordinator coordinator, MauiAppSettings settings, IDialogService dialogs, ISpeechGuide speech)
     {
@@ -70,13 +71,13 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         Modes =
         [
-            new(CaptureMode.BodyLidar, "Corpo", engine.IsLidarSupported
-                ? "Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)"
-                : "Postura, escursione articolare e cammino (MediaPipe Pose)"),
-            new(CaptureMode.HandsLidar, "Mani", "Motricità fine e tremore (MediaPipe Hands)"),
-            new(CaptureMode.FaceTrueDepth, "Volto", DeviceInfo.Current.Platform == DevicePlatform.iOS
-                ? "Mimica facciale (TrueDepth + MediaPipe Face)"
-                : "Mimica facciale (fotocamera frontale + MediaPipe Face)"),
+            new(CaptureMode.BodyLidar, Loc.T("Corpo"), engine.IsLidarSupported
+                ? Loc.T("Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)")
+                : Loc.T("Postura, escursione articolare e cammino (MediaPipe Pose)")),
+            new(CaptureMode.HandsLidar, Loc.T("Mani"), Loc.T("Motricità fine e tremore (MediaPipe Hands)")),
+            new(CaptureMode.FaceTrueDepth, Loc.T("Volto"), DeviceInfo.Current.Platform == DevicePlatform.iOS
+                ? Loc.T("Mimica facciale (TrueDepth + MediaPipe Face)")
+                : Loc.T("Mimica facciale (fotocamera frontale + MediaPipe Face)")),
         ];
         SelectedTest = Tests[0];
         SelectedMode = Modes[0];
@@ -98,7 +99,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     /// Test standardizzati della modalità scelta (corpo: CDC STEADI e core set ANPT/APTA; mani: finger
     /// tapping MDS-UPDRS), preceduti dalla rilevazione libera.
     /// </summary>
-    public IReadOnlyList<TestOption> Tests { get; private set; } = [new TestOption(null, "Rilevazione libera")];
+    public IReadOnlyList<TestOption> Tests { get; private set; } = [new TestOption(null, Loc.T("Rilevazione libera"))];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Test), nameof(HasTest), nameof(TestSteps), nameof(RecordHint), nameof(SetupSummary))]
@@ -109,7 +110,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     /// registrare e fa da ingresso ai parametri (toccandola il pannello si alza).
     /// </summary>
     public string SetupSummary =>
-        $"{SelectedTest?.Title ?? "Rilevazione libera"} · {(string.IsNullOrWhiteSpace(SubjectCode) ? "codice soggetto da inserire" : SubjectCode.Trim())}";
+        $"{SelectedTest?.Title ?? Loc.T("Rilevazione libera")} · {(string.IsNullOrWhiteSpace(SubjectCode) ? Loc.T("codice soggetto da inserire") : SubjectCode.Trim())}";
 
     public ClinicalTest? Test => ShowTests ? SelectedTest?.Test : null;
 
@@ -187,10 +188,10 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     /// <summary>Che cosa fa il pulsante rosso in questo momento.</summary>
     public string RecordHint => (IsRecording, IsGuiding, HasTest) switch
     {
-        (true, true, _) => "La voce sta spiegando l'esame · tocca per terminare",
-        (true, _, _) => "Tocca per terminare",
-        (_, _, true) => "Avvia: la voce guida il paziente",
-        _ => "Avvia la rilevazione",
+        (true, true, _) => Loc.T("La voce sta spiegando l'esame · tocca per terminare"),
+        (true, _, _) => Loc.T("Tocca per terminare"),
+        (_, _, true) => Loc.T("Avvia: la voce guida il paziente"),
+        _ => Loc.T("Avvia la rilevazione"),
     };
 
     [ObservableProperty]
@@ -217,7 +218,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         if (!_settings.IsOperatorConfiguredSafe())
         {
-            Warning = "Configurare l'operatore nelle Impostazioni prima di acquisire.";
+            Warning = Loc.T("Configurare l'operatore nelle Impostazioni prima di acquisire.");
         }
         else
         {
@@ -226,7 +227,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
         if (!await _engine.RequestPermissionsAsync(_settings.RecordLocation))
         {
-            Warning = "Servono i permessi per fotocamera e microfono (Impostazioni del telefono → SensorFusion Clinic).";
+            Warning = Loc.T("Servono i permessi per fotocamera e microfono (Impostazioni del telefono → SensorFusion Clinic).");
             return;
         }
 
@@ -257,7 +258,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     async partial void OnSelectedModeChanged(CaptureModeOption value)
     {
         // Ogni modalità ha i suoi test: l'elenco cambia e si riparte dalla rilevazione libera.
-        Tests = [new TestOption(null, "Rilevazione libera"), .. ClinicalTests.For(value.Mode).Select(t => new TestOption(t, t.Name))];
+        Tests = [new TestOption(null, Loc.T("Rilevazione libera")), .. ClinicalTests.For(value.Mode).Select(t => new TestOption(t, t.Name))];
         OnPropertyChanged(nameof(Tests));
         SelectedTest = Tests[0];
         OnPropertyChanged(nameof(ShowTests));
@@ -313,7 +314,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         if (string.IsNullOrWhiteSpace(SubjectCode))
         {
             DetailsNeeded?.Invoke(this, EventArgs.Empty);
-            await _dialogs.AlertAsync("Codice soggetto", "Inserisci il codice soggetto prima di avviare.");
+            await _dialogs.AlertAsync(Loc.T("Codice soggetto"), Loc.T("Inserisci il codice soggetto prima di avviare."));
             return;
         }
 
@@ -360,7 +361,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             // La voce è un aiuto: se la sintesi non è disponibile il test si può comunque eseguire.
-            Warning = $"Guida vocale non disponibile: {ex.Message}";
+            Warning = Loc.F("Guida vocale non disponibile: {0}", ex.Message);
         }
         finally
         {
@@ -380,9 +381,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
 
     private static string FreeCaptureGuide(CaptureMode mode) => mode switch
     {
-        CaptureMode.HandsLidar => "Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore.",
-        CaptureMode.FaceTrueDepth => "Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore.",
-        _ => "Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore.",
+        CaptureMode.HandsLidar => Loc.T("Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore."),
+        CaptureMode.FaceTrueDepth => Loc.T("Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore."),
+        _ => Loc.T("Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore."),
     };
 
     [RelayCommand(CanExecute = nameof(CanStart))]
@@ -400,7 +401,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            await _dialogs.AlertAsync("Impossibile avviare", ex.Message);
+            await _dialogs.AlertAsync(Loc.T("Impossibile avviare"), ex.Message);
         }
         finally
         {
@@ -431,7 +432,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            await _dialogs.AlertAsync("Errore in chiusura", ex.Message);
+            await _dialogs.AlertAsync(Loc.T("Errore in chiusura"), ex.Message);
         }
         finally
         {
@@ -466,7 +467,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         {
             if (SelectedMode.Mode == CaptureMode.FaceTrueDepth && !_engine.IsFaceTrackingSupported)
             {
-                Warning = "Questo telefono non ha la fotocamera necessaria al tracciamento del volto.";
+                Warning = Loc.T("Questo telefono non ha la fotocamera necessaria al tracciamento del volto.");
                 return;
             }
 
@@ -515,7 +516,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         var seconds = test is null ? _coordinator.Elapsed : _coordinator.TestElapsed;
         var time = seconds is { } value ? TimeSpan.FromSeconds(value).ToString(@"mm\:ss", c) : "—";
         _elapsed.Value = IsRecording ? time : "—";
-        Elapsed = !IsRecording ? "00:00" : seconds is null ? "guida" : time;
+        Elapsed = !IsRecording ? "00:00" : seconds is null ? Loc.T("guida") : time;
 
         if (test is not null && seconds is { } sinceStart)
         {
@@ -540,7 +541,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
                         _coordinator.MarkTestEnd(at);
                     }
 
-                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
                     StopCommand.Execute(null);
                 }
             }
@@ -552,7 +553,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
                 if (sinceStart >= limit && StopCommand.CanExecute(null))
                 {
                     // Avvisa il paziente: l'operatore può essere lontano dal telefono.
-                    _ = SpeakQuietlyAsync("Stop. Il test è finito.");
+                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
                     StopCommand.Execute(null);
                 }
             }
@@ -574,8 +575,8 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
         {
             0 => "normale",
             1 => "discreta",
-            2 => "elevata ⚠",
-            _ => "critica ⚠",
+            2 => Loc.T("elevata ⚠"),
+            _ => Loc.T("critica ⚠"),
         };
 
         string Angle(float[]? angles, Joint joint) =>

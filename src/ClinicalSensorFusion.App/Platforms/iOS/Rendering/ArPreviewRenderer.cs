@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Runtime.InteropServices;
 using ARKit;
 using ClinicalSensorFusion.App.Platforms.iOS.Vision;
@@ -101,8 +102,8 @@ internal sealed class ArPreviewRenderer : NSObject, IMTKViewDelegate
     {
         _device = device;
         _capture = capture;
-        _queue = device.CreateCommandQueue() ?? throw new InvalidOperationException("Metal: coda comandi non disponibile.");
-        _textureCache = CVMetalTextureCache.FromDevice(device) ?? throw new InvalidOperationException("Metal: texture cache non disponibile.");
+        _queue = device.CreateCommandQueue() ?? throw new InvalidOperationException(Loc.T("Metal: coda comandi non disponibile."));
+        _textureCache = CVMetalTextureCache.FromDevice(device) ?? throw new InvalidOperationException(Loc.T("Metal: texture cache non disponibile."));
 
         var library = device.CreateLibrary(ShaderSource, new MTLCompileOptions(), out var error)
             ?? throw new InvalidOperationException($"Compilazione shader fallita: {error?.LocalizedDescription}");

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.ViewModels;
 
 namespace ClinicalSensorFusion.App.Views;
@@ -60,7 +61,7 @@ public partial class CapturePage : ContentPage
         }
 
         _sheetExpanded = expanded;
-        SheetToggleLabel.Text = expanded ? "Chiudi" : "Modifica";
+        SheetToggleLabel.Text = expanded ? Loc.T("Chiudi") : Loc.T("Modifica");
         var target = expanded ? Math.Max(_sheetCollapsedHeight, Height * ExpandedFraction) : _sheetCollapsedHeight;
         if (expanded)
         {

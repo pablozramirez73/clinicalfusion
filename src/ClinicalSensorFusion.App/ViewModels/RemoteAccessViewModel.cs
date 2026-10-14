@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Ai;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -32,9 +33,9 @@ public sealed partial class RemoteAccessViewModel(IWebSessionBridge bridge, IDia
         }
 
         var count = await bridge.SyncCookiesAsync(uri);
-        await dialogs.AlertAsync("Accesso remoto", count > 0
-            ? $"Sessione acquisita ({count} cookie). Ora l'analisi può raggiungere il server."
-            : "Nessun cookie trovato: completare prima il login nella pagina.");
+        await dialogs.AlertAsync(Loc.T("Accesso remoto"), count > 0
+            ? Loc.F("Sessione acquisita ({0} cookie). Ora l'analisi può raggiungere il server.", count)
+            : Loc.T("Nessun cookie trovato: completare prima il login nella pagina."));
         await Shell.Current.GoToAsync("..");
     }
 
@@ -42,6 +43,6 @@ public sealed partial class RemoteAccessViewModel(IWebSessionBridge bridge, IDia
     private async Task LogoutAsync()
     {
         await bridge.ClearAsync();
-        await dialogs.AlertAsync("Accesso remoto", "Sessione e cookie eliminati.");
+        await dialogs.AlertAsync(Loc.T("Accesso remoto"), Loc.T("Sessione e cookie eliminati."));
     }
 }

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -69,13 +70,13 @@ public sealed record PayloadReport(int Bytes, string Sha256, bool RoundTrips, IR
         var c = culture ?? CultureInfo.CurrentCulture;
         return
         [
-            new(Section, "Esito", IsValid ? "valido" : "da verificare", !IsValid),
-            new(Section, "Dimensione", string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
-            new(Section, "Impronta SHA-256", Sha256[..12] + "…"),
-            new(Section, "Rilettura", RoundTrips ? "identica" : "non riuscita", !RoundTrips),
-            new(Section, "Campi obbligatori", MissingFields.Count == 0 ? "completi" : "mancano: " + string.Join(", ", MissingFields), MissingFields.Count > 0),
-            new(Section, "Valori non numerici", NonFiniteNumbers == 0 ? "nessuno" : string.Format(c, "{0} (NaN o infinito)", NonFiniteNumbers), NonFiniteNumbers > 0),
-            new(Section, "Dati dei sensori", string.Format(c, "{0:N0} blocchi · {1:N0} campioni · {2:N1} MB", Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
+            new(Section, Loc.T("Esito", c), IsValid ? Loc.T("valido", c) : Loc.T("da verificare", c), !IsValid),
+            new(Section, Loc.T("Dimensione", c), string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
+            new(Section, Loc.T("Impronta SHA-256", c), Sha256[..12] + "…"),
+            new(Section, Loc.T("Rilettura", c), RoundTrips ? Loc.T("identica", c) : Loc.T("non riuscita", c), !RoundTrips),
+            new(Section, Loc.T("Campi obbligatori", c), MissingFields.Count == 0 ? Loc.T("completi", c) : Loc.T("mancano: ", c) + string.Join(", ", MissingFields), MissingFields.Count > 0),
+            new(Section, Loc.T("Valori non numerici", c), NonFiniteNumbers == 0 ? Loc.T("nessuno", c) : string.Format(c, Loc.T("{0} (NaN o infinito)", c), NonFiniteNumbers), NonFiniteNumbers > 0),
+            new(Section, Loc.T("Dati dei sensori", c), string.Format(c, Loc.T("{0:N0} blocchi · {1:N0} campioni · {2:N1} MB", c), Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
         ];
     }
 

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:l="clr-namespace:ClinicalSensorFusion.App.Localization"
              xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
              x:Class="ClinicalSensorFusion.App.Views.BluetoothSensorsPage"
              x:DataType="vm:BluetoothSensorsViewModel"
              x:Name="Page"
-             Title="Sensori Bluetooth">
+             Title="{l:Tr Text='Sensori Bluetooth'}">
   <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" Padding="20,12,20,12">
     <Border Style="{StaticResource BannerInfo}">
       <Label Text="{Binding Status}" Style="{StaticResource BannerInfoText}" />
@@ -14,11 +15,11 @@
     <!-- Ultima misura ricevuta: conferma che il sensore sta trasmettendo. -->
     <Label Grid.Row="1" Text="{Binding LiveValue}" Style="{StaticResource MetricValue}" HorizontalTextAlignment="Center"
            IsVisible="{Binding LiveValue, Converter={StaticResource IsNotNull}}"
-           SemanticProperties.Description="Ultima misura ricevuta dal sensore" />
+           SemanticProperties.Description="{l:Tr Text='Ultima misura ricevuta dal sensore'}" />
 
     <CollectionView Grid.Row="2" ItemsSource="{Binding Devices}" SelectionMode="None">
       <CollectionView.EmptyView>
-        <Label Text="Nessun sensore in elenco." Style="{StaticResource Muted}" HorizontalTextAlignment="Center" Margin="0,24" />
+        <Label Text="{l:Tr Text='Nessun sensore in elenco.'}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" Margin="0,24" />
       </CollectionView.EmptyView>
       <CollectionView.ItemTemplate>
         <DataTemplate x:DataType="vm:BluetoothSensorItem">

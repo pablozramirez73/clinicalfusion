@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Net;
 using System.Net.Sockets;
 
@@ -41,7 +42,7 @@ public sealed class LocalCleartextHandler : DelegatingHandler
     {
         if (request.RequestUri is { } uri && uri.Scheme == Uri.UriSchemeHttp && !LocalNetwork.IsLocalHost(uri.Host))
         {
-            throw new HttpRequestException($"Connessione non cifrata rifiutata verso {uri.Host}: fuori dalla rete locale serve HTTPS.");
+            throw new HttpRequestException(Loc.F("Connessione non cifrata rifiutata verso {0}: fuori dalla rete locale serve HTTPS.", uri.Host));
         }
 
         return base.SendAsync(request, cancellationToken);

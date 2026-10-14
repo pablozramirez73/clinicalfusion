@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
@@ -155,7 +156,7 @@ public sealed partial class SessionDetailViewModel(
             _session = await repository.GetSessionAsync(id);
             if (_session is null)
             {
-                Title = "Rilevazione non trovata";
+                Title = Loc.T("Rilevazione non trovata");
                 return;
             }
 
@@ -189,7 +190,7 @@ public sealed partial class SessionDetailViewModel(
             foreach (var a in await repository.ListAudioRecordingsAsync(id))
             {
                 var details = a.Features is { } f
-                    ? string.Format(c, "{0:F1} s · RMS {1:F1} dBFS · attivo {2:P0}", a.DurationSeconds, f.RmsDbfs, f.ActiveRatio)
+                    ? string.Format(c, Loc.T("{0:F1} s · RMS {1:F1} dBFS · attivo {2:P0}"), a.DurationSeconds, f.RmsDbfs, f.ActiveRatio)
                     : string.Format(c, "{0:F1} s", a.DurationSeconds);
                 Audio.Add(new AudioItem(a.Id, "audio.caf (48 kHz, Float32)", details, AppPaths.Audio(a)));
             }
@@ -205,7 +206,7 @@ public sealed partial class SessionDetailViewModel(
         }
         catch (Exception ex)
         {
-            await dialogs.AlertAsync("Errore", ex.Message);
+            await dialogs.AlertAsync(Loc.T("Errore"), ex.Message);
         }
     }
 
@@ -219,17 +220,17 @@ public sealed partial class SessionDetailViewModel(
         else if (!sync.IsConfigured)
         {
             SyncState = SyncState.NotConfigured;
-            SyncText = "Imposta indirizzo e chiave del dispositivo per inviare la rilevazione e vedere i grafici nella dashboard.";
+            SyncText = Loc.T("Imposta indirizzo e chiave del dispositivo per inviare la rilevazione e vedere i grafici nella dashboard.");
         }
         else if (_session.SyncedAt is { } at)
         {
             SyncState = SyncState.Sent;
-            SyncText = $"Inviata il {at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)}. I grafici sono nella dashboard.";
+            SyncText = Loc.F("Inviata il {0}. I grafici sono nella dashboard.", at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
         }
         else
         {
             SyncState = SyncState.Pending;
-            SyncText = "Non ancora inviata. Il server riceve indicatori, dati dei sensori, audio e analisi e ne ricava i grafici.";
+            SyncText = Loc.T("Non ancora inviata. Il server riceve indicatori, dati dei sensori, audio e analisi e ne ricava i grafici.");
         }
     }
 
@@ -262,7 +263,7 @@ public sealed partial class SessionDetailViewModel(
         }
         catch (Exception ex)
         {
-            SyncError = ex is OperationCanceledException ? "Il server non ha risposto in tempo." : ex.Message;
+            SyncError = ex is OperationCanceledException ? Loc.T("Il server non ha risposto in tempo.") : ex.Message;
             SyncState = previous;
         }
     }
@@ -300,13 +301,13 @@ public sealed partial class SessionDetailViewModel(
     {
         if (_session?.Summary is null)
         {
-            await dialogs.AlertAsync("Analisi", "La rilevazione non ha un riepilogo (forse è stata interrotta).");
+            await dialogs.AlertAsync(Loc.T("Analisi"), Loc.T("La rilevazione non ha un riepilogo (forse è stata interrotta)."));
             return;
         }
 
         if (!OllamaEndpoint.TryParse(settings.OllamaServer, out var server) || server is null)
         {
-            await dialogs.AlertAsync("Analisi", "Configurare l'indirizzo del server Ollama nelle Impostazioni.");
+            await dialogs.AlertAsync(Loc.T("Analisi"), Loc.T("Configurare l'indirizzo del server Ollama nelle Impostazioni."));
             return;
         }
 
@@ -348,12 +349,12 @@ public sealed partial class SessionDetailViewModel(
             // Timeout, rete caduta o stream troncato: il testo parziale resta visibile ma non viene salvato.
             if (text.Length > 0)
             {
-                AnalysisText = text.Append("\n\n[incompleta: non salvata]").ToString();
+                AnalysisText = text.Append(Loc.T("\n\n[incompleta: non salvata]")).ToString();
             }
 
             await dialogs.AlertAsync(
-                "Analisi non completata",
-                ex is OperationCanceledException ? "Il server Ollama non ha risposto in tempo." : ex.Message);
+                Loc.T("Analisi non completata"),
+                ex is OperationCanceledException ? Loc.T("Il server Ollama non ha risposto in tempo.") : ex.Message);
         }
         finally
         {
@@ -383,7 +384,7 @@ public sealed partial class SessionDetailViewModel(
         }
         catch (Exception ex)
         {
-            await dialogs.AlertAsync("Riproduzione", ex.Message);
+            await dialogs.AlertAsync(Loc.T("Riproduzione"), ex.Message);
         }
     }
 
@@ -399,12 +400,12 @@ public sealed partial class SessionDetailViewModel(
             return;
         }
 
-        if (!await dialogs.ConfirmAsync("Condividi riepilogo", "Verrà condiviso solo il riepilogo numerico, senza codice soggetto, operatore né posizione GPS. Procedere?", "Condividi"))
+        if (!await dialogs.ConfirmAsync(Loc.T("Condividi riepilogo"), Loc.T("Verrà condiviso solo il riepilogo numerico, senza codice soggetto, operatore né posizione GPS. Procedere?"), Loc.T("Condividi")))
         {
             return;
         }
 
         var json = JsonSerializer.Serialize(_session.Summary.WithoutLocation(), CsfJsonContext.Indented.SessionSummary);
-        await Share.Default.RequestAsync(new ShareTextRequest { Title = "Riepilogo rilevazione", Text = json });
+        await Share.Default.RequestAsync(new ShareTextRequest { Title = Loc.T("Riepilogo rilevazione"), Text = json });
     }
 }

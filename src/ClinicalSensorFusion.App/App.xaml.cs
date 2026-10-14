@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 
 namespace ClinicalSensorFusion.App;

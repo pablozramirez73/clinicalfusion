@@ -1,3 +1,5 @@
+using ClinicalSensorFusion.Core.Localization;
+
 namespace ClinicalSensorFusion.App.Services;
 
 /// <summary>Verifica dell'identità di chi apre l'app (Face ID o Touch ID, con il codice del telefono come riserva).</summary>
@@ -69,7 +71,7 @@ public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockS
             return false;
         }
 
-        var reason = enabled ? "Conferma per proteggere l'app" : "Conferma per togliere la protezione";
+        var reason = enabled ? Loc.T("Conferma per proteggere l'app") : Loc.T("Conferma per togliere la protezione");
         if (!await authenticator.AuthenticateAsync(reason))
         {
             return false;
@@ -88,7 +90,7 @@ public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockS
         }
 
         _locked = true;
-        lockScreen.Show($"Sblocca con {authenticator.MethodName}", () => _ = UnlockAsync());
+        lockScreen.Show(Loc.F("Sblocca con {0}", Loc.T(authenticator.MethodName)), () => _ = UnlockAsync());
     }
 
     private async Task UnlockAsync()
@@ -101,19 +103,19 @@ public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockS
         _authenticating = true;
         try
         {
-            if (await authenticator.AuthenticateAsync("Sblocca SensorFusion Clinic"))
+            if (await authenticator.AuthenticateAsync(Loc.T("Sblocca SensorFusion Clinic")))
             {
                 _locked = false;
                 lockScreen.Hide();
             }
             else
             {
-                lockScreen.SetMessage("Non riconosciuto. Riprova per accedere ai dati clinici.");
+                lockScreen.SetMessage(Loc.T("Non riconosciuto. Riprova per accedere ai dati clinici."));
             }
         }
         catch (Exception ex)
         {
-            lockScreen.SetMessage($"Sblocco non riuscito: {ex.Message}");
+            lockScreen.SetMessage(Loc.F("Sblocco non riuscito: {0}", ex.Message));
         }
         finally
         {

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Security.Cryptography;
 using Android.Security.Keystore;
 using ClinicalSensorFusion.App.Services;
@@ -42,7 +43,7 @@ internal sealed class KeystoreKeyProvider : IDatabaseKeyProvider
         {
             // Chiave avvolta presente ma non decifrabile: errore, mai una chiave nuova al suo posto.
             var wrapping = keyStore.GetKey(Alias, null)
-                ?? throw new InvalidOperationException("La chiave del database non è più nel Keystore del telefono.");
+                ?? throw new InvalidOperationException(Loc.T("La chiave del database non è più nel Keystore del telefono."));
             return Task.FromResult(Unwrap(wrapping, File.ReadAllBytes(WrappedKeyPath)));
         }
 
@@ -59,13 +60,13 @@ internal sealed class KeystoreKeyProvider : IDatabaseKeyProvider
     private static IKey CreateWrappingKey()
     {
         var generator = KeyGenerator.GetInstance(KeyProperties.KeyAlgorithmAes, Store)
-            ?? throw new InvalidOperationException("Generatore di chiavi del Keystore non disponibile.");
+            ?? throw new InvalidOperationException(Loc.T("Generatore di chiavi del Keystore non disponibile."));
         generator.Init(new KeyGenParameterSpec.Builder(Alias, KeyStorePurpose.Encrypt | KeyStorePurpose.Decrypt)
             .SetBlockModes(KeyProperties.BlockModeGcm)
             .SetEncryptionPaddings(KeyProperties.EncryptionPaddingNone)
             .SetKeySize(256)
             .Build());
-        return generator.GenerateKey() ?? throw new InvalidOperationException("Impossibile creare la chiave nel Keystore.");
+        return generator.GenerateKey() ?? throw new InvalidOperationException(Loc.T("Impossibile creare la chiave nel Keystore."));
     }
 
     private static byte[] Wrap(IKey wrapping, byte[] key)
@@ -81,7 +82,7 @@ internal sealed class KeystoreKeyProvider : IDatabaseKeyProvider
     {
         if (wrapped.Length <= IvLength)
         {
-            throw new InvalidOperationException("File della chiave del database danneggiato.");
+            throw new InvalidOperationException(Loc.T("File della chiave del database danneggiato."));
         }
 
         var cipher = Cipher.GetInstance(Transformation)!;

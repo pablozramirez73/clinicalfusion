@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Runtime.InteropServices;
 using AudioToolbox;
 using AVFoundation;
@@ -37,7 +38,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
     private ISensorSink? _sink;
     private long _framesWritten;
 
-    public string DisplayName => "Microfono";
+    public string DisplayName => Loc.T("Microfono");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.AudioLevel];
 
@@ -51,7 +52,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         var session = AVAudioSession.SharedInstance();
         Check(session.SetCategory(AVAudioSessionCategory.PlayAndRecord, AVAudioSessionCategoryOptions.DefaultToSpeaker | AVAudioSessionCategoryOptions.AllowBluetoothA2DP), "categoria");
         session.SetMode(AVAudioSessionMode.Measurement, out var modeError);
-        Check(modeError, "modalità misura");
+        Check(modeError, Loc.T("modalità misura"));
         session.SetPreferredSampleRate(AudioRecording.SampleRate, out _);
         session.SetActive(true, out var activeError);
         Check(activeError, "attivazione");
@@ -76,7 +77,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
             LinearPcmNonInterleaved = false,
         };
         _file = new AVAudioFile(NSUrl.FromFilename(path), settings, AVAudioCommonFormat.PCMFloat32, interleaved: false, out var fileError);
-        Check(fileError, "creazione file");
+        Check(fileError, Loc.T("creazione file"));
 
         // Protezione dati iOS: file cifrato a dispositivo bloccato, ma scrivibile se già aperto.
         NSFileManager.DefaultManager.SetAttributes(new NSFileAttributes { ProtectionKey = NSFileProtection.CompleteUnlessOpen }, path, out _);
@@ -93,7 +94,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         _engine.Prepare();
         if (!_engine.StartAndReturnError(out var startError))
         {
-            Check(startError, "avvio motore audio");
+            Check(startError, Loc.T("avvio motore audio"));
         }
 
         _recording = recording;
@@ -209,7 +210,7 @@ internal sealed class AudioCaptureSource(SensorClock clock, string sessionId, IL
         var attributes = NSFileManager.DefaultManager.GetFileSystemAttributes(AppPaths.Library, out _);
         if (attributes is not null && (long)attributes.FreeSize < MinFreeBytes)
         {
-            throw new IOException("Spazio libero insufficiente per la registrazione audio (servono almeno 200 MB).");
+            throw new IOException(Loc.T("Spazio libero insufficiente per la registrazione audio (servono almeno 200 MB)."));
         }
     }
 

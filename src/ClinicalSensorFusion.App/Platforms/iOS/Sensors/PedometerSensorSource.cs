@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using CoreMotion;
 using Foundation;
@@ -13,7 +14,7 @@ internal sealed class PedometerSensorSource(SensorClock clock) : ISensorSource
 {
     private readonly CMPedometer _pedometer = new();
 
-    public string DisplayName => "Pedometro";
+    public string DisplayName => Loc.T("Pedometro");
 
     public IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Pedometer];
 

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using AndroidX.Camera.View;
 using ClinicalSensorFusion.App.Controls;
 using ClinicalSensorFusion.App.Platforms.Android.Services;
@@ -14,7 +15,7 @@ internal sealed class CapturePreviewHandler() : ViewHandler<CapturePreview, Prev
         new PropertyMapper<CapturePreview, CapturePreviewHandler>(ViewMapper);
 
     private AndroidCaptureEngine Engine =>
-        (AndroidCaptureEngine)(MauiContext ?? throw new InvalidOperationException("Handler non connesso.")).Services.GetRequiredService<ICaptureEngine>();
+        (AndroidCaptureEngine)(MauiContext ?? throw new InvalidOperationException(Loc.T("Handler non connesso."))).Services.GetRequiredService<ICaptureEngine>();
 
     protected override PreviewView CreatePlatformView()
     {

@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -27,7 +28,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     private const int Values = 5; // [x, y, z, visibility, presence] per punto, vedi CSFVisionResult.
 
     private static readonly (int From, int To)[] NoConnections = [];
-    private static readonly string[] JointLabels = ["Spalla sx", "Spalla dx", "Gomito sx", "Gomito dx", "Anca sx", "Anca dx", "Ginocchio sx", "Ginocchio dx", "Caviglia sx", "Caviglia dx"];
+    private static readonly string[] JointLabels = [Loc.T("Spalla sx"), Loc.T("Spalla dx"), Loc.T("Gomito sx"), Loc.T("Gomito dx"), Loc.T("Anca sx"), Loc.T("Anca dx"), Loc.T("Ginocchio sx"), Loc.T("Ginocchio dx"), Loc.T("Caviglia sx"), Loc.T("Caviglia dx")];
 
     private readonly PoseDepthFusion _fusion = new();
 
@@ -179,7 +180,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             _ => null,
         };
 
-        OverlayUpdated?.Invoke(this, overlay ?? new OverlayFrame([], NoConnections, "Nessun soggetto rilevato", result.InferenceMs));
+        OverlayUpdated?.Invoke(this, overlay ?? new OverlayFrame([], NoConnections, Loc.T("Nessun soggetto rilevato"), result.InferenceMs));
     }
 
     private OverlayFrame ProcessPose(CSFVisionResult result, ArFrameJob job, ImageOrientation orientation, (ISensorSink Sink, SensorClock Clock)? recording, double t)
@@ -306,7 +307,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             points[i] = ToView(raw[i * Values], raw[i * Values + 1], orientation, job.DisplayTransform, true, OverlayPointKind.Face);
         }
 
-        return new OverlayFrame(points, NoConnections, "Volto rilevato", result.InferenceMs);
+        return new OverlayFrame(points, NoConnections, Loc.T("Volto rilevato"), result.InferenceMs);
     }
 
     /// <summary>Coordinate orientate MediaPipe → sensore → vista (con la displayTransform di ARKit, che include rotazione, ritaglio aspect-fill ed eventuale specchiatura).</summary>
@@ -334,7 +335,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             parts.Add(string.Create(CultureInfo.CurrentCulture, $"{fused.SubjectDistance:F2} m"));
         }
 
-        parts.Add(fused.Source == PoseSource.Lidar ? "LiDAR" : "stima 3D");
+        parts.Add(fused.Source == PoseSource.Lidar ? "LiDAR" : Loc.T("stima 3D"));
         return string.Join(" · ", parts);
     }
 

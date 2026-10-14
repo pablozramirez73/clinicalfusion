@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using Android.Hardware;
 using ClinicalSensorFusion.Core.Sensors;
 
@@ -30,7 +31,7 @@ internal sealed class MotionSensorSource(SensorClock clock) : AndroidSensorSourc
     private readonly float[] _magnetic = [float.NaN, float.NaN, float.NaN];
     private readonly float[] _gravity = [float.NaN, float.NaN, float.NaN];
 
-    public override string DisplayName => "Accelerometro · giroscopio · magnetometro";
+    public override string DisplayName => Loc.T("Accelerometro · giroscopio · magnetometro");
 
     public override IReadOnlyList<SensorKind> Produces { get; } = [SensorKind.Motion];
 

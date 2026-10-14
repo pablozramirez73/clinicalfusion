@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 using UIKit;
 
@@ -40,7 +41,7 @@ internal sealed class IosLockScreen : ILockScreen
         };
         _message = new UILabel
         {
-            Text = "I dati clinici sono protetti.",
+            Text = Loc.T("I dati clinici sono protetti."),
             TextColor = UIColor.FromRGB(0xCF, 0xE3, 0xEC),
             Font = UIFont.SystemFontOfSize(15)!,
             TextAlignment = UITextAlignment.Center,

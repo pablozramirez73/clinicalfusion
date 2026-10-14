@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using ClinicalSensorFusion.App.Services;
@@ -32,15 +33,15 @@ public sealed partial class SessionsViewModel(
     private async Task SyncAsync()
     {
         IsSyncing = true;
-        SyncStatus = "Invio in corso…";
+        SyncStatus = Loc.T("Invio in corso…");
         try
         {
             var report = await sync.SyncNowAsync();
             SyncStatus = report switch
             {
                 { Errors.Count: > 0 } => string.Join(" ", report.Errors),
-                { Sessions: 0 } => "Nessuna rilevazione da inviare: il server è già aggiornato.",
-                _ => $"Inviate {report.Sessions} rilevazioni ({report.Chunks} blocchi, {report.AudioFiles} audio).",
+                { Sessions: 0 } => Loc.T("Nessuna rilevazione da inviare: il server è già aggiornato."),
+                _ => Loc.F("Inviate {0} rilevazioni ({1} blocchi, {2} audio).", report.Sessions, report.Chunks, report.AudioFiles),
             };
         }
         catch (Exception ex)
@@ -97,8 +98,7 @@ public sealed partial class SessionsViewModel(
         }
         catch (DatabaseKeyMismatchException)
         {
-            ErrorMessage = "L'archivio clinico esistente non è decifrabile con la chiave di questo dispositivo/installazione. " +
-                           "Il file non è stato modificato. Vedere docs/architettura.md, sezione \"Migrazione dall'app originale\".";
+            ErrorMessage = Loc.T("L'archivio clinico esistente non è decifrabile con la chiave di questo dispositivo/installazione. Il file non è stato modificato.");
         }
         catch (Exception ex)
         {
@@ -117,7 +117,7 @@ public sealed partial class SessionsViewModel(
     [RelayCommand]
     private async Task DeleteAsync(SessionListItem item)
     {
-        if (!await dialogs.ConfirmAsync("Elimina rilevazione", $"Eliminare definitivamente la rilevazione di {item.Subject} ({item.When}) con audio e analisi?", "Elimina"))
+        if (!await dialogs.ConfirmAsync(Loc.T("Elimina rilevazione"), Loc.F("Eliminare definitivamente la rilevazione di {0} ({1}) con audio e analisi?", item.Subject, item.When), Loc.T("Elimina")))
         {
             return;
         }
@@ -135,8 +135,8 @@ public sealed partial class SessionsViewModel(
         IsEmpty = Sessions.Count == 0;
         CountText = Sessions.Count switch
         {
-            0 => string.IsNullOrWhiteSpace(SearchText) ? "Archivio cifrato su questo dispositivo" : "Nessun risultato",
-            1 => "1 rilevazione",
+            0 => string.IsNullOrWhiteSpace(SearchText) ? Loc.T("Archivio cifrato su questo dispositivo") : Loc.T("Nessun risultato"),
+            1 => Loc.T("1 rilevazione"),
             var n => string.Create(CultureInfo.CurrentCulture, $"{n} rilevazioni"),
         };
     }
@@ -163,9 +163,9 @@ public sealed partial class SessionsViewModel(
 
     internal static string ModeLabel(CaptureMode mode) => mode switch
     {
-        CaptureMode.BodyLidar => "Corpo",
-        CaptureMode.HandsLidar => "Mani",
-        CaptureMode.FaceTrueDepth => "Volto",
+        CaptureMode.BodyLidar => Loc.T("Corpo"),
+        CaptureMode.HandsLidar => Loc.T("Mani"),
+        CaptureMode.FaceTrueDepth => Loc.T("Volto"),
         _ => mode.ToString(),
     };
 
@@ -176,9 +176,9 @@ public sealed partial class SessionsViewModel(
         var days = (DateTimeOffset.Now.Date - local.Date).Days;
         var day = days switch
         {
-            0 => "Oggi",
-            1 => "Ieri",
-            _ => local.ToString(local.Year == DateTimeOffset.Now.Year ? "d MMM" : "d MMM yyyy", c),
+            0 => Loc.T("Oggi"),
+            1 => Loc.T("Ieri"),
+            _ => local.ToString(local.Year == DateTimeOffset.Now.Year ? "d MMM" : Loc.T("d MMM yyyy"), c),
         };
         return $"{day}, {local.ToString("t", c)}";
     }

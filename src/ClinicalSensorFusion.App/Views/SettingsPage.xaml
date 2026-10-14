@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:l="clr-namespace:ClinicalSensorFusion.App.Localization"
              xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
              xmlns:controls="clr-namespace:ClinicalSensorFusion.App.Controls"
              x:Class="ClinicalSensorFusion.App.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
-             Title="Impostazioni"
+             Title="{l:Tr Text='Impostazioni'}"
              Shell.NavBarIsVisible="False"
              SafeAreaEdges="Container">
   <Grid RowDefinitions="*,Auto">
     <ScrollView>
       <VerticalStackLayout Padding="20,12,20,16" Spacing="12">
-        <Label Text="Impostazioni" Style="{StaticResource LargeTitle}" SemanticProperties.HeadingLevel="Level1" />
+        <Label Text="{l:Tr Text='Impostazioni'}" Style="{StaticResource LargeTitle}" SemanticProperties.HeadingLevel="Level1" />
 
         <!-- Operatore -->
         <Border Style="{StaticResource Card}">
@@ -21,19 +22,19 @@
                 <Path Style="{StaticResource IconPerson}" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="2">
-                <Label Text="Operatore" Style="{StaticResource Headline}" />
-                <Label Text="Ogni rilevazione e ogni analisi vengono associate all'operatore." Style="{StaticResource Muted}" />
+                <Label Text="{l:Tr Text='Operatore'}" Style="{StaticResource Headline}" />
+                <Label Text="{l:Tr Text='Ogni rilevazione e ogni analisi vengono associate all\'operatore.'}" Style="{StaticResource Muted}" />
               </VerticalStackLayout>
             </Grid>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-              <controls:FormField Label="Identificativo">
-                <Entry Placeholder="Es. A1B2C3D4" Text="{Binding OperatorId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+              <controls:FormField Label="{l:Tr Text='Identificativo'}">
+                <Entry Placeholder="{l:Tr Text='Es. A1B2C3D4'}" Text="{Binding OperatorId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
               </controls:FormField>
-              <Button Grid.Column="1" Text="Genera" Style="{StaticResource SecondaryButton}" HeightRequest="48" VerticalOptions="End"
+              <Button Grid.Column="1" Text="{l:Tr Text='Genera'}" Style="{StaticResource SecondaryButton}" HeightRequest="48" VerticalOptions="End"
                       Command="{Binding GenerateOperatorIdCommand}" />
             </Grid>
-            <controls:FormField Label="Nome">
-              <Entry Placeholder="Nome e cognome dell'operatore" Text="{Binding OperatorName}" />
+            <controls:FormField Label="{l:Tr Text='Nome'}">
+              <Entry Placeholder="{l:Tr Text='Nome e cognome dell\'operatore'}" Text="{Binding OperatorName}" />
             </controls:FormField>
           </VerticalStackLayout>
         </Border>
@@ -46,16 +47,16 @@
                 <Path Style="{StaticResource IconServer}" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="2">
-                <Label Text="Server Ollama" Style="{StaticResource Headline}" />
-                <Label Text="Il modello linguistico che commenta gli indicatori." Style="{StaticResource Muted}" />
+                <Label Text="{l:Tr Text='Server Ollama'}" Style="{StaticResource Headline}" />
+                <Label Text="{l:Tr Text='Il modello linguistico che commenta gli indicatori.'}" Style="{StaticResource Muted}" />
               </VerticalStackLayout>
             </Grid>
-            <controls:FormField Label="Indirizzo">
-              <Entry Placeholder="192.168.1.20 o https://ai.esempio.it" Text="{Binding OllamaServer}"
+            <controls:FormField Label="{l:Tr Text='Indirizzo'}">
+              <Entry Placeholder="{l:Tr Text='192.168.1.20 o https://ai.esempio.it'}" Text="{Binding OllamaServer}"
                      Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </controls:FormField>
             <Grid>
-              <Button Text="Verifica ed elenca i modelli" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
+              <Button Text="{l:Tr Text='Verifica ed elenca i modelli'}" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
               <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" HorizontalOptions="End" Margin="0,0,14,0"
                                  InputTransparent="True" />
             </Grid>
@@ -63,18 +64,18 @@
               <Label Text="{Binding ConnectionStatus}" Style="{StaticResource BannerInfoText}" />
             </Border>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-              <controls:FormField Label="Modello">
-                <Picker Title="Scegli" ItemsSource="{Binding Models}" SelectedItem="{Binding OllamaModel}" />
+              <controls:FormField Label="{l:Tr Text='Modello'}">
+                <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding Models}" SelectedItem="{Binding OllamaModel}" />
               </controls:FormField>
-              <controls:FormField Grid.Column="1" Label="Lingua della risposta">
-                <Picker Title="Scegli" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
+              <controls:FormField Grid.Column="1" Label="{l:Tr Text='Lingua della risposta'}">
+                <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding Languages}" SelectedItem="{Binding OllamaLanguage}" />
               </controls:FormField>
             </Grid>
-            <controls:FormField Label="Prompt personalizzato (facoltativo)">
-              <Editor Text="{Binding OllamaPrompt}" Placeholder="Es. Concentrati sull'equilibrio e confronta i due lati."
+            <controls:FormField Label="{l:Tr Text='Prompt personalizzato (facoltativo)'}">
+              <Editor Text="{Binding OllamaPrompt}" Placeholder="{l:Tr Text='Es. Concentrati sull\'equilibrio e confronta i due lati.'}"
                       AutoSize="TextChanges" MinimumHeightRequest="88" MaximumHeightRequest="220" />
             </controls:FormField>
-            <Label Text="Si aggiunge alle istruzioni predefinite a ogni analisi. Lingua, divieto di diagnosi e limiti di misura restano sempre attivi."
+            <Label Text="{l:Tr Text='Si aggiunge alle istruzioni predefinite a ogni analisi. Lingua, divieto di diagnosi e limiti di misura restano sempre attivi.'}"
                    Style="{StaticResource Muted}" />
           </VerticalStackLayout>
         </Border>
@@ -87,25 +88,25 @@
                 <Path Style="{StaticResource IconUpload}" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="2">
-                <Label Text="Server clinico" Style="{StaticResource Headline}" />
-                <Label Text="Riceve le rilevazioni e ne ricava i grafici della dashboard. Vanno al server codice soggetto, operatore, indicatori, dati dei sensori, audio e analisi."
+                <Label Text="{l:Tr Text='Server clinico'}" Style="{StaticResource Headline}" />
+                <Label Text="{l:Tr Text='Riceve le rilevazioni e ne ricava i grafici della dashboard. Vanno al server codice soggetto, operatore, indicatori, dati dei sensori, audio e analisi.'}"
                        Style="{StaticResource Muted}" />
               </VerticalStackLayout>
             </Grid>
-            <controls:FormField Label="Indirizzo">
-              <Entry Placeholder="https://clinica.esempio.it" Text="{Binding SyncServer}"
+            <controls:FormField Label="{l:Tr Text='Indirizzo'}">
+              <Entry Placeholder="{l:Tr Text='https://clinica.esempio.it'}" Text="{Binding SyncServer}"
                      Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </controls:FormField>
-            <controls:FormField Label="Chiave del dispositivo">
+            <controls:FormField Label="{l:Tr Text='Chiave del dispositivo'}">
               <Entry Text="{Binding SyncApiKey}" IsPassword="True" />
             </controls:FormField>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                <Label Text="Invio automatico" FontAttributes="Bold" />
-                <Label Text="Invia ogni rilevazione appena termina. Se è spento, l'invio si avvia a mano dal dettaglio." Style="{StaticResource Muted}" />
+                <Label Text="{l:Tr Text='Invio automatico'}" FontAttributes="Bold" />
+                <Label Text="{l:Tr Text='Invia ogni rilevazione appena termina. Se è spento, l\'invio si avvia a mano dal dettaglio.'}" Style="{StaticResource Muted}" />
               </VerticalStackLayout>
               <Switch Grid.Column="1" IsToggled="{Binding AutoSync}" VerticalOptions="Center"
-                      SemanticProperties.Description="Invia automaticamente a fine rilevazione" />
+                      SemanticProperties.Description="{l:Tr Text='Invia automaticamente a fine rilevazione'}" />
             </Grid>
           </VerticalStackLayout>
         </Border>
@@ -118,18 +119,18 @@
                 <Path Style="{StaticResource IconCloud}" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="2">
-                <Label Text="Accesso remoto" Style="{StaticResource Headline}" />
-                <Label Text="Per un server dietro Cloudflare Access: credenziali di servizio (consigliato) oppure accesso interattivo."
+                <Label Text="{l:Tr Text='Accesso remoto'}" Style="{StaticResource Headline}" />
+                <Label Text="{l:Tr Text='Per un server dietro Cloudflare Access: credenziali di servizio (consigliato) oppure accesso interattivo.'}"
                        Style="{StaticResource Muted}" />
               </VerticalStackLayout>
             </Grid>
-            <controls:FormField Label="CF-Access-Client-Id">
+            <controls:FormField Label="{l:Tr Text='CF-Access-Client-Id'}">
               <Entry Text="{Binding CloudflareClientId}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </controls:FormField>
-            <controls:FormField Label="CF-Access-Client-Secret">
+            <controls:FormField Label="{l:Tr Text='CF-Access-Client-Secret'}">
               <Entry Text="{Binding CloudflareClientSecret}" IsPassword="True" />
             </controls:FormField>
-            <Button Text="Accedi nella WebView" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />
+            <Button Text="{l:Tr Text='Accedi nella WebView'}" Style="{StaticResource SecondaryButton}" Command="{Binding OpenRemoteAccessCommand}" />
           </VerticalStackLayout>
         </Border>
 
@@ -140,11 +141,11 @@
               <Path Style="{StaticResource IconShield}" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-              <Label Text="Posizione GPS" Style="{StaticResource Headline}" />
-              <Label Text="Registrala durante le rilevazioni a domicilio." Style="{StaticResource Muted}" />
+              <Label Text="{l:Tr Text='Posizione GPS'}" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Registrala durante le rilevazioni a domicilio.'}" Style="{StaticResource Muted}" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding RecordLocation}" VerticalOptions="Center"
-                    SemanticProperties.Description="Registra la posizione GPS durante le rilevazioni" />
+                    SemanticProperties.Description="{l:Tr Text='Registra la posizione GPS durante le rilevazioni'}" />
           </Grid>
         </Border>
         <!-- Blocco dell'app -->
@@ -154,12 +155,12 @@
               <Path Style="{StaticResource IconLock}" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-              <Label Text="Blocco dell'app" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Blocco dell\'app'}" Style="{StaticResource Headline}" />
               <Label Style="{StaticResource Muted}"
-                     Text="{Binding UnlockMethod, StringFormat='Chiedi {0} all\'apertura e al ritorno dal background. Attivo subito, senza «Salva».'}" />
+                     Text="{Binding UnlockDescription}" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding RequireUnlock}" VerticalOptions="Center"
-                    SemanticProperties.Description="Blocca l'app" />
+                    SemanticProperties.Description="{l:Tr Text='Blocca l\'app'}" />
           </Grid>
         </Border>
 
@@ -170,18 +171,18 @@
               <Path Style="{StaticResource IconPulse}" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-              <Label Text="Sensori Bluetooth" Style="{StaticResource Headline}" />
-              <Label Text="Frequenza cardiaca, saturazione, temperatura: registrate insieme alla rilevazione." Style="{StaticResource Muted}" />
+              <Label Text="{l:Tr Text='Sensori Bluetooth'}" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Frequenza cardiaca, saturazione, temperatura: registrate insieme alla rilevazione.'}" Style="{StaticResource Muted}" />
             </VerticalStackLayout>
-            <Button Grid.Column="2" Text="Cerca" Style="{StaticResource SecondaryButton}" VerticalOptions="Center"
+            <Button Grid.Column="2" Text="{l:Tr Text='Cerca'}" Style="{StaticResource SecondaryButton}" VerticalOptions="Center"
                     Command="{Binding OpenBluetoothSensorsCommand}"
-                    SemanticProperties.Hint="Apre la ricerca dei sensori Bluetooth" />
+                    SemanticProperties.Hint="{l:Tr Text='Apre la ricerca dei sensori Bluetooth'}" />
           </Grid>
         </Border>
 
         <!-- Assistenza: eventi tecnici e metriche dell'app, condivisi solo su richiesta dell'operatore. -->
-        <Button Text="Condividi log diagnostici" Command="{Binding ShareLogsCommand}" Style="{StaticResource SecondaryButton}"
-                SemanticProperties.Hint="Condivide i file di log tecnici dell'app, senza dati dei pazienti" />
+        <Button Text="{l:Tr Text='Condividi log diagnostici'}" Command="{Binding ShareLogsCommand}" Style="{StaticResource SecondaryButton}"
+                SemanticProperties.Hint="{l:Tr Text='Condivide i file di log tecnici dell\'app, senza dati dei pazienti'}" />
 
         <!-- Per sapere con certezza quale build è installata sul telefono. -->
         <Label Text="{Binding AppVersion}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
@@ -191,7 +192,7 @@
     <!-- Salvataggio sempre raggiungibile -->
     <Grid Grid.Row="1" Padding="20,10,20,12"
           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
-      <Button Text="Salva" Command="{Binding SaveCommand}" />
+      <Button Text="{l:Tr Text='Salva'}" Command="{Binding SaveCommand}" />
     </Grid>
   </Grid>
 </ContentPage>
