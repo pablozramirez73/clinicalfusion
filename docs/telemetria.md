@@ -95,6 +95,7 @@ Telemetry__LogDirectory=/var/log/clinical            # facoltativo: log su file 
 - Ogni richiesta alle API produce una riga `HTTP {Method} {Route} → {StatusCode} in {DurationMs} ms`; la
   rotta è il modello (`/api/v1/sessions/{id}`), non l'URL.
 - La risposta porta `X-Trace-Id`: lo stesso valore è in tutte le righe di log della richiesta.
-- Stato del servizio: `/health/live` (il processo risponde), `/health` e `/health/ready` (database e archivio
-  audio; anonimi, solo lo stato), `GET /api/v1/system/health` e `/system/metrics` (dettagli, solo clinici).
-  La dashboard li mostra in «Stato del sistema».
+- Stato del servizio: `/health/live` (il processo risponde, nessun controllo: è la sonda degli orchestratori e
+  non ha limiti di frequenza), `/health` e `/health/ready` (database e archivio audio; anonimi, solo lo stato, ma
+  **limitate per indirizzo IP** perché ogni controllo apre il database e scrive sull'archivio), `GET
+  /api/v1/system/health` e `/system/metrics` (dettagli, solo clinici). La dashboard li mostra in «Stato del sistema».

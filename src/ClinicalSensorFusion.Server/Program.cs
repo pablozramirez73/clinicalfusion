@@ -8,6 +8,7 @@ using ClinicalSensorFusion.Core.Telemetry;
 using ClinicalSensorFusion.Server.Data;
 using ClinicalSensorFusion.Server.Demo;
 using ClinicalSensorFusion.Server.Endpoints;
+using ClinicalSensorFusion.Server.Fhir;
 using ClinicalSensorFusion.Server.Security;
 using ClinicalSensorFusion.Server.Services;
 using ClinicalSensorFusion.Server.Telemetry;
@@ -62,6 +63,7 @@ services.Configure<IngestOptions>(builder.Configuration.GetSection("Ingest"));
 services.Configure<DashboardOptions>(builder.Configuration.GetSection("Dashboard"));
 services.Configure<AudioStorageOptions>(builder.Configuration.GetSection("AudioStorage"));
 services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+services.Configure<FhirOptions>(builder.Configuration.GetSection("Fhir"));
 services.AddSingleton<JwtTokenService>();
 services.AddHttpContextAccessor();
 services.AddSingleton<DashboardUserService>();
@@ -119,6 +121,9 @@ services.AddOptions<RateLimiterOptions>().Configure<IOptions<RateLimitOptions>>(
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => PerMinute(ClientIp(http), limits.GlobalPerMinute));
     // Contro i tentativi di indovinare le password.
     o.AddPolicy(AuthEndpoints.LoginRateLimit, http => PerMinute(ClientIp(http), limits.LoginPerMinute));
+    // Sonde di salute anonime che eseguono i controlli (database, archivio audio): un tetto basso toglie
+    // l'amplificazione. Si somma al limite globale, quindi il tetto effettivo è il più stretto dei due.
+    o.AddPolicy(SystemEndpoints.HealthRateLimit, http => PerMinute(ClientIp(http), limits.HealthPerMinute));
     // Ingestione: per dispositivo, così un telefono non consuma il margine degli altri dietro lo stesso NAT.
     o.AddPolicy(IngestEndpoints.RateLimit, http => PerMinute(DeviceOrIp(http), limits.IngestPerMinute));
     // I file audio sono grandi (centinaia di MB): pochi alla volta per dispositivo, il resto riceve 429.

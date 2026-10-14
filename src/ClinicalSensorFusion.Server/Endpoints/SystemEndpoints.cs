@@ -26,17 +26,24 @@ public static class SystemEndpoints
 {
     public const string ReadyTag = "ready";
 
+    /// <summary>Nome della policy dei limiti di frequenza per le sonde anonime che eseguono i controlli.</summary>
+    public const string HealthRateLimit = "health";
+
     private static readonly DateTimeOffset Started = Process.GetCurrentProcess().StartTime.ToUniversalTime();
 
     public static WebApplication MapHealth(this WebApplication app)
     {
-        // Sonde per orchestratori e monitoraggio: fuori dai limiti di frequenza, mai in cache.
+        // La sonda di liveness risponde senza eseguire alcun controllo: è quella degli orchestratori, resta
+        // fuori dai limiti di frequenza. Mai in cache.
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteAsync })
             .AllowAnonymous().DisableRateLimiting();
+
+        // Queste due eseguono i controlli di database e archivio audio: anonime ma limitate per indirizzo IP,
+        // altrimenti un flood anonimo diventa amplificazione (connessioni al database e scritture su disco).
         foreach (var path in (string[])["/health", "/health/ready"])
         {
             app.MapHealthChecks(path, new HealthCheckOptions { Predicate = c => c.Tags.Contains(ReadyTag), ResponseWriter = WriteAsync })
-                .AllowAnonymous().DisableRateLimiting();
+                .AllowAnonymous().RequireRateLimiting(HealthRateLimit);
         }
 
         return app;

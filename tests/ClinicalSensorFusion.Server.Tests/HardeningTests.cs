@@ -186,8 +186,28 @@ public sealed class RateLimitTests
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.True(limited.Headers.RetryAfter!.Delta > TimeSpan.Zero);
 
-        // Il controllo di salute resta raggiungibile dal monitoraggio.
+        // La sonda di liveness resta raggiungibile dal monitoraggio: non esegue controlli ed è esente dai limiti.
+        // /health invece esegue i controlli ed è limitata, quindi con il budget di questo IP già esaurito è 429.
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("health/live", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.GetAsync("health", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Health_probes_are_limited_but_liveness_is_not()
+    {
+        await using var server = new ServerFixture { Settings = { ["RateLimits:HealthPerMinute"] = "2" } };
+        var client = server.CreateHttpsClient();
+
+        // /health e /health/ready condividono la partizione (la chiave è l'indirizzo IP): il margine è comune.
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("health", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("health/ready", Ct)).StatusCode);
+
+        var limited = await client.GetAsync("health", Ct);
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.True(limited.Headers.RetryAfter!.Delta > TimeSpan.Zero);
+
+        // La liveness non esegue controlli e resta esente.
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("health/live", Ct)).StatusCode);
     }
 
     [Fact]

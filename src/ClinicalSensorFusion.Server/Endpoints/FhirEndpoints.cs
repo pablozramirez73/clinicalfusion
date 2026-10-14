@@ -9,6 +9,7 @@ using ClinicalSensorFusion.Server.Security;
 using ClinicalSensorFusion.Server.Services;
 using ClinicalSensorFusion.Server.Telemetry;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ClinicalSensorFusion.Server.Endpoints;
 
@@ -24,9 +25,6 @@ public static class FhirEndpoints
 
     private const int DefaultCount = 50;
     private const int MaxCount = 200;
-
-    /// <summary>Tetto alle rilevazioni lette per una ricerca: le osservazioni si generano dal riepilogo di ciascuna.</summary>
-    private const int MaxSessionsScanned = 2_000;
 
     public static WebApplication MapFhir(this WebApplication app)
     {
@@ -75,6 +73,14 @@ public static class FhirEndpoints
         static JsonObject Param(string name, string type, string documentation) => new() { ["name"] = name, ["type"] = type, ["documentation"] = documentation };
         static JsonArray ReadAndSearch() => new(new JsonObject { ["code"] = "read" }, new JsonObject { ["code"] = "search-type" });
 
+        // Comuni a ogni ricerca: il client segue link.next, _offset è un'estensione di questo server.
+        static JsonArray Paged(JsonArray specific)
+        {
+            specific.Add(Param("_count", "number", "Risultati per pagina, da 1 a 200 (predefinito 50)"));
+            specific.Add(Param("_offset", "number", "Risultati da saltare; i client seguono link.next invece di calcolarlo"));
+            return specific;
+        }
+
         var statement = new JsonObject
         {
             ["resourceType"] = "CapabilityStatement",
@@ -89,7 +95,12 @@ public static class FhirEndpoints
             ["rest"] = new JsonArray(new JsonObject
             {
                 ["mode"] = "server",
-                ["documentation"] = "Sola lettura. Le risorse sono generate dai dati archiviati; non si accettano scritture.",
+                ["documentation"] = "Sola lettura. Le risorse sono generate dai dati archiviati; non si accettano scritture. "
+                    + "Le ricerche restituiscono un Bundle searchset con total esatto — il conteggio copre tutte le rilevazioni "
+                    + "che soddisfano i filtri, non un campione — e la paginazione si segue con link.next. "
+                    + "Dove il conteggio esatto richiederebbe di scandire troppe rilevazioni la risposta è 413 con "
+                    + "OperationOutcome too-costly, invece di un totale incompleto. Patient/{id}/$everything non è paginato "
+                    + "e restituisce tutte le rilevazioni del paziente, oppure 413 too-costly se superano il limite.",
                 ["security"] = new JsonObject
                 {
                     ["cors"] = false,
@@ -100,12 +111,12 @@ public static class FhirEndpoints
                     {
                         ["type"] = "Patient",
                         ["interaction"] = ReadAndSearch(),
-                        ["searchParam"] = new JsonArray(
+                        ["searchParam"] = Paged(new JsonArray(
                             Param("_id", "token", "Identificativo della risorsa"),
                             Param("identifier", "token", "Codice paziente o codice fiscale, anche come sistema|valore"),
                             Param("name", "string", "Parte del nome o del cognome"),
                             Param("family", "string", "Parte del cognome"),
-                            Param("birthdate", "date", "Data di nascita (uguaglianza)")),
+                            Param("birthdate", "date", "Data di nascita (uguaglianza)"))),
                         ["operation"] = new JsonArray(new JsonObject { ["name"] = "everything", ["definition"] = "http://hl7.org/fhir/OperationDefinition/Patient-everything" }),
                     },
                     new JsonObject
@@ -116,19 +127,19 @@ public static class FhirEndpoints
                             "http://hl7.org/fhir/StructureDefinition/oxygensat",
                             "http://hl7.org/fhir/StructureDefinition/bodytemp"),
                         ["interaction"] = ReadAndSearch(),
-                        ["searchParam"] = new JsonArray(
+                        ["searchParam"] = Paged(new JsonArray(
                             Param("patient", "reference", "Paziente (identificativo o Patient/identificativo)"),
                             Param("code", "token", "Codice LOINC o locale, anche come sistema|codice"),
                             Param("category", "token", "vital-signs, activity, exam"),
-                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq")),
+                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq"))),
                     },
                     new JsonObject
                     {
                         ["type"] = "DiagnosticReport",
                         ["interaction"] = ReadAndSearch(),
-                        ["searchParam"] = new JsonArray(
+                        ["searchParam"] = Paged(new JsonArray(
                             Param("patient", "reference", "Paziente (identificativo o Patient/identificativo)"),
-                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq")),
+                            Param("date", "date", "Inizio della rilevazione, con prefissi ge, gt, le, lt, eq"))),
                     }),
             }),
         };
@@ -203,7 +214,8 @@ public static class FhirEndpoints
         return Fhir(Bundle(http, total, offset, count, page.Select(p => ($"Patient/{p.Id}", FhirMapper.Patient(p)))));
     }
 
-    private static async Task<IResult> EverythingAsync(string id, ClinicalDbContext db, AuditService audit, HttpContext http, CancellationToken ct)
+    private static async Task<IResult> EverythingAsync(
+        string id, ClinicalDbContext db, AuditService audit, HttpContext http, IOptions<FhirOptions> fhir, CancellationToken ct)
     {
         var patient = Guid.TryParse(id, out var guid) ? await db.Patients.AsNoTracking().FirstOrDefaultAsync(p => p.Id == guid, ct) : null;
         if (patient is null)
@@ -211,8 +223,21 @@ public static class FhirEndpoints
             return NotFound("Patient", id);
         }
 
+        // L'esportazione è per definizione completa: o si restituisce tutto, o si rifiuta. Troncare in silenzio
+        // consegnerebbe a un clinico una cartella incompleta che sembra intera. Il conteggio è in SQL e indicizzato.
+        var sessions = await db.Sessions.AsNoTracking().CountAsync(s => s.PatientId == guid, ct);
+        if (sessions > fhir.Value.MaxSessionsPerExport)
+        {
+            return Outcome(StatusCodes.Status413PayloadTooLarge, "too-costly",
+                $"L'esportazione coinvolge {sessions} rilevazioni, oltre il limite di {fhir.Value.MaxSessionsPerExport}: usa la ricerca FHIR per parti.");
+        }
+
         var entries = new List<(string, JsonObject)> { ($"Patient/{patient.Id}", FhirMapper.Patient(patient)) };
-        foreach (var session in await db.Sessions.AsNoTracking().Where(s => s.PatientId == guid).OrderBy(s => s.StartedAt).Take(MaxSessionsScanned).ToListAsync(ct))
+
+        // Scorrimento in streaming: la memoria di picco resta quella del Bundle da restituire, non delle sessioni lette.
+        await foreach (var session in db.Sessions.AsNoTracking()
+            .Where(s => s.PatientId == guid).OrderBy(s => s.StartedAt)
+            .AsAsyncEnumerable().WithCancellation(ct))
         {
             var observations = FhirMapper.Observations(session, Summary(session));
             entries.Add(($"DiagnosticReport/{session.Id}", FhirMapper.DiagnosticReport(session, observations.Select(o => $"{session.Id}-{o.Key}"))));
@@ -244,7 +269,8 @@ public static class FhirEndpoints
         return Fhir(observation);
     }
 
-    private static async Task<IResult> SearchObservationsAsync(ClinicalDbContext db, AuditService audit, HttpContext http, CancellationToken ct)
+    private static async Task<IResult> SearchObservationsAsync(
+        ClinicalDbContext db, AuditService audit, HttpContext http, IOptions<FhirOptions> fhir, CancellationToken ct)
     {
         var q = http.Request.Query;
         if (!TrySessions(db, q, out var sessions, out var problem))
@@ -252,11 +278,21 @@ public static class FhirEndpoints
             return problem!;
         }
 
+        // Code e category vivono nel riepilogo (jsonb), non in colonne: il filtro impone di scandire tutte le
+        // rilevazioni del filtro SQL, e il numero di osservazioni per rilevazione è variabile. Oltre il tetto
+        // non si può dare né un totale veritiero né una pagina completa: meglio rifiutare che troncare.
+        var scanned = await sessions.CountAsync(ct);
+        if (scanned > fhir.Value.MaxSessionsScanned)
+        {
+            return Outcome(StatusCodes.Status413PayloadTooLarge, "too-costly",
+                $"La ricerca coinvolge {scanned} rilevazioni, oltre il limite di {fhir.Value.MaxSessionsScanned}: restringila con patient o con date.");
+        }
+
         var (codeSystem, code) = q["code"].ToString() is { Length: > 0 } c ? Token(c) : (null, null);
         var (_, category) = q["category"].ToString() is { Length: > 0 } cat ? Token(cat) : (null, null);
 
         var all = new List<(string, JsonObject)>();
-        foreach (var session in await sessions.OrderByDescending(s => s.StartedAt).Take(MaxSessionsScanned).ToListAsync(ct))
+        foreach (var session in await sessions.OrderByDescending(s => s.StartedAt).ToListAsync(ct))
         {
             foreach (var (key, resource) in FhirMapper.Observations(session, Summary(session)))
             {
@@ -277,6 +313,8 @@ public static class FhirEndpoints
         var (count, offset) = Paging(q);
         audit.Record(http.User, "fhir.observation.search", PatientId(q)?.ToString());
         await db.SaveChangesAsync(ct);
+
+        // all.Count è il totale vero: la scansione ha coperto tutte le rilevazioni del filtro, non un campione.
         return Fhir(Bundle(http, all.Count, offset, count, all.Skip(offset).Take(count)));
     }
 
@@ -354,7 +392,9 @@ public static class FhirEndpoints
             switch (prefix)
             {
                 case "ge": sessions = sessions.Where(s => s.StartedAt >= date); break;
-                case "gt": sessions = sessions.Where(s => s.StartedAt >= end); break;
+                // Senza ora "maggiore del giorno" è >= inizio del giorno dopo; con l'ora è maggiore dell'istante,
+                // altrimenti gt equivarrebbe a ge.
+                case "gt": sessions = sessions.Where(s => dayOnly ? s.StartedAt >= end : s.StartedAt > date); break;
                 case "le": sessions = sessions.Where(s => s.StartedAt < (dayOnly ? end : date.AddTicks(1))); break;
                 case "lt": sessions = sessions.Where(s => s.StartedAt < date); break;
                 case "eq": sessions = dayOnly ? sessions.Where(s => s.StartedAt >= date && s.StartedAt < end) : sessions.Where(s => s.StartedAt == date); break;

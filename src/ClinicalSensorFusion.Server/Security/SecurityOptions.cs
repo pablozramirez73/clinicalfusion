@@ -39,6 +39,13 @@ public sealed class RateLimitOptions
     /// <summary>Tentativi di login per indirizzo IP, contro chi prova a indovinare le password.</summary>
     public int LoginPerMinute { get; init; } = 5;
 
+    /// <summary>
+    /// Sonde di salute anonime (<c>/health</c>, <c>/health/ready</c>) per indirizzo IP: ogni controllo apre una
+    /// connessione al database e scrive sull'archivio audio, quindi non possono restare senza limite.
+    /// <c>/health/live</c> non esegue controlli e resta esente: è la sonda degli orchestratori.
+    /// </summary>
+    public int HealthPerMinute { get; init; } = 60;
+
     /// <summary>Metadati e lotti di blocchi per dispositivo (una rilevazione di 10 minuti sono ~20 richieste).</summary>
     public int IngestPerMinute { get; init; } = 300;
 

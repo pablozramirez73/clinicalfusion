@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using ClinicalSensorFusion.Core.Domain;
 using ClinicalSensorFusion.Core.Fusion;
+using ClinicalSensorFusion.Core.Persistence;
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
@@ -12,6 +13,7 @@ using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Server.Endpoints;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using Task = System.Threading.Tasks.Task;
 
 namespace ClinicalSensorFusion.Server.Tests;
@@ -40,6 +42,71 @@ public sealed class FhirTests(ServerFixture server) : IClassFixture<ServerFixtur
         Assert.Equal(expected, response.StatusCode);
         Assert.Equal("application/fhir+json", response.Content.Headers.ContentType!.MediaType);
         return Parse<T>(await response.Content.ReadAsStringAsync(Ct));
+    }
+
+    /// <summary>Come <see cref="GetAsync{T}"/>, ma su un client di una fixture propria del test (tetti abbassati).</summary>
+    private static async Task<T> ReadAsync<T>(HttpClient client, string path, HttpStatusCode expected = HttpStatusCode.OK)
+        where T : Resource
+    {
+        var response = await client.GetAsync(path, Ct);
+        Assert.Equal(expected, response.StatusCode);
+        Assert.Equal("application/fhir+json", response.Content.Headers.ContentType!.MediaType);
+        return Parse<T>(await response.Content.ReadAsStringAsync(Ct));
+    }
+
+    /// <summary>Riepilogo senza indicatori: una rilevazione che non produce osservazioni, comoda per i bundle grandi.</summary>
+    private static SessionSummary WithoutIndicators => new() { DurationSeconds = 60, Mode = CaptureMode.BodyLidar };
+
+    /// <summary>Riepilogo con un solo indicatore: esattamente una osservazione per rilevazione.</summary>
+    private static SessionSummary HeartRateOnly => new()
+    {
+        DurationSeconds = 60,
+        Mode = CaptureMode.BodyLidar,
+        Sensors = new() { [SensorKind.HeartRate] = new([new ChannelStats("Frequenza cardiaca", "bpm", 62, 91, 74.4, 62, 80, 58)]) },
+    };
+
+    /// <summary>
+    /// Semina nel database del server un paziente con N rilevazioni. Passare dall'ingestione HTTP significherebbe
+    /// N richieste; il <c>DbContext</c> dello scope del server è la via diretta per provare i tetti.
+    /// </summary>
+    private static async Task<string> SeedPatientWithSessionsAsync(ServerFixture fixture, int sessions, SessionSummary summary)
+    {
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<Data.ClinicalDbContext>();
+        var now = new DateTimeOffset(2026, 10, 12, 9, 30, 0, TimeSpan.Zero);
+        var patient = new Data.Patient
+        {
+            Id = Guid.CreateVersion7(),
+            Code = "PZ-BULK-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
+            IsPlaceholder = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        db.Patients.Add(patient);
+
+        // Il riepilogo si serializza una volta sola: le rilevazioni seminate lo condividono.
+        var json = JsonSerializer.Serialize(summary, CsfJsonContext.Default.SessionSummary);
+        for (var i = 0; i < sessions; i++)
+        {
+            db.Sessions.Add(new Data.SessionEntity
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                PatientId = patient.Id,
+                SubjectCode = patient.Code,
+                OperatorId = "OP1",
+                OperatorName = "Dott.ssa Operatrice",
+                Mode = CaptureMode.BodyLidar,
+                StartedAt = now.AddMinutes(-i),
+                EndedAt = now.AddMinutes(-i).AddMinutes(1),
+                DeviceModel = "iPhone13,3",
+                SummaryJson = json,
+                ReceivedAt = now,
+                UpdatedAt = now,
+            });
+        }
+
+        await db.SaveChangesAsync(Ct);
+        return patient.Id.ToString();
     }
 
     /// <summary>Un paziente con anagrafica completa e una rilevazione con tutti gli indicatori.</summary>
@@ -202,6 +269,75 @@ public sealed class FhirTests(ServerFixture server) : IClassFixture<ServerFixtur
         var second = await GetAsync<Bundle>(new Uri(next).PathAndQuery.TrimStart('/'));
         Assert.Equal(3, second.Entry.Count);
         Assert.Empty(first.Entry.Select(e => e.FullUrl).Intersect(second.Entry.Select(e => e.FullUrl)));
+    }
+
+    [Fact]
+    public async Task Date_gt_with_a_time_excludes_the_exact_instant()
+    {
+        // La rilevazione della fixture è alle 09:30:00Z. Con una data che porta anche l'ora, gt deve escludere
+        // l'istante esatto: prima del fix si comportava come ge e lo includeva.
+        Assert.Equal(7, (await GetAsync<Bundle>($"fhir/Observation?patient={s_patientId}&date=gt2026-10-12T09:29:59Z")).Total);
+        Assert.Equal(0, (await GetAsync<Bundle>($"fhir/Observation?patient={s_patientId}&date=gt2026-10-12T09:30:00Z")).Total);
+        Assert.Equal(7, (await GetAsync<Bundle>($"fhir/Observation?patient={s_patientId}&date=ge2026-10-12T09:30:00Z")).Total);
+    }
+
+    [Fact]
+    public async Task Observation_total_is_exact_across_pages()
+    {
+        // 60 rilevazioni con una osservazione ciascuna: il totale deve essere 60 su entrambe le pagine.
+        await using var fixture = new ServerFixture();
+        var patientId = await SeedPatientWithSessionsAsync(fixture, sessions: 60, HeartRateOnly);
+        var clinician = await fixture.CreateClinicianClientAsync();
+
+        var first = await ReadAsync<Bundle>(clinician, $"fhir/Observation?patient={patientId}&_count=50");
+        Assert.Equal(60, first.Total);
+        Assert.Equal(50, first.Entry.Count);
+
+        var next = Assert.Single(first.Link, l => l.Relation == "next").Url;
+        var second = await ReadAsync<Bundle>(clinician, new Uri(next).PathAndQuery.TrimStart('/'));
+        Assert.Equal(60, second.Total);
+        Assert.Equal(10, second.Entry.Count);
+        Assert.DoesNotContain(second.Link, l => l.Relation == "next");
+    }
+
+    [Fact]
+    public async Task Observation_search_over_the_scan_cap_is_an_explicit_error()
+    {
+        // Code e category vivono nel riepilogo: oltre il tetto il server non può dare un totale veritiero.
+        // Rifiuta, invece di restituire un campione spacciato per l'insieme completo.
+        await using var fixture = new ServerFixture { Settings = { ["Fhir:MaxSessionsScanned"] = "2" } };
+        var patientId = await SeedPatientWithSessionsAsync(fixture, sessions: 3, WithoutIndicators);
+        var clinician = await fixture.CreateClinicianClientAsync();
+
+        var outcome = await ReadAsync<OperationOutcome>(clinician, $"fhir/Observation?patient={patientId}", HttpStatusCode.RequestEntityTooLarge);
+        var issue = Assert.Single(outcome.Issue);
+        Assert.Equal(OperationOutcome.IssueType.TooCostly, issue.Code);
+        Assert.Contains("3 rilevazioni", issue.Diagnostics, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Everything_is_complete_beyond_the_old_scan_cap()
+    {
+        // Prima del fix l'esportazione si fermava a 2000 rilevazioni senza dirlo: 2001 prova che ora è completa.
+        await using var fixture = new ServerFixture();
+        var patientId = await SeedPatientWithSessionsAsync(fixture, sessions: 2_001, WithoutIndicators);
+        var clinician = await fixture.CreateClinicianClientAsync();
+
+        var bundle = await ReadAsync<Bundle>(clinician, $"fhir/Patient/{patientId}/$everything");
+        Assert.Equal(2_002, bundle.Total);   // il paziente più un referto per rilevazione
+        Assert.Equal(2_002, bundle.Entry.Count);
+        Assert.DoesNotContain(bundle.Link, l => l.Relation == "next");
+    }
+
+    [Fact]
+    public async Task Everything_over_the_export_cap_is_an_explicit_error_instead_of_a_truncation()
+    {
+        await using var fixture = new ServerFixture { Settings = { ["Fhir:MaxSessionsPerExport"] = "2" } };
+        var patientId = await SeedPatientWithSessionsAsync(fixture, sessions: 3, WithoutIndicators);
+        var clinician = await fixture.CreateClinicianClientAsync();
+
+        var outcome = await ReadAsync<OperationOutcome>(clinician, $"fhir/Patient/{patientId}/$everything", HttpStatusCode.RequestEntityTooLarge);
+        Assert.Equal(OperationOutcome.IssueType.TooCostly, Assert.Single(outcome.Issue).Code);
     }
 
     [Fact]

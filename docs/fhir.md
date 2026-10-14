@@ -13,11 +13,11 @@ HL7 è una famiglia di standard. Questo server implementa **FHIR R4 in sola lett
 | `GET /fhir/metadata` restituisce un **CapabilityStatement** (obbligatorio per ogni server) | sì, pubblico |
 | Risorse in `application/fhir+json` | sì (solo JSON; `_format=xml` → 406) |
 | Interazione `read`: `GET /fhir/{Tipo}/{id}` | Patient, Observation, DiagnosticReport |
-| Interazione `search-type`: risultato come **Bundle** `searchset` con `total`, `link` e paginazione | sì (`_count`, collegamento `next`) |
+| Interazione `search-type`: risultato come **Bundle** `searchset` con `total`, `link` e paginazione | sì: `total` è esatto (`_count` predefinito 50, massimo 200; la paginazione si segue con `link.next`) |
 | Errori come **OperationOutcome** | sì (400, 404, 405, 406) |
 | Terminologie standard | LOINC per segni vitali e passi, UCUM per le unità |
 | Profili | segni vitali di FHIR (`heartrate`, `oxygensat`, `bodytemp`) |
-| Operazione `Patient/{id}/$everything` | sì: è l'esportazione completa di un paziente |
+| Operazione `Patient/{id}/$everything` | sì: è l'esportazione completa di un paziente, non paginata (vedi §4) |
 | `ETag` e `Last-Modified` in lettura | sì per Patient |
 
 **Non** è implementato, e va saputo prima di collegare un altro sistema:
@@ -75,3 +75,19 @@ Per i segni vitali il valore è la **media** sulla rilevazione; minimo, massimo 
 
 Non vengono esportati: note libere dell'operatore, testo delle analisi del modello linguistico, audio, flussi
 grezzi dei sensori e coordinate GPS.
+
+## 4. Limiti di costo
+
+Le risorse si generano al momento dai dati archiviati, e per una parte dei filtri questo significa leggere il
+riepilogo di ogni rilevazione. Dove il conteggio esatto diventerebbe troppo oneroso il server **rifiuta**, invece
+di restituire un campione presentato come l'insieme completo: mai dati incompleti spacciati per interi.
+
+| Caso | Comportamento |
+|---|---|
+| `Observation?code=…` o `?category=…` su più di `Fhir:MaxSessionsScanned` rilevazioni (predefinito 2000) | `413` con OperationOutcome `too-costly`: restringere con `patient` o con `date` |
+| `Patient/{id}/$everything` su più di `Fhir:MaxSessionsPerExport` rilevazioni (predefinito 5000) | `413` con OperationOutcome `too-costly`: usare la ricerca FHIR per parti |
+
+`code` e `category` non sono colonne ma proprietà del riepilogo, quindi il `total` veritiero impone di leggere
+tutte le rilevazioni che soddisfano il filtro SQL: è il tetto a rendere il costo prevedibile. Le ricerche senza
+quei filtri (`Patient`, `DiagnosticReport`, e `Observation` filtrata solo per `patient`/`date`) restano
+disponibili entro i tetti. Entrambi i valori si alzano dalla configurazione (sezione `Fhir`).

@@ -40,7 +40,7 @@ flowchart LR
 |---|---|
 | Furto della chiave del dispositivo | Solo l'hash SHA-256 è in configurazione; la chiave consente **solo** di inviare dati, non di leggerli, e **solo sulle rilevazioni di quel dispositivo**: metadati, blocchi e audio di una rilevazione creata da un altro dispositivo sono rifiutati (409/404) e il tentativo va nel registro (`ingest.denied`). Revoca = rimuovere la voce. |
 | Blocchi dei sensori malevoli | Ogni blocco è verificato all'arrivo (decodificabile, numero di campioni coerente) e la decompressione ha un tetto di 8 MB per blocco, anche in lettura: una "bomba" Brotli è rifiutata con 400 invece di esaurire la memoria quando si apre la rilevazione. |
-| Abuso / saturazione | Limiti di frequenza su **tutte** le rotte (sezione `RateLimits`): 600 richieste/minuto per IP, 300/minuto per dispositivo in ingestione, 2 caricamenti audio contemporanei per dispositivo; risposta `429` con `Retry-After`. Lotti di blocchi fino a 16 MB; audio fino a `AudioStorage:MaxFileBytes`, applicato durante la scrittura. |
+| Abuso / saturazione | Limiti di frequenza su **tutte** le rotte (sezione `RateLimits`): 600 richieste/minuto per IP, 300/minuto per dispositivo in ingestione, 2 caricamenti audio contemporanei per dispositivo, 60/minuto per le sonde anonime `/health` e `/health/ready` (che aprono il database e scrivono sull'archivio audio); `/health/live` non esegue controlli e resta esente, perché è la sonda degli orchestratori. Risposta `429` con `Retry-After`. Lotti di blocchi fino a 16 MB; audio fino a `AudioStorage:MaxFileBytes`, applicato durante la scrittura. |
 | Credenziali della dashboard | Password PBKDF2 (ASP.NET Core Identity v3); verifica a tempo costante anche per utenti inesistenti; **rate limit** 5 login/minuto per IP. |
 | Accesso alle API senza browser | `POST /api/v1/auth/token` emette un **JWT** (HMAC-SHA256, 30 minuti) con le stesse credenziali, lo stesso limite di tentativi e lo stesso audit del login. Dà gli stessi permessi del cookie, non quelli dei dispositivi. `Jwt:SigningKey` (≥ 32 byte) va impostata fuori dal repository; senza, la chiave è casuale e i token scadono al riavvio. |
 | Furto di sessione / CSRF | Cookie `HttpOnly`, `Secure`, `SameSite=Strict`, scadenza 8 h; SPA sulla stessa origine, nessun token in `localStorage`. |
@@ -114,6 +114,9 @@ ApiDocs__Enabled=false                      # true: espone /swagger e /openapi/v
 Telemetry__OtlpEndpoint=                    Telemetry__LogDirectory=          # vedi docs/telemetria.md
 RateLimits__GlobalPerMinute=600             RateLimits__LoginPerMinute=5
 RateLimits__IngestPerMinute=300             RateLimits__ConcurrentAudioUploads=2
+RateLimits__HealthPerMinute=60              # sonde anonime; /health/live resta esente
+Fhir__MaxSessionsScanned=2000               # oltre: 413 too-costly (vedi docs/fhir.md §4)
+Fhir__MaxSessionsPerExport=5000             # oltre: 413 too-costly su $everything
 ```
 
 Nell'app iOS: Impostazioni → *Server clinico* → indirizzo HTTPS e chiave del dispositivo.
@@ -138,11 +141,11 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
 | `GET` | `/api/v1/audit?actor=&action=&entityId=&from=&to=&page=&pageSize=` | clinico |
 | `GET` | `/api/v1/system/health` · `/system/metrics` | clinico |
 | `GET` | `/fhir/metadata` · `/fhir/Patient` · `/fhir/Observation` · `/fhir/DiagnosticReport` · `/fhir/Patient/{id}/$everything` | — (metadata) / clinico: HL7 FHIR R4, vedi [fhir.md](fhir.md) |
-| `GET` | `/health` · `/health/ready` · `/health/live` | — |
+| `GET` | `/health` · `/health/ready` · `/health/live` | — (anonime: le prime due con limite dedicato per IP, `/health/live` esente) |
 
 ## 7. Verifiche
 
-- **Server: 55 test di integrazione** su PostgreSQL reale. Coprono:
+- **Server: 61 test di integrazione** su PostgreSQL reale. Coprono:
   - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
   - interfaccia HL7 FHIR R4, con ogni risposta riletta dal modello R4 di riferimento;
   - stato del servizio, metriche, token JWT (anche contraffatti) e documentazione Swagger;
