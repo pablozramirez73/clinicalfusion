@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Impostazioni comuni a tutta la soluzione.
+    CsfNetTfm è il TFM "base": net11.0 per il prodotto. Si può forzare da riga di comando
+    (es. -p:CsfNetTfm=net10.0) per compilare/testare il Core su macchine senza SDK .NET 11,
+    ad esempio in CI Linux. I progetti iOS usano sempre net11.0-ios.
+  -->
+  <PropertyGroup>
+    <CsfNetTfm Condition="'$(CsfNetTfm)' == ''">net11.0</CsfNetTfm>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Company>Clinical Sensor Fusion</Company>
+    <Product>Clinical Sensor Fusion</Product>
+    <NeutralLanguage>it-IT</NeutralLanguage>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

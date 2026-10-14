@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="ClinicalSensorFusion.App.App">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+        <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <toolkit:IsNotNullConverter x:Key="IsNotNull" />
+      <toolkit:IsStringNotNullOrEmptyConverter x:Key="IsNotNullOrEmpty" />
+      <toolkit:InvertedBoolConverter x:Key="InvertedBool" />
+      <toolkit:BoolToObjectConverter x:Key="StatusColor" x:TypeArguments="Color" TrueObject="#059669" FalseObject="#94A3B8" />
+      <toolkit:BoolToObjectConverter x:Key="WarningColor" x:TypeArguments="Color" TrueObject="#D97706" FalseObject="Transparent" />
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

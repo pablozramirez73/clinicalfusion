@@ -1,0 +1,52 @@
+<Project>
+  <!-- Versioni centralizzate (Central Package Management). Allineate a .NET 11 RC1 / MAUI 11 RC1. -->
+  <PropertyGroup>
+    <MauiVersion>11.0.0-rc.1.26451.6</MauiVersion>
+    <DotNetExtensionsVersion>11.0.0-rc.1.26425.128</DotNetExtensionsVersion>
+    <AspNetCoreVersion>11.0.0-rc.1.26425.128</AspNetCoreVersion>
+    <EfCoreVersion>11.0.0-rc.1.26425.128</EfCoreVersion>
+    <NpgsqlEfVersion>11.0.0-rc.1.1</NpgsqlEfVersion>
+  </PropertyGroup>
+  <!--
+    Ripiego per ambienti con solo l'SDK .NET 10 (-p:CsfNetTfm=net10.0): i pacchetti ASP.NET Core / EF Core 11
+    richiedono net11.0. Serve solo a compilare e testare; il prodotto è net11.0.
+  -->
+  <PropertyGroup Condition="'$(CsfNetTfm)' == 'net10.0'">
+    <AspNetCoreVersion>10.0.12</AspNetCoreVersion>
+    <EfCoreVersion>10.0.12</EfCoreVersion>
+    <NpgsqlEfVersion>10.0.3</NpgsqlEfVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CommunityToolkit.Maui" Version="15.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="$(DotNetExtensionsVersion)" />
+    <!-- SQLite cifrato: Microsoft.Data.Sqlite.Core (senza provider) + SQLite3 Multiple Ciphers in modalità SQLCipher v4. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="$(DotNetExtensionsVersion)" />
+    <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.4.0" />
+    <!-- Android: CameraX. Le dipendenze Java di MediaPipe hanno la versione in ClinicalSensorFusion.MediaPipe.Android. -->
+    <PackageVersion Include="Xamarin.AndroidX.Camera.Camera2" Version="1.6.1.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Camera.Lifecycle" Version="1.6.1.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Camera.View" Version="1.6.1.1" />
+    <!-- Server -->
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.14" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetCoreVersion)" />
+    <!-- Telemetria: esportazione OTLP di metriche, tracce e log (attiva solo se configurata). -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <!-- Test -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <!-- Solo nei test: modello FHIR R4 di riferimento (Firely) per verificare che le risorse prodotte siano valide. -->
+    <PackageVersion Include="Hl7.Fhir.R4" Version="6.6.0" />
+  </ItemGroup>
+</Project>

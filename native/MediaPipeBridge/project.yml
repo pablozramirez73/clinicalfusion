@@ -1,0 +1,25 @@
+# Progetto Xcode generato con XcodeGen (brew install xcodegen): il .xcodeproj non è versionato.
+name: MediaPipeBridge
+options:
+  bundleIdPrefix: com.lucaguelfi.clinicalsensorfusion
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  MediaPipeBridge:
+    type: framework
+    platform: iOS
+    sources: [Sources]
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lucaguelfi.clinicalsensorfusion.mediapipebridge
+        MACH_O_TYPE: mh_dylib
+        DEFINES_MODULE: YES
+        SWIFT_VERSION: "5.10"
+        SWIFT_INSTALL_OBJC_HEADER: YES
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: NO
+        # Il binding .NET consuma l'header Objective-C, non l'interfaccia Swift: niente library evolution.
+        BUILD_LIBRARY_FOR_DISTRIBUTION: NO
+        ENABLE_BITCODE: NO
+        TARGETED_DEVICE_FAMILY: "1"

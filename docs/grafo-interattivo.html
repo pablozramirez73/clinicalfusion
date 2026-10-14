@@ -1,0 +1,1242 @@
+<title>Grafo di clinicalfusion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Piano: strumento, non editoriale. Neutrali di grafite fredda con sei tinte di livello
+   che codificano app / nucleo / server / dashboard / test / mediapipe. Tipi: Archivo per
+   i titoli, IBM Plex Sans per il testo, IBM Plex Mono per nomi di modulo, tipi e numeri.
+   Layout: pannello strumento a tutta altezza, grafo forzato dominante, rail di controllo
+   in alto, ispettore laterale che diventa pannello sotto il grafo a larghezza telefono. */
+:root{
+  --bg:#f4f6f7; --panel:#ffffff; --panel-2:#eef2f4; --ink:#101720; --muted:#5c6a78;
+  --line:#dce2e7; --line-strong:#c3ccd4;
+  --l-core:#0f766e; --l-app:#b45309; --l-server:#4f46e5; --l-web:#be123c; --l-test:#15803d; --l-mp:#5c6b7a;
+  --focus:#0f766e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1216; --panel:#151b22; --panel-2:#1b222a; --ink:#e6ecf1; --muted:#93a1af;
+  --line:#242c35; --line-strong:#39434e;
+  --l-core:#2dd4bf; --l-app:#fbbf24; --l-server:#a5b4fc; --l-web:#fb7185; --l-test:#86efac; --l-mp:#9aa8b6;
+  --focus:#2dd4bf;
+  color-scheme: dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e1216; --panel:#151b22; --panel-2:#1b222a; --ink:#e6ecf1; --muted:#93a1af;
+  --line:#242c35; --line-strong:#39434e;
+  --l-core:#2dd4bf; --l-app:#fbbf24; --l-server:#a5b4fc; --l-web:#fb7185; --l-test:#86efac; --l-mp:#9aa8b6;
+  --focus:#2dd4bf;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.5; padding-inline:16px; padding-block:0 40px;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif; text-wrap:balance; margin:0; letter-spacing:-.01em}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.wrap{max-width:1280px; margin-inline:auto; min-width:0}
+
+/* ---- testata ---- */
+header.masthead{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--bg);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+  padding-block:14px 12px; margin-inline:-16px; padding-inline:16px;
+}
+@supports (background:color-mix(in srgb, red 50%, transparent)){
+  header.masthead{background:color-mix(in srgb, var(--bg) 88%, transparent)}
+}
+.masthead .row{max-width:1280px; margin-inline:auto; display:flex; flex-wrap:wrap; gap:8px 20px; align-items:baseline}
+h1{font-size:20px; font-weight:700; letter-spacing:-.02em}
+h1 span{font-family:"IBM Plex Mono",monospace; font-weight:500; color:var(--muted); font-size:14px; letter-spacing:0}
+.tagline{color:var(--muted); font-size:13.5px; max-width:56ch}
+.stats{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.stat{display:flex; gap:6px; align-items:baseline; border:1px solid var(--line); border-radius:3px; padding:3px 8px; background:var(--panel)}
+.stat b{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px; font-variant-numeric:tabular-nums}
+.stat i{font-style:normal; font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+
+/* ---- catena di acquisizione ---- */
+.chain{display:flex; flex-wrap:wrap; align-items:center; gap:4px 0; margin-top:14px; font-size:12px; color:var(--muted)}
+.chain .step{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:3px 8px}
+.chain .arw{color:var(--line-strong); padding-inline:6px; font-size:13px}
+.chain .step.hl{border-color:var(--l-core); color:var(--l-core)}
+
+/* ---- barra strumenti ---- */
+.toolbar{display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding-block:14px 10px}
+.legend{display:flex; flex-wrap:wrap; gap:6px}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; cursor:pointer; user-select:none;
+  font:inherit; font-size:12.5px; color:var(--ink); background:var(--panel);
+  border:1px solid var(--line); border-radius:3px; padding:5px 9px; transition:border-color .12s, opacity .12s;
+}
+.chip:hover{border-color:var(--line-strong)}
+.chip .dot{width:9px; height:9px; border-radius:50%; background:currentColor; flex:none}
+.chip .ct{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums}
+.chip[aria-pressed="false"]{opacity:.42; background:transparent}
+.chip:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.spacer{flex:1 1 20px; min-width:0}
+.search{position:relative; flex:1 1 210px; max-width:300px; min-width:0}
+.search input{
+  width:100%; font:inherit; font-size:13px; color:var(--ink); background:var(--panel);
+  border:1px solid var(--line); border-radius:3px; padding:6px 9px;
+}
+.search input::placeholder{color:var(--muted)}
+.hits{font-size:12px; color:var(--muted); font-family:"IBM Plex Mono",monospace; min-height:1em}
+.thr{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); white-space:nowrap}
+.thr input[type=range]{width:104px; accent-color:var(--l-core)}
+.thr output{font-family:"IBM Plex Mono",monospace; color:var(--ink); font-variant-numeric:tabular-nums; min-width:2ch}
+button.ghost{
+  font:inherit; font-size:12.5px; color:var(--ink); background:transparent; cursor:pointer;
+  border:1px solid var(--line); border-radius:3px; padding:5px 10px;
+}
+button.ghost:hover{border-color:var(--line-strong); background:var(--panel)}
+
+/* ---- palco ---- */
+.stage{display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; align-items:start}
+figure.graph{
+  margin:0; position:relative; background:var(--panel); border:1px solid var(--line); border-radius:4px;
+  overflow:hidden; min-width:0;
+}
+#cv{display:block; width:100%; height:min(60vh,540px); min-height:360px; touch-action:none; cursor:grab}
+#cv.dragging{cursor:grabbing}
+figcaption.cap{
+  display:flex; align-items:center; justify-content:space-between; gap:8px 12px; flex-wrap:wrap;
+  padding:6px 10px; border-top:1px solid var(--line); background:var(--panel);
+}
+.hint{font-size:11.5px; color:var(--muted); font-family:"IBM Plex Mono",monospace; min-width:0}
+.zoom{display:flex; gap:4px}
+.views{display:flex; gap:0}
+.views button{
+  font:inherit; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted); cursor:pointer;
+  background:var(--panel); border:1px solid var(--line); padding:4px 11px;
+}
+.views button:first-child{border-radius:3px 0 0 3px}
+.views button:last-child{border-radius:0 3px 3px 0; border-left:0}
+.views button[aria-pressed="true"]{background:var(--ink); color:var(--panel); border-color:var(--ink)}
+.views button:hover{border-color:var(--line-strong)}
+#gl{height:min(60vh,540px); min-height:360px; position:relative; background:var(--panel)}
+#gl canvas{display:block; width:100% !important; height:100% !important}
+.zoom button{
+  font:inherit; font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1; width:26px; height:26px;
+  color:var(--ink); background:var(--panel-2); border:1px solid var(--line); border-radius:3px; cursor:pointer;
+}
+.zoom button:hover{border-color:var(--line-strong)}
+
+/* ---- ispettore ---- */
+aside.inspector{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:14px; min-width:0}
+.insp-empty{color:var(--muted); font-size:13px}
+.insp h2{font-size:16px; font-weight:600; word-break:break-word}
+.insp .modname{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600; letter-spacing:-.01em; word-break:break-word}
+.layertag{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+.layertag .dot{width:8px; height:8px; border-radius:50%; background:currentColor}
+.desc{font-size:13px; color:var(--muted); margin-top:6px}
+.kv{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-block:12px; padding-block:10px; border-block:1px solid var(--line)}
+.kv div{min-width:0}
+.kv b{display:block; font-family:"IBM Plex Mono",monospace; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums}
+.kv i{font-style:normal; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted)}
+.insp h3{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; margin-block:14px 7px; font-family:"IBM Plex Sans",sans-serif}
+ul.links{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
+ul.links button{
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left; cursor:pointer;
+  font:inherit; font-size:12.5px; color:var(--ink); background:transparent; border:0; border-radius:3px; padding:3px 6px;
+}
+ul.links button:hover{background:var(--panel-2)}
+ul.links .nm{font-family:"IBM Plex Mono",monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
+ul.links .dot{width:8px; height:8px; border-radius:50%; flex:none}
+ul.links .w{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+ul.types{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px}
+ul.types li{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; border:1px solid var(--line);
+  border-radius:3px; padding:2px 6px; color:var(--ink); max-width:100%; overflow-wrap:anywhere;
+}
+ul.types li.k-i,ul.types li.k-t{color:var(--muted)}
+ul.types li.k-r,ul.types li.k-e{border-style:dashed}
+
+/* ---- sezioni ---- */
+section{margin-top:26px}
+section h2{font-size:15px; font-weight:600; letter-spacing:-.01em}
+section p.lead{color:var(--muted); font-size:13px; margin:6px 0 0; max-width:70ch}
+.scroller{overflow-x:auto; margin-top:12px; border:1px solid var(--line); border-radius:4px; background:var(--panel)}
+table{border-collapse:collapse; width:100%; min-width:620px; font-size:13px}
+th,td{text-align:left; padding:7px 12px; border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{
+  font-family:"IBM Plex Sans",sans-serif; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--muted); font-weight:600; background:var(--panel-2); position:sticky; top:0;
+}
+td.nm{font-family:"IBM Plex Mono",monospace; white-space:nowrap}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; text-align:right; color:var(--muted)}
+td.bar{width:34%}
+.bar-track{height:7px; background:var(--panel-2); border-radius:2px; overflow:hidden; min-width:60px}
+.bar-fill{height:100%; border-radius:2px}
+tbody tr:hover{background:var(--panel-2)}
+svg.proj{display:block; width:100%; height:auto; max-width:760px; margin-top:12px}
+svg.proj .ln{fill:none; stroke:var(--line-strong); stroke-width:1.4}
+svg.proj .dash{stroke-dasharray:4 3}
+svg.proj .bx{fill:var(--panel-2); stroke-width:1.4}
+svg.proj .bx.ghost{fill:none; stroke-width:1.2; stroke-dasharray:4 3}
+svg.proj text{font-family:"IBM Plex Mono",monospace; font-size:12px; text-anchor:middle}
+svg.proj .http{font-size:10.5px}
+svg.proj .s-core{stroke:var(--l-core)} svg.proj .s-app{stroke:var(--l-app)} svg.proj .s-server{stroke:var(--l-server)}
+svg.proj .s-web{stroke:var(--l-web)} svg.proj .s-mp{stroke:var(--l-mp)} svg.proj .s-test{stroke:var(--l-test)}
+svg.proj .f-core{fill:var(--l-core)} svg.proj .f-app{fill:var(--l-app)} svg.proj .f-server{fill:var(--l-server)}
+svg.proj .f-web{fill:var(--l-web)} svg.proj .f-mp{fill:var(--l-mp)} svg.proj .f-test{fill:var(--l-test)}
+svg.proj .f-muted{fill:var(--muted)}
+marker#ar path{fill:var(--line-strong)}
+.proj-note{font-size:12.5px; color:var(--muted); margin-top:8px}
+.method{color:var(--muted); font-size:13px; max-width:72ch}
+.method code{font-size:12px; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:1px 4px}
+footer{margin-top:32px; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px}
+
+@media (max-width:900px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  #cv{height:56vh; min-height:340px}
+  header.masthead{position:static}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="row">
+    <h1>clinicalfusion <span>· grafo del codice</span></h1>
+    <p class="tagline">Ricostruzione di un'app iOS/Android di fusione sensoriale clinica: app .NET MAUI, nucleo condiviso, server ASP.NET Core e dashboard 3D. Ogni sfera è un namespace — o un motore nativo — e la dimensione è il codice che contiene.</p>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="chain" aria-label="catena di acquisizione">
+    <span class="step">MediaPipe + sensori</span><span class="arw">→</span>
+    <span class="step">fusione pose–profondità</span><span class="arw">→</span>
+    <span class="step">indicatori</span><span class="arw">→</span>
+    <span class="step">archivio cifrato</span><span class="arw">→</span>
+    <span class="step">sincronizzazione</span><span class="arw">→</span>
+    <span class="step">PostgreSQL</span><span class="arw">→</span>
+    <span class="step hl">dashboard 3D</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="legend" id="legend" role="group" aria-label="filtra per livello"></div>
+  <div class="search">
+    <input id="q" type="search" placeholder="cerca modulo o tipo…" aria-label="cerca modulo o tipo" autocomplete="off">
+  </div>
+  <div class="thr">
+    <label for="thr">peso</label>
+    <input id="thr" type="range" min="1" max="12" value="2" step="1">
+    <output id="thrv" for="thr">2</output>
+  </div>
+  <button class="ghost" id="reset" type="button">ricentra</button>
+  <div class="spacer"></div>
+  <div class="hits" id="hits" role="status" aria-live="polite"></div>
+</div>
+
+<main class="stage">
+  <figure class="graph">
+    <canvas id="cv" tabindex="0" role="img" aria-label="Grafo delle dipendenze tra i namespace del progetto"></canvas>
+    <div id="gl" hidden></div>
+    <figcaption class="cap">
+      <span class="hint" id="hint">trascina per ruotare · rotella per avvicinarti · clicca un nodo</span>
+      <span class="views" role="group" aria-label="tipo di vista">
+        <button type="button" id="v3d" aria-pressed="true">3D</button>
+        <button type="button" id="v2d" aria-pressed="false">2D</button>
+      </span>
+      <span class="zoom">
+        <button type="button" id="zin" aria-label="ingrandisci">+</button>
+        <button type="button" id="zout" aria-label="riduci">−</button>
+      </span>
+    </figcaption>
+  </figure>
+
+  <aside class="inspector" id="insp" aria-live="polite">
+    <div class="insp-empty" id="inspEmpty">
+      <p style="margin:0 0 4px">Seleziona un modulo per vedere da cosa dipende e chi lo usa.</p>
+    </div>
+  </aside>
+</main>
+
+<section>
+  <h2>Accoppiamento più forte</h2>
+  <p class="lead">Le coppie di namespace legate dal maggior numero di riferimenti incrociati. Un peso alto tra due moduli significa che cambiarne uno tocca quasi sempre l'altro.</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>modulo</th><th>modulo</th><th class="num" style="text-align:left">riferimenti</th><th></th></tr></thead>
+      <tbody id="coupling"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Riferimenti tra progetti</h2>
+  <p class="lead">Rapporti dichiarati nei file <code>.csproj</code>. La dashboard non compare come riferimento di progetto: parla al server solo via HTTP.</p>
+  <svg class="proj" viewBox="0 0 760 330" role="img" aria-label="Grafo dei riferimenti tra i progetti della soluzione">
+    <defs>
+      <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L8,4 L0,8 z"/>
+      </marker>
+    </defs>
+    <g marker-end="url(#ar)">
+      <line class="ln" x1="290" y1="212" x2="196" y2="186"/>
+      <line class="ln" x1="330" y1="175" x2="330" y2="93"/>
+      <line class="ln" x1="392" y1="175" x2="392" y2="153"/>
+      <line class="ln" x1="290" y1="268" x2="196" y2="198"/>
+      <line class="ln" x1="640" y1="250" x2="640" y2="198"/>
+      <line class="ln" x1="560" y1="277" x2="486" y2="277"/>
+      <line class="ln dash" x1="115" y1="104" x2="115" y2="146"/>
+    </g>
+    <g>
+      <rect class="bx s-core" x="40" y="150" width="156" height="54" rx="3"/>
+      <text class="f-core" x="118" y="182">Core</text>
+      <rect class="bx ghost s-test" x="40" y="60" width="156" height="44" rx="3"/>
+      <text class="f-test" x="118" y="87">Core.Tests</text>
+      <rect class="bx s-mp" x="290" y="45" width="196" height="44" rx="3"/>
+      <text class="f-mp" x="388" y="72">MediaPipe · iOS</text>
+      <rect class="bx s-mp" x="290" y="105" width="196" height="44" rx="3"/>
+      <text class="f-mp" x="388" y="132">MediaPipe · Android</text>
+      <rect class="bx s-app" x="290" y="175" width="196" height="54" rx="3"/>
+      <text class="f-app" x="388" y="207">App MAUI</text>
+      <rect class="bx s-server" x="290" y="250" width="196" height="54" rx="3"/>
+      <text class="f-server" x="388" y="282">Server</text>
+      <rect class="bx ghost s-test" x="560" y="150" width="160" height="44" rx="3"/>
+      <text class="f-test" x="640" y="177">Server.Tests</text>
+      <rect class="bx s-web" x="560" y="250" width="160" height="54" rx="3"/>
+      <text class="f-web" x="640" y="282">Dashboard</text>
+      <text class="http f-muted" x="523" y="271">HTTP</text>
+    </g>
+  </svg>
+  <p class="proj-note">Le due estensioni MediaPipe si escludono a vicenda: la prima vale solo per il target iOS, la seconda solo per Android.</p>
+</section>
+
+<section>
+  <h2>Come leggere i numeri</h2>
+  <div class="method">
+    <p>Il grafo è costruito sul sorgente, non su una configurazione. Per il C# il modulo è il namespace e il tipo è la classe, la struttura o l'interfaccia; per Swift e Java, che non hanno namespace, il modulo è il motore nativo e il tipo è la sua dichiarazione. In ogni caso si cercano i nomi dei tipi dichiarati altrove. Il peso di un arco è quanti tipi di un modulo sono citati nell'altro, quindi misura l'accoppiamento testuale, non le chiamate a runtime. Un tipo citato solo in un commento o in un nome di variabile conta come un riferimento, e una dipendenza passata per riflessione o per iniezione configurata in <code>MauiProgram.cs</code> non compare come arco: la mappa è una buona approssimazione, non una verità del compilatore.</p>
+    <p>L'area di un cerchio è proporzionale alle righe del modulo, contate includendo righe vuote e commenti. I moduli di test non compaiono come sorgente di archi in uscita perché il conteggio delle uscite misura solo ciò che un modulo cita: le due suite sono comunque collegate alle rispettive controparti, ed è lì che si vede quanto il nucleo è coperto.</p>
+    <p>Le due viste mostrano la stessa disposizione: la fisica lavora in tre dimensioni e la vista 2D è la sua proiezione dall'alto, quindi due moduli che in 3D stanno uno davanti all'altro in 2D finiscono vicini. La distanza tra i nodi non significa niente di preciso, è il risultato di repulsione e molle, mentre la vicinanza tra due moduli che si scambiano molti riferimenti è reale. Ogni livello ha un'ancora verso cui i suoi moduli vengono tirati, ed è per questo che i gruppi si riconoscono a colpo d'occhio.</p>
+    <p>I nomi dei moduli vengono disegnati solo dove trovano spazio senza coprire un nodo o un'altra etichetta: su uno schermo stretto ne restano visibili pochi, e in 3D cambiano mentre si ruota. Passando sopra un nodo il suo nome compare sempre e l'ispettore lo mostra per esteso; con il cursore su un nodo si accendono le sue relazioni, e la legenda in alto accende e spegne i livelli.</p>
+  </div>
+</section>
+
+<footer>
+  <span id="stamp"></span> · pagina generata dal sorgente del repository.
+</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+const DATA = {"kinds":{"CSFVisionErrorCode":"e","TelemetryTests":"c","JointAngleCalculatorTests":"c","OrientationMapperTests":"c","DepthFusionTests":"c","SummaryReportTests":"c","PoseUprightTests":"c","BluetoothTests":"c","ClinicalTestTests":"c","SyncTests":"c","StubHandler":"c","FixedKeyProvider":"c","PersistenceTests":"c","MigrationTests":"c","SensorChunkCodecTests":"c","FftTests":"c","TremorAnalyzerTests":"c","AudioFeatureAccumulatorTests":"c","TremorAxisTests":"c","TremorSignificanceTests":"c","CafFileTests":"c","NonClosing":"c","FaceBlendshapeLayoutTests":"c","ReliabilityTests":"c","OllamaEndpointTests":"c","OllamaClientTests":"c","StallingStream":"c","ClinicalPromptBuilderTests":"c","SyncEndToEndTests":"c","KeyProvider":"c","DemoSeedTests":"c","ObservabilityTests":"c","SecurityTests":"c","PatientTests":"c","CafToWavTests":"c","FhirTests":"c","ServerFixture":"c","IngestHardeningTests":"c","AuditTests":"c","RateLimitTests":"c","Program":"c","SyntheticMotion":"c","DemoDataSeeder":"c","DemoPatient":"r","SessionListItem":"r","AudioItem":"r","AnalysisItem":"r","SessionDetail":"r","TrendPoint":"r","SessionEndpoints":"c","ApiDocs":"c","PagedResult":"r","PatientListItem":"r","PatientDetail":"r","PatientInput":"r","PatientEndpoints":"c","IngestEndpoints":"c","WeeklyActivity":"r","TremorPoint":"r","JointAverage":"r","Overview":"r","DashboardEndpoints":"c","LoginRequest":"r","CurrentUser":"r","TokenResponse":"r","AuthEndpoints":"c","HealthCheckItem":"r","SystemHealth":"r","SystemMetrics":"r","SystemEndpoints":"c","AuditItem":"r","AuditEndpoints":"c","FhirEndpoints":"c","IngestOptions":"c","DeviceKey":"c","DashboardOptions":"c","DashboardUser":"c","RateLimitOptions":"c","Roles":"c","Policies":"c","DashboardUserService":"c","JwtOptions":"c","AccessToken":"r","JwtTokenService":"c","ApiKeyAuthenticationHandler":"c","TelemetryOptions":"c","ServerTelemetry":"c","Sex":"e","Patient":"c","SessionEntity":"c","SensorChunkEntity":"c","AudioRecordingEntity":"c","AiAnalysisEntity":"c","AuditEntry":"c","DesignTimeDbContextFactory":"c","ClinicalDbContext":"c","_20261013052953_IngestOwnershipAndAuditContext":"c","InitialCreate":"c","ClinicalDbContextModelSnapshot":"c","FhirMapper":"c","PoseFrame":"r","PoseReplay":"r","Spectrogram":"r","StreamSeries":"r","SessionAnalytics":"c","AudioStorageHealthCheck":"c","AudioStorageOptions":"c","AudioStorage":"c","CafToWav":"c","CafInfo":"r","AuditService":"c","IngestService":"c","struct":"r","ImageOrientation":"e","OrientationMapper":"c","PoseLandmark":"c","HandLandmark":"c","JointAngleCalculator":"c","FaceBlendshapeLayout":"c","FusedPose":"r","PoseSource":"e","PoseDepthFusion":"c","PoseUpright":"c","DepthMap":"c","Joint":"e","JointRange":"r","SettingsKeys":"c","SettingsDefaults":"c","IAppSettings":"i","ISensorSource":"i","ISensorSink":"i","SensorKind":"e","SensorClock":"c","SensorChunk":"r","SensorChunkCodec":"c","ChannelStats":"r","SensorStreamSummary":"r","SensorStreamStats":"c","Channel":"c","ISensorChunkStore":"i","SessionRecorder":"c","ChunkBuffer":"c","LiveMetrics":"r","SessionMetricsAggregator":"c","OllamaClient":"c","OllamaException":"c","ClinicalPromptBuilder":"c","OllamaEndpoint":"c","OllamaTagsResponse":"r","OllamaModelInfo":"r","OllamaMessage":"r","OllamaChatRequest":"r","OllamaOptions":"r","OllamaChatChunk":"r","OllamaJsonContext":"c","BleSensorType":"e","BleDevice":"r","BleSensors":"c","ClinicalDatabase":"c","DatabaseKeyMismatchException":"c","IDatabaseKeyProvider":"i","ClinicalRepository":"c","CsfJsonContext":"c","Migrations":"c","LogRedaction":"c","MetricPoint":"r","MetricsCollector":"c","Aggregate":"c","TelemetryOperation":"c","RollingFileLoggerOptions":"c","RollingFileLoggerProvider":"c","FileLogger":"c","CsfTelemetry":"c","Outcomes":"c","App":"c","Capture":"c","Sync":"c","Ai":"c","Server":"c","ChunkStats":"r","PayloadReport":"r","SessionUpload":"r","AudioUpload":"r","AnalysisUpload":"r","ChunkUpload":"r","ChunkBatch":"r","ChunkBatchResult":"r","SyncJsonContext":"c","ClinicalSyncClient":"c","SyncException":"c","SyncReport":"r","SessionSynchronizer":"c","SessionSummary":"r","GaitSummary":"r","CaptureMode":"e","SummaryRow":"r","SummaryReport":"c","ClinicalSession":"c","TestResultKind":"e","ClinicalTest":"r","TestCompletionKind":"e","TestCompletion":"r","TestCompletionTracker":"c","TestCue":"r","TestOutcome":"r","ClinicalTests":"c","AiAnalysis":"c","ReliabilityLevel":"e","ReliabilityReport":"r","MeasurementReliability":"c","AudioRecording":"c","CafWriter":"c","CafReader":"c","AudioFeatures":"r","AudioFeatureAccumulator":"c","FingerTapSeries":"r","FingerTapMetrics":"r","FingerTapAnalyzer":"c","Fft":"c","TremorResult":"r","TremorAnalyzer":"c","RunningStats":"s","Loc":"c","Props":"i","TremorGalaxy3D":"t","LabelLayerContext":"t","Label":"t","SPECTROGRAM_DB_RANGE":"t","Spectrogram3D":"t","Bar":"t","Bars3DProps":"i","Bars3D":"t","GrowingBarProps":"i","SkeletonReplay3D":"t","StageProps":"i","Stage":"t","turbo":"t","turboColor":"t","palette":"t","modeColor":"t","normalize":"t","fmtDateTime":"t","fmtDate":"t","fmtShortDate":"t","fmtDuration":"t","age":"t","fullName":"t","Layout":"t","Loading":"t","ErrorBox":"t","Kpi":"t","Panel":"t","Legend":"t","modeLabel":"t","jointLabel":"t","allJoints":"t","HealthStatus":"t","ApiError":"t","setUnauthorizedHandler":"t","post":"t","put":"t","del":"t","keys":"t","useMe":"t","useLogin":"t","useLogout":"t","useOverview":"t","usePatients":"t","usePatient":"t","usePatientSessions":"t","useTrends":"t","useSavePatient":"t","useDeletePatient":"t","useSession":"t","usePose":"t","useSpectrogram":"t","useSystemHealth":"t","useSystemMetrics":"t","LoginPage":"t","PatientsPage":"t","OverviewPage":"t","RouteStats":"t","parseTags":"t","routeStats":"t","counterTotal":"t","fmtUptime":"t","fmtBytes":"t","SessionPage":"t","SystemPage":"t","PatientPage":"t","MauiProgram":"c","AppShell":"c","CaptureModeOption":"c","TestOption":"r","MetricTile":"c","CaptureViewModel":"c","SettingsExtensions":"c","SummaryGroup":"r","SyncState":"e","SessionDetailViewModel":"c","SettingsViewModel":"c","RemoteAccessViewModel":"c","SessionsViewModel":"c","BluetoothSensorItem":"c","BluetoothSensorsViewModel":"c","AppDelegate":"c","SceneDelegate":"c","MotionSensorSource":"c","LocationSensorSource":"c","AudioCaptureSource":"c","PedometerSensorSource":"c","BarometerSensorSource":"c","SystemSensorSource":"c","IosLockScreen":"c","BiometricAuthenticator":"c","KeychainKeyProvider":"c","ArFrameReader":"c","ArCaptureController":"c","ArFrameJob":"c","PreviewFrame":"c","VisionPipeline":"c","IosBluetoothSensors":"c","CentralDelegate":"c","PeripheralDelegate":"c","CapturePreviewHandler":"c","ArPreviewRenderer":"c","Uniforms":"s","VOut":"s","IosAudioPlayback":"c","IosCaptureEngine":"c","IosWebSessionBridge":"c","MainApplication":"c","MainActivity":"c","LightSensorSource":"c","AndroidSensorSource":"c","AndroidDeviceAuthenticator":"c","Callback":"c","KeystoreKeyProvider":"c","AndroidLockScreen":"c","CameraController":"c","ViewMapping":"s","AndroidCaptureEngine":"c","ActivityRecognitionPermission":"c","AndroidWebSessionBridge":"c","AndroidAudioPlayback":"c","LandmarkOverlayDrawable":"c","FormField":"c","CapturePreview":"c","ModeBadge":"c","RemoteAccessPage":"c","SettingsPage":"c","SessionDetailPage":"c","CapturePage":"c","BluetoothSensorsPage":"c","SessionsPage":"c","BuildProvisioning":"c","SyncService":"c","DeviceApiKeyHandler":"c","ICaptureEngine":"i","SensorStatus":"r","OverlayFrame":"r","OverlayPointKind":"e","IDeviceAuthenticator":"i","ILockScreen":"i","AppLockController":"c","AppDiagnostics":"c","MauiAppSettings":"c","LocalNetwork":"c","LocalCleartextHandler":"c","CloudflareAccessHandler":"c","IWebSessionBridge":"i","IDialogService":"i","ShellDialogService":"c","CaptureCoordinator":"c","AppPaths":"c","ISpeechGuide":"i","TextToSpeechGuide":"c","IBluetoothSensors":"i","NullBluetoothSensors":"c","RememberedBleDevices":"c","BluetoothSensorSource":"c","IAudioPlayback":"i","TrExtension":"c"},"nodes":[{"id":"test/Core.Tests","m":"Core.Tests","l":"test","d":"test del nucleo","f":10,"loc":1784,"o":0,"i":85,"t":["AudioFeatureAccumulatorTests","BluetoothTests","CafFileTests","ClinicalPromptBuilderTests","ClinicalTestTests","DepthFusionTests","FaceBlendshapeLayoutTests","FftTests","FixedKeyProvider","JointAngleCalculatorTests","MigrationTests","NonClosing","OllamaClientTests","OllamaEndpointTests","OrientationMapperTests","PersistenceTests","PoseUprightTests","ReliabilityTests","SensorChunkCodecTests","StallingStream","StubHandler","SummaryReportTests","SyncTests","TelemetryTests","TremorAnalyzerTests","TremorAxisTests","TremorSignificanceTests"]},{"id":"server/Data","m":"Data","l":"server","d":"DbContext, entità, migrazioni","f":8,"loc":1737,"o":25,"i":2,"t":["AiAnalysisEntity","AudioRecordingEntity","AuditEntry","ClinicalDbContext","ClinicalDbContextModelSnapshot","DesignTimeDbContextFactory","InitialCreate","Patient","SensorChunkEntity","SessionEntity","Sex","_20261013052953_IngestOwnershipAndAuditContext"]},{"id":"app/ViewModels","m":"ViewModels","l":"app","d":"stato delle schermate","f":6,"loc":1674,"o":12,"i":63,"t":["AnalysisItem","AudioItem","BluetoothSensorItem","BluetoothSensorsViewModel","CaptureModeOption","CaptureViewModel","MetricTile","RemoteAccessViewModel","SessionDetailViewModel","SessionListItem","SessionsViewModel","SettingsExtensions","SettingsViewModel","SummaryGroup","SyncState","TestOption"]},{"id":"server/Endpoints","m":"Endpoints","l":"server","d":"API REST","f":9,"loc":1450,"o":48,"i":64,"t":["AnalysisItem","ApiDocs","AudioItem","AuditEndpoints","AuditItem","AuthEndpoints","CurrentUser","DashboardEndpoints","FhirEndpoints","HealthCheckItem","IngestEndpoints","JointAverage","LoginRequest","Overview","PagedResult","PatientDetail","PatientEndpoints","PatientInput","PatientListItem","SessionDetail","SessionEndpoints","SessionListItem","SystemEndpoints","SystemHealth","SystemMetrics","TokenResponse","TremorPoint","TrendPoint","WeeklyActivity"]},{"id":"test/Server.Tests","m":"Server.Tests","l":"test","d":"test di integrazione server","f":8,"loc":1150,"o":0,"i":81,"t":["AuditTests","CafToWavTests","DemoSeedTests","FhirTests","IngestHardeningTests","KeyProvider","ObservabilityTests","PatientTests","RateLimitTests","SecurityTests","ServerFixture","SyncEndToEndTests"]},{"id":"app/Services","m":"Services","l":"app","d":"orchestrazione e servizi di piattaforma","f":15,"loc":1014,"o":76,"i":35,"t":["AppDiagnostics","AppLockController","AppPaths","BluetoothSensorSource","BuildProvisioning","CaptureCoordinator","CloudflareAccessHandler","DeviceApiKeyHandler","IAudioPlayback","IBluetoothSensors","ICaptureEngine","IDeviceAuthenticator","IDialogService","ILockScreen","ISpeechGuide","IWebSessionBridge","LocalCleartextHandler","LocalNetwork","MauiAppSettings","NullBluetoothSensors","OverlayFrame","OverlayPointKind","RememberedBleDevices","SensorStatus","ShellDialogService","SyncService","TextToSpeechGuide","struct"]},{"id":"core/Domain","m":"Domain","l":"core","d":"modello di sessione e test","f":8,"loc":846,"o":102,"i":17,"t":["AiAnalysis","AudioRecording","CaptureMode","ClinicalSession","ClinicalTest","ClinicalTests","GaitSummary","MeasurementReliability","ReliabilityLevel","ReliabilityReport","SessionSummary","SummaryReport","SummaryRow","TestCompletion","TestCompletionKind","TestCompletionTracker","TestCue","TestOutcome","TestResultKind"]},{"id":"web/pages","m":"pages","l":"web","d":"pagine della dashboard","f":8,"loc":822,"o":0,"i":72,"t":["LoginPage","OverviewPage","PatientPage","PatientsPage","RouteStats","SessionPage","SystemPage","counterTotal","fmtBytes","fmtUptime","parseTags","routeStats"]},{"id":"core/Telemetry","m":"Telemetry","l":"core","d":"log e metriche condivisi","f":5,"loc":745,"o":31,"i":1,"t":["Aggregate","Ai","App","Capture","CsfTelemetry","FileLogger","LogRedaction","MetricPoint","MetricsCollector","Outcomes","RollingFileLoggerOptions","RollingFileLoggerProvider","Server","Sync","TelemetryOperation"]},{"id":"core/Recording","m":"Recording","l":"core","d":"registratore e codec dei campioni","f":4,"loc":716,"o":25,"i":20,"t":["Channel","ChannelStats","ChunkBuffer","ISensorChunkStore","LiveMetrics","SensorChunk","SensorChunkCodec","SensorStreamStats","SensorStreamSummary","SessionMetricsAggregator","SessionRecorder"]},{"id":"app/iOS·Vision","m":"iOS·Vision","l":"app","d":"ARKit, LiDAR, pipeline di visione","f":4,"loc":691,"o":5,"i":25,"t":["ArCaptureController","ArFrameJob","ArFrameReader","PreviewFrame","VisionPipeline"]},{"id":"server/Services","m":"Services","l":"server","d":"ingest, audio, audit, analisi","f":5,"loc":683,"o":33,"i":20,"t":["AudioStorage","AudioStorageHealthCheck","AudioStorageOptions","AuditService","CafInfo","CafToWav","IngestService","PoseFrame","PoseReplay","SessionAnalytics","Spectrogram","StreamSeries"]},{"id":"core/Signal","m":"Signal","l":"core","d":"FFT, tremore, tocchi, voce","f":6,"loc":653,"o":30,"i":2,"t":["AudioFeatureAccumulator","AudioFeatures","CafReader","CafWriter","Fft","FingerTapAnalyzer","FingerTapMetrics","FingerTapSeries","RunningStats","TremorAnalyzer","TremorResult","struct"]},{"id":"core/Persistence","m":"Persistence","l":"core","d":"archivio locale cifrato","f":5,"loc":645,"o":27,"i":11,"t":["ClinicalDatabase","ClinicalRepository","CsfJsonContext","DatabaseKeyMismatchException","IDatabaseKeyProvider","Migrations"]},{"id":"core/Fusion","m":"Fusion","l":"core","d":"geometria e fusione pose–profondità","f":9,"loc":605,"o":64,"i":0,"t":["DepthMap","FaceBlendshapeLayout","FusedPose","HandLandmark","ImageOrientation","Joint","JointAngleCalculator","JointRange","OrientationMapper","PoseDepthFusion","PoseLandmark","PoseSource","PoseUpright","struct"]},{"id":"app/Android·Vision","m":"Android·Vision","l":"app","d":"CameraX e pipeline di visione","f":2,"loc":572,"o":1,"i":21,"t":["CameraController","ViewMapping","VisionPipeline","struct"]},{"id":"app/Android·Sensors","m":"Android·Sensors","l":"app","d":"IMU, ambiente, audio","f":4,"loc":565,"o":1,"i":19,"t":["AndroidSensorSource","AudioCaptureSource","BarometerSensorSource","LightSensorSource","LocationSensorSource","MotionSensorSource","PedometerSensorSource","SystemSensorSource"]},{"id":"app/iOS·Sensors","m":"iOS·Sensors","l":"app","d":"IMU, barometro, audio, GPS","f":6,"loc":542,"o":12,"i":27,"t":["AudioCaptureSource","BarometerSensorSource","LocationSensorSource","MotionSensorSource","PedometerSensorSource","SystemSensorSource"]},{"id":"web/three","m":"three","l":"web","d":"replay 3D e spettrogrammi","f":8,"loc":534,"o":21,"i":3,"t":["Bar","Bars3D","Bars3DProps","GrowingBarProps","Label","LabelLayerContext","Props","SPECTROGRAM_DB_RANGE","SkeletonReplay3D","Spectrogram3D","Stage","StageProps","TremorGalaxy3D","modeColor","normalize","palette","turbo","turboColor"]},{"id":"core/Sync","m":"Sync","l":"core","d":"contratti e invio al server","f":4,"loc":420,"o":38,"i":9,"t":["AnalysisUpload","AudioUpload","ChunkBatch","ChunkBatchResult","ChunkStats","ChunkUpload","ClinicalSyncClient","PayloadReport","SessionSynchronizer","SessionUpload","SyncException","SyncJsonContext","SyncReport"]},{"id":"mp/binding·Java","m":"binding·Java","l":"mp","d":"motore MediaPipe nativo Android (Java)","f":3,"loc":416,"o":3,"i":0,"t":["CsfVisionEngine","CsfVisionOptions","CsfVisionResult"]},{"id":"app/Android·Services","m":"Android·Services","l":"app","d":"motore di acquisizione Android","f":3,"loc":379,"o":4,"i":22,"t":["ActivityRecognitionPermission","AndroidAudioPlayback","AndroidCaptureEngine","AndroidWebSessionBridge"]},{"id":"core/Ai","m":"Ai","l":"core","d":"client Ollama e prompt clinico","f":4,"loc":377,"o":12,"i":4,"t":["ClinicalPromptBuilder","OllamaChatChunk","OllamaChatRequest","OllamaClient","OllamaEndpoint","OllamaException","OllamaJsonContext","OllamaMessage","OllamaModelInfo","OllamaOptions","OllamaTagsResponse"]},{"id":"server/Fhir","m":"Fhir","l":"server","d":"interfaccia HL7 FHIR R4 in sola lettura","f":1,"loc":351,"o":1,"i":7,"t":["FhirMapper"]},{"id":"app/iOS·Bluetooth","m":"iOS·Bluetooth","l":"app","d":"sensori Bluetooth su iOS","f":1,"loc":349,"o":1,"i":5,"t":["CentralDelegate","IosBluetoothSensors","PeripheralDelegate"]},{"id":"mp/binding·Swift","m":"binding·Swift","l":"mp","d":"motore MediaPipe nativo iOS (Swift)","f":3,"loc":316,"o":3,"i":0,"t":["CSFVisionEngine","CSFVisionErrorCode","CSFVisionOptions","CSFVisionResult"]},{"id":"app/root","m":"root","l":"app","d":"avvio, shell, DI","f":8,"loc":288,"o":0,"i":65,"t":["App","AppDelegate","AppShell","MainActivity","MainApplication","MauiProgram","Program","SceneDelegate"]},{"id":"app/iOS·Services","m":"iOS·Services","l":"app","d":"motore di acquisizione iOS","f":3,"loc":285,"o":4,"i":19,"t":["IosAudioPlayback","IosCaptureEngine","IosWebSessionBridge"]},{"id":"server/Demo","m":"Demo","l":"server","d":"dati sintetici di esempio","f":2,"loc":263,"o":1,"i":17,"t":["DemoDataSeeder","DemoPatient","SyntheticMotion"]},{"id":"app/iOS·Rendering","m":"iOS·Rendering","l":"app","d":"anteprima AR","f":2,"loc":261,"o":1,"i":6,"t":["ArPreviewRenderer","CapturePreviewHandler","Uniforms","VOut"]},{"id":"server/Security","m":"Security","l":"server","d":"API key, utenti dashboard","f":4,"loc":244,"o":24,"i":1,"t":["AccessToken","ApiKeyAuthenticationHandler","DashboardOptions","DashboardUser","DashboardUserService","DeviceKey","IngestOptions","JwtOptions","JwtTokenService","Policies","RateLimitOptions","Roles"]},{"id":"app/Android·Security","m":"Android·Security","l":"app","d":"Keystore, biometria, blocco","f":3,"loc":241,"o":3,"i":4,"t":["AndroidDeviceAuthenticator","AndroidLockScreen","Callback","KeystoreKeyProvider"]},{"id":"web/api","m":"api","l":"web","d":"client tipizzato e hook","f":3,"loc":236,"o":27,"i":13,"t":["AnalysisItem","ApiError","AudioItem","CaptureMode","CurrentUser","HealthCheckItem","HealthStatus","Joint","JointAverage","JointRange","MetricPoint","Overview","PagedResult","PatientDetail","PatientInput","PatientListItem","PoseFrame","PoseReplay","SessionDetail","SessionListItem","Sex","Spectrogram","SummaryRow","SystemHealth","SystemMetrics","TremorPoint","TrendPoint","WeeklyActivity","allJoints","del","jointLabel","keys","modeLabel","post","put","setUnauthorizedHandler","useDeletePatient","useLogin","useLogout","useMe","useOverview","usePatient","usePatientSessions","usePatients","usePose","useSavePatient","useSession","useSpectrogram","useSystemHealth","useSystemMetrics","useTrends"]},{"id":"app/iOS·Security","m":"iOS·Security","l":"app","d":"Keychain, biometria, blocco","f":3,"loc":217,"o":3,"i":3,"t":["BiometricAuthenticator","IosLockScreen","KeychainKeyProvider"]},{"id":"app/Controls","m":"Controls","l":"app","d":"controlli e overlay","f":4,"loc":217,"o":4,"i":4,"t":["CapturePreview","FormField","LandmarkOverlayDrawable","ModeBadge"]},{"id":"server/avvio","m":"avvio","l":"server","d":"avvio e pipeline HTTP","f":1,"loc":214,"o":1,"i":23,"t":["Program"]},{"id":"app/Views","m":"Views","l":"app","d":"pagine XAML","f":6,"loc":189,"o":13,"i":6,"t":["BluetoothSensorsPage","CapturePage","RemoteAccessPage","SessionDetailPage","SessionsPage","SettingsPage"]},{"id":"core/Bluetooth","m":"Bluetooth","l":"core","d":"modello dei sensori Bluetooth","f":1,"loc":180,"o":8,"i":1,"t":["BleDevice","BleSensorType","BleSensors"]},{"id":"core/Sensors","m":"Sensors","l":"core","d":"astrazione dei sensori","f":4,"loc":139,"o":84,"i":0,"t":["ISensorSink","ISensorSource","SensorClock","SensorKind","struct"]},{"id":"server/Telemetry","m":"Telemetry","l":"server","d":"log e metriche delle richieste","f":1,"loc":138,"o":2,"i":4,"t":["ServerTelemetry","TelemetryOptions"]},{"id":"web/ui","m":"ui","l":"web","d":"layout, feedback, formattazione","f":3,"loc":115,"o":27,"i":2,"t":["ErrorBox","Kpi","Layout","Legend","Loading","Panel","age","fmtDate","fmtDateTime","fmtDuration","fmtShortDate","fullName"]},{"id":"mp/binding","m":"binding","l":"mp","d":"binding iOS e Android","f":2,"loc":109,"o":0,"i":0,"t":["CSFVisionEngine","CSFVisionErrorCode","CSFVisionOptions","CSFVisionResult"]},{"id":"core/Localization","m":"Localization","l":"core","d":"traduzione dei testi dell'interfaccia","f":1,"loc":86,"o":0,"i":0,"t":["Loc"]},{"id":"core/Settings","m":"Settings","l":"core","d":"impostazioni condivise","f":1,"loc":50,"o":9,"i":0,"t":["IAppSettings","SettingsDefaults","SettingsKeys"]},{"id":"app/Android·Rendering","m":"Android·Rendering","l":"app","d":"anteprima fotocamera","f":1,"loc":40,"o":0,"i":3,"t":["CapturePreviewHandler"]},{"id":"app/Localization","m":"Localization","l":"app","d":"estensione XAML per la traduzione","f":1,"loc":18,"o":0,"i":0,"t":["TrExtension"]}],"edges":[["core/Telemetry","test/Core.Tests",6],["core/Fusion","test/Core.Tests",19],["core/Sensors","test/Core.Tests",4],["core/Recording","test/Core.Tests",5],["core/Bluetooth","test/Core.Tests",1],["core/Domain","test/Core.Tests",24],["core/Signal","test/Core.Tests",9],["test/Core.Tests","web/three",1],["core/Persistence","test/Core.Tests",7],["core/Sync","test/Core.Tests",5],["core/Ai","test/Core.Tests",4],["server/Endpoints","test/Server.Tests",29],["server/Services","test/Server.Tests",5],["core/Fusion","test/Server.Tests",5],["core/Sensors","test/Server.Tests",3],["core/Recording","test/Server.Tests",3],["core/Persistence","test/Server.Tests",3],["core/Sync","test/Server.Tests",14],["core/Domain","test/Server.Tests",9],["core/Signal","test/Server.Tests",2],["test/Server.Tests","web/three",2],["test/Server.Tests","web/api",1],["server/Data","test/Server.Tests",1],["server/avvio","test/Server.Tests",1],["server/Security","test/Server.Tests",3],["server/Demo","server/avvio",1],["server/Endpoints","server/avvio",4],["server/Security","server/avvio",9],["server/Data","server/avvio",1],["server/Services","server/avvio",6],["core/Telemetry","server/avvio",1],["core/Sync","server/avvio",1],["core/Fusion","server/Demo",3],["server/Data","server/Demo",2],["server/Demo","server/Services",1],["core/Sensors","server/Demo",1],["core/Recording","server/Demo",2],["core/Sync","server/Demo",4],["core/Domain","server/Demo",3],["core/Signal","server/Demo",1],["server/Endpoints","server/Security",12],["server/Data","server/Endpoints",10],["server/Endpoints","server/Services",15],["core/Fusion","server/Endpoints",3],["core/Sensors","server/Endpoints",1],["core/Persistence","server/Endpoints",3],["core/Domain","server/Endpoints",6],["core/Sync","server/Endpoints",5],["core/Recording","server/Endpoints",1],["core/Telemetry","server/Endpoints",5],["server/Endpoints","server/Telemetry",2],["server/Endpoints","server/Fhir",1],["core/Sync","server/Security",1],["core/Telemetry","server/Telemetry",4],["core/Sensors","server/Data",1],["core/Domain","server/Data",1],["server/Data","server/Fhir",2],["core/Sensors","server/Fhir",1],["core/Recording","server/Fhir",1],["core/Domain","server/Fhir",3],["server/Data","server/Services",8],["core/Fusion","server/Services",4],["core/Sensors","server/Services",1],["core/Recording","server/Services",3],["core/Persistence","server/Services",1],["core/Telemetry","server/Services",1],["core/Sync","server/Services",2],["core/Recording","core/Sensors",5],["core/Recording","core/Signal",6],["core/Recording","core/Telemetry",2],["core/Domain","core/Recording",8],["core/Fusion","core/Recording",3],["core/Ai","core/Telemetry",1],["core/Ai","core/Persistence",1],["core/Ai","core/Domain",2],["core/Bluetooth","core/Sensors",1],["core/Persistence","core/Sensors",1],["core/Persistence","core/Recording",3],["core/Domain","core/Persistence",5],["core/Persistence","web/api",1],["core/Persistence","core/Signal",1],["core/Domain","core/Sync",5],["core/Sensors","core/Sync",1],["core/Signal","core/Sync",1],["core/Persistence","core/Sync",1],["core/Sync","core/Telemetry",1],["core/Domain","core/Fusion",3],["core/Domain","core/Sensors",3],["core/Domain","core/Signal",6],["core/Domain","web/three",2],["core/Signal","server/Services",1],["core/Fusion","core/Signal",1],["server/Endpoints","web/three",1],["server/Services","web/three",2],["server/Endpoints","web/ui",1],["web/api","web/ui",1],["server/Endpoints","web/api",11],["server/Services","web/api",2],["core/Telemetry","web/pages",3],["web/api","web/pages",23],["web/pages","web/ui",27],["core/Domain","web/pages",2],["web/pages","web/three",14],["server/Endpoints","web/pages",2],["server/Data","web/pages",1],["app/Services","app/root",26],["app/root","core/Settings",1],["app/root","core/Ai",1],["app/root","core/Persistence",3],["app/root","core/Telemetry",2],["app/root","core/Sync",2],["app/ViewModels","app/root",6],["app/iOS·Security","app/root",3],["app/iOS·Bluetooth","app/root",1],["app/iOS·Rendering","app/root",1],["app/iOS·Services","app/root",3],["app/Android·Security","app/root",3],["app/Android·Services","app/root",3],["app/Controls","app/root",1],["app/Views","app/root",9],["app/ViewModels","core/Fusion",1],["app/ViewModels","core/Recording",1],["app/ViewModels","core/Domain",16],["app/Controls","app/ViewModels",1],["app/ViewModels","app/Views",10],["app/Services","app/ViewModels",22],["app/ViewModels","core/Settings",3],["app/ViewModels","core/Ai",7],["app/ViewModels","core/Persistence",4],["app/ViewModels","core/Telemetry",1],["app/ViewModels","core/Sensors",1],["app/ViewModels","core/Bluetooth",2],["app/iOS·Sensors","core/Sensors",24],["app/iOS·Sensors","core/Domain",1],["app/iOS·Sensors","core/Signal",1],["app/Services","app/iOS·Sensors",1],["app/Services","app/iOS·Security",2],["app/iOS·Security","core/Persistence",1],["app/iOS·Vision","core/Fusion",11],["app/iOS·Vision","core/Sensors",6],["app/iOS·Vision","core/Domain",2],["app/iOS·Vision","web/api",1],["app/iOS·Vision","mp/binding·Swift",3],["app/Services","app/iOS·Vision",2],["app/iOS·Bluetooth","core/Bluetooth",3],["app/Services","app/iOS·Bluetooth",2],["app/iOS·Rendering","app/iOS·Services",1],["app/Controls","app/iOS·Rendering",1],["app/Services","app/iOS·Rendering",1],["app/iOS·Rendering","core/Fusion",1],["app/iOS·Rendering","web/three",1],["app/iOS·Rendering","app/iOS·Vision",1],["app/Services","app/iOS·Services",5],["app/iOS·Services","core/Sensors",3],["app/iOS·Services","core/Domain",3],["app/iOS·Sensors","app/iOS·Services",6],["app/iOS·Services","app/iOS·Vision",2],["app/Android·Sensors","core/Sensors",14],["app/Android·Sensors","core/Domain",1],["app/Android·Sensors","core/Signal",2],["app/Android·Sensors","app/Services",2],["app/Android·Security","app/Services",3],["app/Android·Security","core/Persistence",1],["app/Android·Vision","core/Domain",2],["app/Android·Vision","app/iOS·Vision",1],["app/Android·Vision","core/Fusion",10],["app/Android·Vision","core/Sensors",3],["app/Android·Vision","mp/binding·Java",3],["app/Android·Vision","app/Services",2],["app/Android·Rendering","app/Android·Services",1],["app/Android·Rendering","app/Controls",1],["app/Android·Rendering","app/Services",1],["app/Android·Services","core/Sensors",3],["app/Android·Services","core/Domain",3],["app/Android·Services","app/iOS·Sensors",6],["app/Android·Services","app/iOS·Vision",1],["app/Android·Sensors","app/Android·Services",1],["app/Android·Services","app/Android·Vision",1],["app/Android·Services","app/Services",5],["app/Android·Services","server/Services",1],["app/Android·Services","core/Signal",1],["app/Controls","app/Services",2],["app/Controls","web/three",1],["app/Controls","core/Domain",1],["app/Services","core/Telemetry",5],["app/Services","core/Sync",4],["app/Services","core/Sensors",7],["app/Services","core/Domain",8],["app/Services","core/Settings",5],["app/Services","core/Recording",2],["app/Services","core/Persistence",2],["app/Services","core/Bluetooth",2]],"dir":[["test/Core.Tests","core/Telemetry",6],["test/Core.Tests","core/Fusion",19],["test/Core.Tests","core/Sensors",4],["test/Core.Tests","core/Recording",5],["test/Core.Tests","core/Bluetooth",1],["test/Core.Tests","core/Domain",24],["test/Core.Tests","core/Signal",9],["test/Core.Tests","web/three",1],["test/Core.Tests","core/Persistence",7],["test/Core.Tests","core/Sync",5],["test/Core.Tests","core/Ai",4],["test/Server.Tests","server/Endpoints",29],["test/Server.Tests","server/Services",5],["test/Server.Tests","core/Fusion",5],["test/Server.Tests","core/Sensors",3],["test/Server.Tests","core/Recording",3],["test/Server.Tests","core/Persistence",3],["test/Server.Tests","core/Sync",14],["test/Server.Tests","core/Domain",9],["test/Server.Tests","core/Signal",2],["test/Server.Tests","web/three",2],["test/Server.Tests","web/api",1],["test/Server.Tests","server/Data",1],["test/Server.Tests","server/avvio",1],["test/Server.Tests","server/Security",3],["server/avvio","server/Demo",1],["server/avvio","server/Endpoints",4],["server/avvio","server/Security",9],["server/avvio","server/Data",1],["server/avvio","server/Services",6],["server/avvio","core/Telemetry",1],["server/avvio","core/Sync",1],["server/Demo","core/Fusion",3],["server/Demo","server/Data",2],["server/Demo","server/Services",1],["server/Demo","core/Sensors",1],["server/Demo","core/Recording",2],["server/Demo","core/Sync",4],["server/Demo","core/Domain",3],["server/Demo","core/Signal",1],["server/Endpoints","server/Security",12],["server/Endpoints","server/Data",10],["server/Endpoints","server/Services",15],["server/Endpoints","core/Fusion",3],["server/Endpoints","core/Sensors",1],["server/Endpoints","core/Persistence",3],["server/Endpoints","core/Domain",6],["server/Endpoints","core/Sync",5],["server/Endpoints","core/Recording",1],["server/Endpoints","core/Telemetry",5],["server/Endpoints","server/Telemetry",2],["server/Endpoints","server/Fhir",1],["server/Security","core/Sync",1],["server/Telemetry","core/Telemetry",4],["server/Data","core/Sensors",1],["server/Data","core/Domain",1],["server/Fhir","server/Data",2],["server/Fhir","core/Sensors",1],["server/Fhir","core/Recording",1],["server/Fhir","core/Domain",3],["server/Services","server/Data",8],["server/Services","core/Fusion",4],["server/Services","core/Sensors",1],["server/Services","core/Recording",3],["server/Services","core/Persistence",1],["server/Services","core/Telemetry",1],["server/Services","core/Sync",2],["core/Recording","core/Sensors",5],["core/Recording","core/Signal",6],["core/Recording","core/Telemetry",1],["core/Recording","core/Domain",5],["core/Recording","core/Fusion",3],["core/Ai","core/Telemetry",1],["core/Ai","core/Persistence",1],["core/Ai","core/Domain",2],["core/Bluetooth","core/Sensors",1],["core/Persistence","core/Sensors",1],["core/Persistence","core/Recording",3],["core/Persistence","core/Domain",5],["core/Persistence","web/api",1],["core/Persistence","core/Signal",1],["core/Telemetry","core/Recording",1],["core/Sync","core/Domain",5],["core/Sync","core/Sensors",1],["core/Sync","core/Signal",1],["core/Sync","core/Persistence",1],["core/Sync","core/Telemetry",1],["core/Domain","core/Fusion",3],["core/Domain","core/Sensors",3],["core/Domain","core/Recording",3],["core/Domain","core/Signal",6],["core/Domain","web/three",2],["core/Signal","server/Services",1],["core/Signal","core/Fusion",1],["web/three","server/Endpoints",1],["web/three","server/Services",2],["web/ui","server/Endpoints",1],["web/ui","web/api",1],["web/api","server/Endpoints",11],["web/api","server/Services",2],["web/pages","core/Telemetry",3],["web/pages","web/api",23],["web/pages","web/ui",27],["web/pages","core/Domain",2],["web/pages","web/three",14],["web/pages","server/Endpoints",2],["web/pages","server/Data",1],["app/root","app/Services",26],["app/root","core/Settings",1],["app/root","core/Ai",1],["app/root","core/Persistence",3],["app/root","core/Telemetry",2],["app/root","core/Sync",2],["app/root","app/ViewModels",6],["app/root","app/iOS·Security",3],["app/root","app/iOS·Bluetooth",1],["app/root","app/iOS·Rendering",1],["app/root","app/iOS·Services",3],["app/root","app/Android·Security",3],["app/root","app/Android·Services",3],["app/root","app/Controls",1],["app/root","app/Views",9],["app/ViewModels","core/Fusion",1],["app/ViewModels","core/Recording",1],["app/ViewModels","core/Domain",16],["app/ViewModels","app/Controls",1],["app/ViewModels","app/Views",4],["app/ViewModels","app/Services",22],["app/ViewModels","core/Settings",3],["app/ViewModels","core/Ai",7],["app/ViewModels","core/Persistence",4],["app/ViewModels","core/Telemetry",1],["app/ViewModels","core/Sensors",1],["app/ViewModels","core/Bluetooth",2],["app/iOS·Sensors","core/Sensors",24],["app/iOS·Sensors","core/Domain",1],["app/iOS·Sensors","core/Signal",1],["app/iOS·Sensors","app/Services",1],["app/iOS·Security","app/Services",2],["app/iOS·Security","core/Persistence",1],["app/iOS·Vision","core/Fusion",11],["app/iOS·Vision","core/Sensors",6],["app/iOS·Vision","core/Domain",2],["app/iOS·Vision","web/api",1],["app/iOS·Vision","mp/binding·Swift",3],["app/iOS·Vision","app/Services",2],["app/iOS·Bluetooth","core/Bluetooth",3],["app/iOS·Bluetooth","app/Services",2],["app/iOS·Rendering","app/iOS·Services",1],["app/iOS·Rendering","app/Controls",1],["app/iOS·Rendering","app/Services",1],["app/iOS·Rendering","core/Fusion",1],["app/iOS·Rendering","web/three",1],["app/iOS·Rendering","app/iOS·Vision",1],["app/iOS·Services","app/Services",5],["app/iOS·Services","core/Sensors",3],["app/iOS·Services","core/Domain",3],["app/iOS·Services","app/iOS·Sensors",6],["app/iOS·Services","app/iOS·Vision",2],["app/Android·Sensors","core/Sensors",14],["app/Android·Sensors","core/Domain",1],["app/Android·Sensors","core/Signal",2],["app/Android·Sensors","app/Services",2],["app/Android·Security","app/Services",3],["app/Android·Security","core/Persistence",1],["app/Android·Vision","core/Domain",2],["app/Android·Vision","app/iOS·Vision",1],["app/Android·Vision","core/Fusion",10],["app/Android·Vision","core/Sensors",3],["app/Android·Vision","mp/binding·Java",3],["app/Android·Vision","app/Services",2],["app/Android·Rendering","app/Android·Services",1],["app/Android·Rendering","app/Controls",1],["app/Android·Rendering","app/Services",1],["app/Android·Services","core/Sensors",3],["app/Android·Services","core/Domain",3],["app/Android·Services","app/iOS·Sensors",6],["app/Android·Services","app/iOS·Vision",1],["app/Android·Services","app/Android·Sensors",1],["app/Android·Services","app/Android·Vision",1],["app/Android·Services","app/Services",5],["app/Android·Services","server/Services",1],["app/Android·Services","core/Signal",1],["app/Controls","app/Services",2],["app/Controls","web/three",1],["app/Controls","core/Domain",1],["app/Views","app/ViewModels",6],["app/Services","core/Telemetry",5],["app/Services","core/Sync",4],["app/Services","core/Sensors",7],["app/Services","core/Domain",8],["app/Services","core/Settings",5],["app/Services","core/Recording",2],["app/Services","core/Persistence",2],["app/Services","core/Bluetooth",2]],"stats":{"cs":175,"csLoc":21127,"ts":25,"tsLoc":1814,"modules":46,"types":436}};
+const LAYER_LABEL = {core:"Nucleo", app:"App", server:"Server", web:"Dashboard", test:"Test", mp:"MediaPipe"};
+const LAYER_ORDER = ["core","app","server","web","test","mp"];
+
+const nodes = DATA.nodes.slice();
+const byId = new Map(nodes.map(n => [n.id, n]));
+const KINDS = DATA.kinds || {};
+const edges = DATA.edges;
+const dir = DATA.dir;
+const outEdges = new Map(), inEdges = new Map();
+for (const [use, dep, w] of dir){
+  (outEdges.get(use) || outEdges.set(use, []).get(use)).push([dep, w]);
+  (inEdges.get(dep) || inEdges.set(dep, []).get(dep)).push([use, w]);
+}
+for (const m of [outEdges, inEdges]) for (const k of m.keys()) m.get(k).sort((a,b) => b[1]-a[1]);
+
+const maxLoc = Math.max(...nodes.map(n => n.loc));
+const radiusOf = n => 9 + 24 * Math.sqrt(n.loc / maxLoc);
+
+const state = {
+  hidden: new Set(), q: "", thr: 2, selected: null, hover: null,
+  view: {k:1, x:0, y:0}, userMoved: false, dragging:null, panning:null,
+  view3d: false
+};
+function render(){ if (state.view3d && g3) g3.refresh(); else draw2d(); }
+function renderFilters(){ if (state.view3d && g3) g3.refilter(); else draw2d(); }
+
+/* ---------- colori dal tema ---------- */
+let C = {};
+function readColors(){
+  const s = getComputedStyle(document.documentElement);
+  const v = (k, f) => (s.getPropertyValue(k).trim() || f);
+  C = {
+    node: {}, panel: v("--panel","#fff"), ink: v("--ink","#000"), muted: v("--muted","#888"),
+    line: v("--line","#ddd"), lineStrong: v("--line-strong","#bbb")
+  };
+  for (const l of LAYER_ORDER) C.node[l] = v("--l-" + l, "#888");
+}
+readColors();
+function onTheme(){ readColors(); if (g3) g3.recolor(); render(); }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
+new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+/* ---------- disposizione: fisica in tre dimensioni, poi adattata al riquadro ---------- */
+const WORLD = {w: 1600, h: 1080, d: 1000};
+const anchors = new Map();
+(function seed(){
+  const N = LAYER_ORDER.length, R = 340, ga = Math.PI * (3 - Math.sqrt(5));
+  LAYER_ORDER.forEach((L, li) => {
+    // i livelli si distribuiscono su una sfera: in 3D non stanno su un anello solo
+    const yy = 1 - (li + 0.5) * 2 / N;
+    const rr = Math.sqrt(Math.max(0, 1 - yy*yy));
+    const th = ga * li;
+    const ax = Math.cos(th) * rr * R, ay = yy * R * 0.7, az = Math.sin(th) * rr * R;
+    anchors.set(L, {x: ax, y: ay, z: az});
+    const group = nodes.filter(n => n.l === L).sort((p, q) => q.loc - p.loc);
+    group.forEach((n, i) => {
+      const t = i * 2.399963, sr = 30 * Math.sqrt(i) + 22;
+      n.x = ax + Math.cos(t) * sr;
+      n.y = ay + Math.sin(t * 1.7) * sr * 0.55;
+      n.z = az + Math.sin(t) * sr;
+      n.vx = n.vy = n.vz = 0;
+    });
+  });
+})();
+
+const adj = new Map(nodes.map(n => [n.id, []]));
+for (const [a,b,w] of edges){ adj.get(a).push([b,w]); adj.get(b).push([a,w]); }
+
+const clampStep = v => Math.max(-40, Math.min(40, v));
+
+function relax(iterations){
+  for (let it = 0; it < iterations; it++){
+    const alpha = Math.max(0.02, 0.6 * (1 - it/iterations));
+    for (let i = 0; i < nodes.length; i++){
+      const p = nodes[i];
+      for (let j = i+1; j < nodes.length; j++){
+        const q = nodes[j];
+        let dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
+        let d2 = dx*dx + dy*dy + dz*dz;
+        if (d2 < 1){
+          dx = Math.random()-.5; dy = Math.random()-.5; dz = Math.random()-.5;
+          d2 = dx*dx + dy*dy + dz*dz + 1;
+        }
+        const rp = radiusOf(p), rq = radiusOf(q);
+        const min = rp + rq + 54;
+        const d = Math.sqrt(d2);
+        let f = (rp * rq * 9.4) / d2;
+        if (d < min) f += (min - d) * 0.6;
+        const fx = (dx/d)*f*alpha, fy = (dy/d)*f*alpha, fz = (dz/d)*f*alpha;
+        p.vx -= fx; p.vy -= fy; p.vz -= fz;
+        q.vx += fx; q.vy += fy; q.vz += fz;
+      }
+    }
+    for (const [a,b,w] of edges){
+      const p = byId.get(a), q = byId.get(b);
+      const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
+      const d = Math.hypot(dx, dy, dz) || 1;
+      const len = radiusOf(p) + radiusOf(q) + 132 / (1 + Math.log1p(w) * 0.55);
+      const f = (d - len) * 0.055 * alpha;
+      const fx = (dx/d)*f, fy = (dy/d)*f, fz = (dz/d)*f;
+      p.vx += fx; p.vy += fy; p.vz += fz;
+      q.vx -= fx; q.vy -= fy; q.vz -= fz;
+    }
+    for (const n of nodes){
+      const an = anchors.get(n.l);
+      n.vx += (an.x - n.x) * 0.028 * alpha;
+      n.vy += (an.y - n.y) * 0.028 * alpha;
+      n.vz += (an.z - n.z) * 0.028 * alpha;
+      n.vx *= 0.82; n.vy *= 0.82; n.vz *= 0.82;
+      n.x += clampStep(n.vx); n.y += clampStep(n.vy); n.z += clampStep(n.vz);
+    }
+  }
+  // normalizza ogni asse attorno alla mediana. L'estensione la decide l'85° percentile,
+  // non il minimo e il massimo: altrimenti due moduli isolati si prendono il riquadro
+  // intero e tutti gli altri si stringono in mezzo
+  const target = [WORLD.w - 160, WORLD.h - 160, WORLD.d - 160];
+  ['x','y','z'].forEach((ax, i) => {
+    const vals = nodes.map(n => n[ax]).sort((a, b) => a - b);
+    const c = vals[Math.floor(vals.length / 2)];
+    const abs = vals.map(v => Math.abs(v - c)).sort((a, b) => a - b);
+    const p = abs[Math.min(abs.length - 1, Math.floor(abs.length * 0.85))] || 1;
+    const half = (target[i] / 2) * 0.62;
+    const k = half / p;
+    for (const n of nodes){
+      let v = (n[ax] - c) * k;
+      // la coda oltre l'85° percentile si comprime: i pochi moduli isolati restano
+      // dentro il riquadro senza costringere tutti gli altri in una macchia centrale
+      const a = Math.abs(v);
+      if (a > half) v = Math.sign(v) * (half + (a - half) * 0.5);
+      n[ax] = v;
+    }
+  });
+  for (const n of nodes){ n.vx = n.vy = n.vz = 0; }
+}
+relax(760);
+
+const CONTENT = (() => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of nodes){
+    const r = radiusOf(n);
+    x0 = Math.min(x0, n.x - r - 40); y0 = Math.min(y0, n.y - r - 16);
+    x1 = Math.max(x1, n.x + r + 40); y1 = Math.max(y1, n.y + r + 16);
+  }
+  return {x0, y0, x1, y1, w: x1-x0, h: y1-y0};
+})();
+
+/* ---------- disegno ---------- */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let VW = 0, VH = 0, DPR = 1;
+
+function fit(){
+  const pad = 18;
+  // su un riquadro stretto il grafo intero diventa illeggibile: meglio mostrarlo
+  // a una scala minima leggibile e lasciare che ci si muova dentro
+  const k = Math.max(0.33, Math.min((VW - pad*2) / CONTENT.w, (VH - pad*2) / CONTENT.h));
+  state.view.k = k;
+  state.view.x = VW/2 - (CONTENT.x0 + CONTENT.x1)/2 * k;
+  state.view.y = VH/2 - (CONTENT.y0 + CONTENT.y1)/2 * k;
+}
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  VW = r.width; VH = r.height;
+  if (VW > 0 && VH > 0){
+    cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
+    if (!state.userMoved) fit();
+    draw2d();
+  }
+  if (g3) g3.size();
+}
+
+function visibleEdges(){
+  const out = [];
+  for (const [a,b,w] of edges){
+    if (w < state.thr) continue;
+    if (state.hidden.has(byId.get(a).l) || state.hidden.has(byId.get(b).l)) continue;
+    out.push([a,b,w]);
+  }
+  out.sort((p,q) => p[2]-q[2]);
+  return out;
+}
+
+function focusSet(){
+  const id = state.hover || state.selected;
+  if (!id) return null;
+  const s = new Set([id]);
+  for (const [o] of (adj.get(id) || [])) s.add(o);
+  return s;
+}
+
+function matched(){
+  const q = state.q.trim().toLowerCase();
+  if (!q) return null;
+  const mods = new Set(), types = new Set();
+  for (const n of nodes){
+    if (n.m.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)) mods.add(n.id);
+    for (const t of n.t) if (t.toLowerCase().includes(q)) { mods.add(n.id); types.add(t); }
+  }
+  return {mods, types};
+}
+
+function draw2d(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, VW, VH);
+  const v = state.view;
+  const fs = focusSet();
+  const mm = matched();
+
+  // archi
+  for (const [a,b,w] of visibleEdges()){
+    const p = byId.get(a), q = byId.get(b);
+    const inFocus = fs && fs.has(a) && fs.has(b);
+    const a1 = w >= 12 ? 0.85 : w >= 6 ? 0.55 : w >= 3 ? 0.34 : 0.2;
+    ctx.beginPath();
+    ctx.moveTo(v.x + p.x*v.k, v.y + p.y*v.k);
+    ctx.lineTo(v.x + q.x*v.k, v.y + q.y*v.k);
+    ctx.strokeStyle = inFocus ? C.node[q.l] : C.lineStrong;
+    ctx.globalAlpha = fs ? (inFocus ? 0.85 : 0.07) : a1;
+    ctx.lineWidth = (inFocus ? 1.4 + Math.log1p(w)*0.7 : 0.7 + Math.log1p(w)*0.45) * Math.max(0.7, Math.min(v.k*1.5, 1.6));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // nodi
+  for (const n of nodes){
+    const hidden = state.hidden.has(n.l);
+    const r = radiusOf(n) * v.k;
+    const x = v.x + n.x*v.k, y = v.y + n.y*v.k;
+    const dim = fs ? !fs.has(n.id) : false;
+    const dimQ = mm ? !mm.mods.has(n.id) : false;
+    ctx.globalAlpha = hidden ? 0.13 : (dim || dimQ) ? 0.24 : 1;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = C.node[n.l];
+    ctx.globalAlpha *= 0.9;
+    ctx.fill();
+    ctx.globalAlpha = hidden ? 0.13 : (dim || dimQ) ? 0.24 : 1;
+    ctx.lineWidth = n.id === state.selected ? 3 : 1.2;
+    ctx.strokeStyle = n.id === state.selected ? C.ink : C.panel;
+    ctx.stroke();
+    if (mm && mm.mods.has(n.id) && !dim){
+      ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI*2);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.8; ctx.stroke();
+    }
+    n._x = x; n._y = y; n._r = r;
+  }
+  ctx.globalAlpha = 1;
+
+  // etichette: posate per importanza, saltando quelle che finirebbero sopra un'altra
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const overlap = (a, b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  const live = nodes.filter(n => !state.hidden.has(n.l));
+  const circles = live.map(n => ({id: n.id, x: n._x, y: n._y, r: n._r + 2}));
+  const boxes = [];
+  const prio = live.slice().sort((a, b) => {
+    const pa = (a.id === state.selected || a.id === state.hover) ? 1e6 : a._r;
+    const pb = (b.id === state.selected || b.id === state.hover) ? 1e6 : b._r;
+    return pb - pa;
+  });
+  for (const n of prio){
+    const dim = fs ? !fs.has(n.id) : false;
+    const dimQ = mm ? !mm.mods.has(n.id) : false;
+    ctx.font = '600 11px "IBM Plex Mono", monospace';
+    const w = ctx.measureText(n.m).width;
+    const box = {x: n._x - w/2 - 3, y: n._y + n._r + 2, w: w + 6, h: 15};
+    if (boxes.some(b => overlap(b, box))) continue;
+    if (circles.some(c => c.id !== n.id && c.x > box.x - c.r && c.x < box.x + box.w + c.r &&
+                                    c.y > box.y - c.r && c.y < box.y + box.h + c.r)) continue;
+    boxes.push(box);
+    ctx.globalAlpha = (dim || dimQ) ? 0.2 : 0.95;
+    ctx.lineWidth = 3.4; ctx.strokeStyle = C.panel;
+    ctx.strokeText(n.m, n._x, box.y);
+    ctx.fillStyle = C.ink;
+    ctx.fillText(n.m, n._x, box.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // stato vuoto per filtri che nascondono tutto
+  const usable = nodes.filter(n => !state.hidden.has(n.l));
+  if (!usable.length){
+    ctx.fillStyle = C.muted; ctx.font = '13px "IBM Plex Sans", sans-serif'; ctx.textAlign = "center";
+    ctx.fillText("Nessun livello visibile: riattivane uno dalla legenda.", VW/2, VH/2);
+  }
+}
+
+/* ---------- interazione ---------- */
+function toWorld(mx, my){ const v = state.view; return {x:(mx - v.x)/v.k, y:(my - v.y)/v.k}; }
+function pick2d(mx, my){
+  const v = state.view;
+  let best = null;
+  for (const n of nodes){
+    if (state.hidden.has(n.l)) continue;
+    const x = v.x + n.x*v.k, y = v.y + n.y*v.k;
+    const r = radiusOf(n)*v.k;
+    const d = Math.hypot(mx-x, my-y);
+    if (d <= Math.max(r + 3, 12) && (!best || d - r < best.d)) best = {n, d: d - r};
+  }
+  return best && best.n;
+}
+function localPoint(e){
+  const r = cv.getBoundingClientRect();
+  return {x: e.clientX - r.left, y: e.clientY - r.top};
+}
+
+cv.addEventListener("pointerdown", e => {
+  const {x, y} = localPoint(e);
+  const n = pick2d(x, y);
+  cv.setPointerCapture(e.pointerId);
+  if (n){ state.dragging = {n, dx: n.x - toWorld(x,y).x, dy: n.y - toWorld(x,y).y}; cv.classList.add("dragging"); }
+  else { state.panning = {sx: x, sy: y, ox: state.view.x, oy: state.view.y}; cv.classList.add("dragging"); }
+});
+cv.addEventListener("pointermove", e => {
+  const {x, y} = localPoint(e);
+  if (state.dragging){
+    const w = toWorld(x, y);
+    state.dragging.n.x = w.x + state.dragging.dx;
+    state.dragging.n.y = w.y + state.dragging.dy;
+    state.userMoved = true;
+    render();
+    return;
+  }
+  if (state.panning){
+    state.view.x = state.panning.ox + (x - state.panning.sx);
+    state.view.y = state.panning.oy + (y - state.panning.sy);
+    state.userMoved = true;
+    render();
+    return;
+  }
+  const n = pick2d(x, y);
+  const id = n ? n.id : null;
+  if (id !== state.hover){ state.hover = id; cv.style.cursor = id ? "pointer" : "grab"; render(); }
+});
+function endPointer(){
+  if (state.dragging){ localRelax(state.dragging.n, 40); }
+  state.dragging = null; state.panning = null; cv.classList.remove("dragging");
+}
+cv.addEventListener("pointerup", e => {
+  const {x, y} = localPoint(e);
+  const wasDrag = state.dragging;
+  endPointer();
+  const n = pick2d(x, y);
+  if (n && wasDrag && Math.hypot(n.x - wasDrag.n.x, n.y - wasDrag.n.y) > 4) return;
+  select(n ? n.id : null);
+});
+cv.addEventListener("pointercancel", endPointer);
+cv.addEventListener("pointerleave", () => { if (!state.dragging){ state.hover = null; render(); } });
+
+function localRelax(seed, iterations){
+  // distende solo i nodi attorno a quello trascinato, senza rimescolare il resto
+  const near = new Set([seed.id]);
+  for (const [o] of (adj.get(seed.id) || [])) near.add(o);
+  for (let it = 0; it < iterations; it++){
+    const alpha = 0.25 * (1 - it/iterations);
+    for (const id of near){
+      if (id === seed.id) continue;
+      const p = byId.get(id);
+      for (const [o, w] of (adj.get(id) || [])){
+        if (!near.has(o)) continue;
+        const q = byId.get(o);
+        let dx = q.x-p.x, dy = q.y-p.y; const d = Math.hypot(dx,dy) || 1;
+        const len = radiusOf(p) + radiusOf(q) + 92 / (1 + Math.log1p(w)*0.55);
+        const f = (d - len) * 0.08 * alpha;
+        p.vx += (dx/d)*f; p.vy += (dy/d)*f;
+      }
+      const s = byId.get(seed.id);
+      let dx = s.x-p.x, dy = s.y-p.y; const d = Math.hypot(dx,dy) || 1;
+      const len = radiusOf(p) + radiusOf(s) + 60;
+      if (d < len){ const f = (d - len) * 0.3 * alpha; p.vx += (dx/d)*f; p.vy += (dy/d)*f; }
+      p.vx *= .6; p.vy *= .6;
+      p.x += p.vx; p.y += p.vy;
+    }
+  }
+}
+
+cv.addEventListener("keydown", e => {
+  const usable = nodes.filter(n => !state.hidden.has(n.l));
+  if (!usable.length) return;
+  const i = usable.findIndex(n => n.id === state.selected);
+  if (e.key === "ArrowRight" || e.key === "ArrowDown"){ e.preventDefault(); select(usable[(i+1) % usable.length].id); }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp"){ e.preventDefault(); select(usable[(i-1+usable.length) % usable.length].id); }
+  else if (e.key === "Escape"){ select(null); }
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const {x, y} = localPoint(e);
+  const before = toWorld(x, y);
+  const factor = Math.exp(-e.deltaY * 0.0016);
+  const k = Math.max(0.28, Math.min(3.6, state.view.k * factor));
+  state.view.k = k;
+  state.view.x = x - before.x * k;
+  state.view.y = y - before.y * k;
+  state.userMoved = true;
+  render();
+}, {passive:false});
+
+let pinch = null;
+cv.addEventListener("touchstart", e => {
+  if (e.touches.length === 2){
+    const r = cv.getBoundingClientRect();
+    pinch = {d: Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY), k: state.view.k};
+  }
+}, {passive:true});
+cv.addEventListener("touchmove", e => {
+  if (pinch && e.touches.length === 2){
+    e.preventDefault();
+    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    state.view.k = Math.max(0.28, Math.min(3.6, pinch.k * (d / pinch.d)));
+    state.userMoved = true;
+    render();
+  }
+}, {passive:false});
+cv.addEventListener("touchend", () => { pinch = null; }, {passive:true});
+
+/* ---------- vista 3D: three.js ---------- */
+let g3 = null;
+const hasGL = (() => {
+  try {
+    const c = document.createElement("canvas");
+    return !!(window.THREE && (c.getContext("webgl2") || c.getContext("webgl")));
+  } catch (_) { return false; }
+})();
+
+const lin = hex => new THREE.Color().setStyle(hex).convertSRGBToLinear();
+const R3D = 1.35;
+
+function build3d(){
+  const host = document.getElementById("gl");
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({antialias:true}); }
+  catch (_) { return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.domElement.setAttribute("role", "img");
+  renderer.domElement.setAttribute("aria-label", "Grafo delle dipendenze tra i namespace del progetto, in tre dimensioni");
+  host.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(46, 1, 1, 40000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x50596a, 0.92));
+  const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(700, 950, 800); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.42); fill.position.set(-800, -520, -700); scene.add(fill);
+
+  const geo = new THREE.SphereGeometry(1, 22, 16);
+  const meshes = new Map();
+  for (const n of nodes){
+    const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({color: 0xffffff, transparent:true}));
+    m.position.set(n.x, n.y, n.z);
+    m.scale.setScalar(radiusOf(n) * R3D);
+    m.userData.id = n.id;
+    meshes.set(n.id, m);
+    scene.add(m);
+  }
+
+  const tiers = [[8, 0.55], [3, 0.32], [0, 0.17]];
+  renderer.setClearColor(lin(C.panel), 1);
+  const lineMats = tiers.map(([, op]) => new THREE.LineBasicMaterial({color: lin(C.muted), transparent:true, opacity:op}));
+  const lineGeos = tiers.map(() => new THREE.BufferGeometry());
+  const lineObjs = lineGeos.map((g, i) => {
+    const o = new THREE.LineSegments(g, lineMats[i]);
+    o.frustumCulled = false;
+    scene.add(o);
+    return o;
+  });
+
+  const focusGeo = new THREE.BufferGeometry();
+  const focusLine = new THREE.LineSegments(focusGeo, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:0.95}));
+  focusLine.frustumCulled = false;
+  focusLine.visible = false;
+  scene.add(focusLine);
+
+  const labelGroup = new THREE.Group();
+  scene.add(labelGroup);
+  const labels = new Map();
+
+  function labelTexture(text){
+    const FS = 46, PAD = 11;
+    const c = document.createElement("canvas");
+    let x = c.getContext("2d");
+    x.font = '600 ' + FS + 'px "IBM Plex Mono", monospace';
+    const w = Math.max(10, Math.ceil(x.measureText(text).width)) + PAD * 2;
+    const h = Math.ceil(FS * 1.55);
+    c.width = w; c.height = h;
+    x = c.getContext("2d");
+    x.font = '600 ' + FS + 'px "IBM Plex Mono", monospace';
+    x.textAlign = "center"; x.textBaseline = "middle";
+    x.lineWidth = 11; x.lineJoin = "round"; x.strokeStyle = C.panel;
+    x.strokeText(text, w/2, h/2);
+    x.fillStyle = C.ink;
+    x.fillText(text, w/2, h/2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    if ("encoding" in tex) tex.encoding = THREE.sRGBEncoding;
+    return {tex, w, h};
+  }
+
+  function buildLabels(){
+    for (const [, sp] of labels){ labelGroup.remove(sp); sp.material.map.dispose(); sp.material.dispose(); }
+    labels.clear();
+    const H = 46;
+    for (const n of nodes){
+      const {tex, w, h} = labelTexture(n.m);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+      sp.scale.set(H * w / h, H, 1);
+      sp.position.set(n.x, n.y + radiusOf(n) + H * 0.72, n.z);
+      sp.userData.id = n.id;
+      labelGroup.add(sp);
+      labels.set(n.id, sp);
+    }
+  }
+
+  function rebuildEdges(){
+    const vis = visibleEdges();
+    tiers.forEach(([minW], ti) => {
+      const maxW = ti === 0 ? Infinity : tiers[ti-1][0];
+      const sel = vis.filter(e => e[2] >= minW && e[2] < maxW);
+      const pos = new Float32Array(sel.length * 6);
+      sel.forEach(([a, b], i) => {
+        const p = byId.get(a), q = byId.get(b);
+        pos[i*6] = p.x; pos[i*6+1] = p.y; pos[i*6+2] = p.z;
+        pos[i*6+3] = q.x; pos[i*6+4] = q.y; pos[i*6+5] = q.z;
+      });
+      lineGeos[ti].setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      lineGeos[ti].computeBoundingSphere();
+      lineObjs[ti].visible = sel.length > 0;
+    });
+  }
+
+  function rebuildFocus(id){
+    const pos = [], col = [];
+    if (id){
+      const p = byId.get(id), c = new THREE.Color();
+      for (const [oid] of (adj.get(id) || [])){
+        const q = byId.get(oid);
+        if (!q || state.hidden.has(q.l) || state.hidden.has(p.l)) continue;
+        c.copy(lin(C.node[q.l]));
+        pos.push(p.x, p.y, p.z, q.x, q.y, q.z);
+        col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+      }
+    }
+    focusGeo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    focusGeo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    focusGeo.computeBoundingSphere();
+    focusLine.visible = !!id && pos.length > 0;
+  }
+
+  function applyHighlight(){
+    const id = state.hover || state.selected;
+    const fs = id ? new Set([id, ...(adj.get(id) || []).map(e => e[0])]) : null;
+    for (const [nid, m] of meshes){
+      const n = byId.get(nid);
+      const dim = (fs && !fs.has(nid)) || state.hidden.has(n.l);
+      m.material.opacity = dim ? 0.14 : 1;
+      m.material.depthWrite = !dim;
+      m.material.color.copy(lin(C.node[n.l]));
+      m.scale.setScalar(radiusOf(n) * R3D * (nid === id ? 1.35 : 1));
+    }
+    for (const [nid, sp] of labels){
+      sp.material.opacity = (fs && !fs.has(nid)) ? 0.12 : 1;
+    }
+    rebuildFocus(id);
+  }
+
+  const baseR = Math.max(...nodes.map(n => Math.hypot(n.x, n.y, n.z) + radiusOf(n) * R3D));
+  const cam = {theta: 0.72, phi: 0.62, dist: baseR * 2.05, target: new THREE.Vector3(0, 0, 0), moved: false};
+
+  function place(){
+    const sp = Math.sin(cam.phi), cp = Math.cos(cam.phi);
+    camera.position.set(
+      cam.target.x + cam.dist * sp * Math.sin(cam.theta),
+      cam.target.y + cam.dist * cp,
+      cam.target.z + cam.dist * sp * Math.cos(cam.theta)
+    );
+    camera.lookAt(cam.target);
+    camera.updateMatrixWorld();
+  }
+
+  // le etichette si posano in spazio schermo, come nella vista 2D: vince chi è più
+  // vicino alla camera, chi si sovrappone a una già posata resta nascosto
+  const _v = new THREE.Vector3(), _b1 = [];
+  const boxHit = (a, b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  function cullLabels(){
+    const W = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight;
+    if (!W || !H) return;
+    const tan = Math.tan(camera.fov * Math.PI / 360);
+    const cand = [];
+    for (const [nid, sp] of labels){
+      const n = byId.get(nid);
+      if (state.hidden.has(n.l)){ sp.visible = false; continue; }
+      const d = camera.position.distanceTo(sp.position);
+      const star = (nid === state.selected || nid === state.hover) ? -1 : d;
+      cand.push({sp, d, star});
+    }
+    cand.sort((a, b) => a.star - b.star);
+    const spheres = [];
+    for (const n of nodes){
+      if (state.hidden.has(n.l)) continue;
+      _v.set(n.x, n.y, n.z).project(camera);
+      if (_v.z > 1) continue;
+      const dn = camera.position.distanceTo(new THREE.Vector3(n.x, n.y, n.z));
+      const rpx = radiusOf(n) * R3D / (2 * dn * tan) * H;
+      spheres.push({id: n.id, x: (_v.x*0.5+0.5)*W, y: (-_v.y*0.5+0.5)*H, r: rpx + 2});
+    }
+    _b1.length = 0;
+    for (const it of cand){
+      const sp = it.sp;
+      _v.copy(sp.position).project(camera);
+      if (_v.z > 1 || it.d < 1){ sp.visible = false; continue; }
+      const sx = (_v.x * 0.5 + 0.5) * W, sy = (-_v.y * 0.5 + 0.5) * H;
+      const hpx = sp.scale.y / (2 * it.d * tan) * H;
+      const wpx = sp.scale.x / (2 * it.d * tan * camera.aspect) * W;
+      const box = {x: sx - wpx/2, y: sy - hpx/2, w: wpx, h: hpx};
+      if (box.x > W || box.y > H || box.x + box.w < 0 || box.y + box.h < 0){ sp.visible = false; continue; }
+      let clash = false;
+      for (const b of _b1) if (boxHit(b, box)){ clash = true; break; }
+      if (!clash){
+        for (const s of spheres){
+          if (s.id === sp.userData.id) continue;
+          if (s.x > box.x - s.r && s.x < box.x + box.w + s.r && s.y > box.y - s.r && s.y < box.y + box.h + s.r){ clash = true; break; }
+        }
+      }
+      if (clash){ sp.visible = false; continue; }
+      _b1.push(box);
+      sp.visible = true;
+    }
+  }
+
+  function paint(){ cullLabels(); renderer.render(scene, camera); }
+
+  function projectAll(){
+    camera.updateMatrixWorld();
+    let mx = 0.0001;
+    const vals = [];
+    for (const n of nodes){
+      _v.set(n.x, n.y, n.z).project(camera);
+      const m = Math.max(Math.abs(_v.x), Math.abs(_v.y));
+      vals.push(m);
+      mx = Math.max(mx, m);
+    }
+    return {mx, vals};
+  }
+
+  // la distanza non si può indovinare: con la prospettiva non è proporzionale a quanto
+  // il grafo occupa lo schermo. Si cerca per bisezione la distanza alla quale il nodo
+  // più esterno arriva al 94% del riquadro, così entra tutto e il grafo lo riempie
+  function frameR(){
+    const reach = d => { cam.dist = d; place(); return projectAll().mx; };
+    let lo = baseR * 0.3, hi = baseR * 8;
+    for (let i = 0; i < 24; i++){
+      const mid = Math.sqrt(lo * hi);
+      if (reach(mid) > 0.94) lo = mid; else hi = mid;
+    }
+    cam.dist = Math.sqrt(lo * hi);
+    place();
+  }
+
+  function size(){
+    const w = host.clientWidth, h = host.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    if (!cam.moved) frameR();
+    paint();
+  }
+
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  function hitAt(e){
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    const targets = nodes.filter(n => !state.hidden.has(n.l)).map(n => meshes.get(n.id));
+    const hits = ray.intersectObjects(targets, false);
+    return hits.length ? hits[0].object.userData.id : null;
+  }
+
+  const el = renderer.domElement;
+  let orbit = null;
+  el.addEventListener("contextmenu", e => e.preventDefault());
+  el.addEventListener("pointerdown", e => {
+    el.setPointerCapture(e.pointerId);
+    orbit = {x: e.clientX, y: e.clientY, moved: 0, pan: e.button === 2 || e.shiftKey};
+  });
+  el.addEventListener("pointermove", e => {
+    if (orbit){
+      const dx = e.clientX - orbit.x, dy = e.clientY - orbit.y;
+      orbit.moved += Math.abs(dx) + Math.abs(dy);
+      orbit.x = e.clientX; orbit.y = e.clientY;
+      cam.moved = true;
+      if (orbit.pan){
+        const s = cam.dist * 0.0017;
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+        const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+        cam.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
+      } else {
+        cam.theta -= dx * 0.0062;
+        cam.phi = Math.max(0.12, Math.min(Math.PI - 0.12, cam.phi - dy * 0.0055));
+      }
+      place(); paint();
+      return;
+    }
+    const id = hitAt(e);
+    if (id !== state.hover){
+      state.hover = id;
+      el.style.cursor = id ? "pointer" : "grab";
+      applyHighlight(); paint();
+    }
+  });
+  el.addEventListener("pointerup", e => {
+    const was = orbit; orbit = null;
+    if (was && was.moved < 6) select(hitAt(e));
+  });
+  el.addEventListener("pointercancel", () => { orbit = null; });
+  el.addEventListener("pointerleave", () => { if (!orbit && state.hover){ state.hover = null; applyHighlight(); paint(); } });
+  el.addEventListener("wheel", e => {
+    e.preventDefault();
+    cam.moved = true;
+    cam.dist = Math.max(baseR * 0.34, Math.min(baseR * 3.6, cam.dist * Math.exp(e.deltaY * 0.0011)));
+    place(); paint();
+  }, {passive:false});
+  el.style.cursor = "grab";
+
+  buildLabels();
+  rebuildEdges();
+  applyHighlight();
+  size();          // size() si occupa anche della prima inquadratura
+
+  return {
+    size, paint,
+    refresh(){ applyHighlight(); paint(); },
+    refilter(){ rebuildEdges(); applyHighlight(); paint(); },
+    rebuildLabels(){ buildLabels(); applyHighlight(); paint(); },
+    recolor(){
+      for (const o of lineObjs){ o.material.color && o.material.color.copy(lin(C.lineStrong)); o.material.needsUpdate = true; }
+      renderer.setClearColor(lin(C.panel), 1);
+      buildLabels();
+      applyHighlight();
+      paint();
+    },
+    home(){ cam.moved = false; cam.theta = 0.72; cam.phi = 0.62; cam.target.set(0,0,0); cam.dist = baseR * 2.05; frameR(); paint(); },
+    zoom(f){ cam.dist = Math.max(baseR * 0.34, Math.min(baseR * 3.6, cam.dist * f)); place(); paint(); }
+  };
+}
+
+function showView(v3){
+  state.view3d = v3;
+  const gl = document.getElementById("gl");
+  document.getElementById("cv").hidden = v3;
+  gl.hidden = !v3;
+  document.getElementById("v3d").setAttribute("aria-pressed", String(v3));
+  document.getElementById("v2d").setAttribute("aria-pressed", String(!v3));
+  document.getElementById("hint").textContent = v3
+    ? "trascina per ruotare · shift per spostarti · rotella per lo zoom · clicca un nodo"
+    : "trascina un nodo per spostarlo · trascina il fondo per muoverti · rotella per lo zoom";
+  if (v3){
+    if (!g3) g3 = build3d();
+    if (g3){ g3.size(); g3.refresh(); }
+  } else {
+    resize();
+  }
+}
+
+/* ---------- ispettore ---------- */
+const insp = document.getElementById("insp");
+const inspEmpty = document.getElementById("inspEmpty");
+
+function layerTag(l){
+  return '<span class="layertag" style="color:var(--l-' + l + ')"><span class="dot"></span>' + LAYER_LABEL[l] + '</span>';
+}
+function linkRow(id, w){
+  const n = byId.get(id);
+  if (!n) return "";
+  return '<li><button type="button" data-go="' + id + '"><span class="dot" style="background:var(--l-' + n.l + ')"></span>' +
+         '<span class="nm">' + n.m + '</span><span class="w">' + w + '</span></button></li>';
+}
+
+function select(id){
+  state.selected = id;
+  if (!id){ renderEmpty(); render(); return; }
+  const n = byId.get(id);
+  const outs = (outEdges.get(id) || []).slice(0, 8);
+  const ins = (inEdges.get(id) || []).slice(0, 8);
+  insp.innerHTML =
+    '<div class="insp">' +
+      '<div class="modname">' + n.m + '</div>' +
+      '<div style="margin-top:6px">' + layerTag(n.l) + '</div>' +
+      (n.d ? '<p class="desc">' + n.d + '</p>' : '') +
+      '<div class="kv">' +
+        '<div><b>' + n.loc.toLocaleString("it-IT") + '</b><i>righe</i></div>' +
+        '<div><b>' + n.f + '</b><i>file</i></div>' +
+        '<div><b>' + n.t.length + '</b><i>tipi</i></div>' +
+        '<div><b>' + n.o + '</b><i>uscite</i></div>' +
+      '</div>' +
+      (outs.length ? '<h3>Dipende da</h3><ul class="links">' + outs.map(([d,w]) => linkRow(d,w)).join("") + '</ul>' : '') +
+      (ins.length ? '<h3>Usato da</h3><ul class="links">' + ins.map(([d,w]) => linkRow(d,w)).join("") + '</ul>' : '') +
+      (n.t.length ? '<h3>Tipi</h3><ul class="types">' + n.t.map(t => '<li class="k-' + (KINDS[t] || "c") + '">' + t + '</li>').join("") + '</ul>' : '') +
+    '</div>';
+  insp.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => {
+    select(b.dataset.go);
+    const t = byId.get(b.dataset.go);
+    if (t && t._x != null) { state.view.x = VW/2 - t.x*state.view.k; state.view.y = VH/2 - t.y*state.view.k; state.userMoved = true; }
+    render();
+  }));
+  render();
+}
+
+function renderEmpty(){
+  const hubs = nodes.slice().sort((a,b) => (b.o + b.i) - (a.o + a.i)).slice(0, 7);
+  insp.innerHTML =
+    '<div class="insp">' +
+      '<p class="insp-empty" style="margin:0 0 2px">Seleziona un modulo per vedere da cosa dipende e chi lo usa.</p>' +
+      '<h3>Moduli più connessi</h3>' +
+      '<ul class="links">' + hubs.map(h => linkRow(h.id, h.o + h.i)).join("") + '</ul>' +
+    '</div>';
+  insp.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => {
+    select(b.dataset.go);
+    const t = byId.get(b.dataset.go);
+    if (t && t._x != null) { state.view.x = VW/2 - t.x*state.view.k; state.view.y = VH/2 - t.y*state.view.k; state.userMoved = true; }
+    render();
+  }));
+}
+
+/* ---------- barra, legenda, tabelle ---------- */
+const stats = document.getElementById("stats");
+const S = DATA.stats;
+stats.innerHTML = [
+  [S.cs, "file C#"], [S.csLoc.toLocaleString("it-IT"), "righe C#"],
+  [S.ts, "file TS"], [nodes.length, "namespace"], [S.types, "tipi"], [edges.length, "accoppiamenti"]
+].map(([b,i]) => '<span class="stat"><b>' + b + '</b><i>' + i + '</i></span>').join("");
+
+const legend = document.getElementById("legend");
+legend.innerHTML = LAYER_ORDER.map(l => {
+  const c = nodes.filter(n => n.l === l).length;
+  return '<button type="button" class="chip" data-layer="' + l + '" aria-pressed="true" style="color:var(--l-' + l + ')">' +
+         '<span class="dot"></span><span style="color:var(--ink)">' + LAYER_LABEL[l] + '</span><span class="ct">' + c + '</span></button>';
+}).join("");
+legend.querySelectorAll("[data-layer]").forEach(b => b.addEventListener("click", () => {
+  const l = b.dataset.layer;
+  if (state.hidden.has(l)){ state.hidden.delete(l); b.setAttribute("aria-pressed","true"); }
+  else { state.hidden.add(l); b.setAttribute("aria-pressed","false"); }
+  renderFilters();
+}));
+
+const q = document.getElementById("q");
+const hits = document.getElementById("hits");
+q.addEventListener("input", () => {
+  state.q = q.value;
+  const mm = matched();
+  hits.textContent = !state.q.trim() ? "" :
+    mm.mods.size + (mm.mods.size === 1 ? " modulo" : " moduli") + (mm.types.size ? " · " + mm.types.size + " tipi" : "");
+  render();
+});
+
+const thr = document.getElementById("thr"), thrv = document.getElementById("thrv");
+thr.addEventListener("input", () => { state.thr = +thr.value; thrv.textContent = thr.value; renderFilters(); });
+
+document.getElementById("reset").addEventListener("click", () => {
+  if (state.view3d && g3){ g3.home(); return; }
+  state.userMoved = false; fit(); draw2d();
+});
+document.getElementById("zin").addEventListener("click", () => zoomBy(1.25));
+document.getElementById("zout").addEventListener("click", () => zoomBy(0.8));
+function zoomBy(f){
+  if (state.view3d && g3){ g3.zoom(1/f); return; }
+  const cx = VW/2, cy = VH/2;
+  const before = toWorld(cx, cy);
+  state.view.k = Math.max(0.28, Math.min(3.6, state.view.k * f));
+  state.view.x = cx - before.x * state.view.k;
+  state.view.y = cy - before.y * state.view.k;
+  state.userMoved = true;
+  render();
+}
+
+const tbody = document.getElementById("coupling");
+const pairs = edges.slice().sort((a,b) => b[2]-a[2]).slice(0, 16);
+const wmax = pairs.length ? pairs[0][2] : 1;
+tbody.innerHTML = pairs.map(([a,b,w]) => {
+  const na = byId.get(a), nb = byId.get(b);
+  return '<tr><td class="nm">' + na.m + '</td><td class="nm">' + nb.m + '</td><td class="num" style="text-align:left">' + w + '</td>' +
+    '<td class="bar"><div class="bar-track"><div class="bar-fill" style="width:' + Math.round(w/wmax*100) + '%;background:var(--l-' + na.l + ')"></div></div></td></tr>';
+}).join("");
+
+document.getElementById("stamp").textContent = nodes.length + " namespace · " + edges.length + " coppie accoppiate · " + S.types + " tipi";
+
+/* ---------- avvio ---------- */
+if (window.ResizeObserver) new ResizeObserver(resize).observe(document.querySelector("figure.graph"));
+window.addEventListener("resize", resize);
+document.getElementById("v3d").addEventListener("click", () => showView(true));
+document.getElementById("v2d").addEventListener("click", () => showView(false));
+renderEmpty();
+resize();
+if (hasGL){
+  showView(true);                       // la vista 3D è quella principale
+  if (!g3) showView(false);             // se WebGL non parte si resta in 2D
+} else {
+  const b = document.getElementById("v3d");
+  b.disabled = true;
+  b.title = "questo browser non offre WebGL";
+  showView(false);
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+  draw2d();
+  if (g3) g3.rebuildLabels();
+});
+})();
+</script>

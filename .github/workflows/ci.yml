@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    name: Core e server (.NET 11 + PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Database effimero del job: autenticazione trust, nessuna credenziale.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CSF_TEST_POSTGRES: Host=localhost;Username=postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Test Core
+        run: dotnet test --project tests/ClinicalSensorFusion.Core.Tests
+      - name: Test server (integrazione su PostgreSQL)
+        run: dotnet test --project tests/ClinicalSensorFusion.Server.Tests
+
+  android:
+    name: App Android (.NET MAUI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: 21
+      - run: dotnet workload install maui-android
+      - run: ./scripts/download-models.sh
+      - name: Build APK
+        run: dotnet build src/ClinicalSensorFusion.App -f net11.0-android -p:AcceptAndroidSDKLicenses=true
+
+  dashboard:
+    name: Dashboard (React + Three.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/ClinicalSensorFusion.Dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/ClinicalSensorFusion.Dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

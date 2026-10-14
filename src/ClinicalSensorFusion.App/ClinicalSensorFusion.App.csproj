@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      iOS è la piattaforma di riferimento (ARKit, LiDAR, TrueDepth). Android usa CameraX e MediaPipe senza
+      profondità metrica: vedi docs/android.md. Il target iOS si compila solo su macOS.
+    -->
+    <TargetFrameworks>net11.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">net11.0-ios;$(TargetFrameworks)</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">17.0</SupportedOSPlatformVersion>
+    <!-- Android 11: autenticazione biometrica con codice di riserva e stato termico senza librerie aggiuntive. -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">30</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>ClinicalSensorFusion.App</RootNamespace>
+    <!-- Nome dell'eseguibile come nell'app originale: ClinicalSensorFusion.app/ClinicalSensorFusion -->
+    <AssemblyName>ClinicalSensorFusion</AssemblyName>
+
+    <ApplicationTitle>SensorFusion Clinic</ApplicationTitle>
+    <ApplicationId>com.lucaguelfi.sensorfusionclinic</ApplicationId>
+    <ApplicationDisplayVersion>1.2</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+
+    <!--
+      Runtime CoreCLR su iOS (come l'app originale: libcoreclr + ReadyToRun) invece di Mono.
+      In .NET 11 è opt-in: se la toolchain installata non lo supporta, rimuovere la riga torna a Mono AOT.
+    -->
+    <UseMonoRuntime Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">false</UseMonoRuntime>
+
+    <!-- I modelli MediaPipe (.task) si leggono dagli asset dell'APK senza decomprimerli. -->
+    <AndroidStoreUncompressedFileExtensions>.task</AndroidStoreUncompressedFileExtensions>
+
+    <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
+    <!-- Accesso diretto ai buffer di profondità e audio senza copie intermedie. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CA1515;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <MtouchLink>SdkOnly</MtouchLink>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#0B3D5C" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#0B3D5C" BaseSize="128,128" />
+    <!-- Icone della barra delle schede (il sistema le ricolora da sé: solo la forma conta). -->
+    <MauiImage Include="Resources/Images/*" />
+    <!-- Modelli MediaPipe: copiati nel bundle in models/*.task (scaricarli con scripts/download-models.sh). -->
+    <MauiAsset Include="Resources/Raw/**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <!-- Manifest della privacy richiesto da App Store / TestFlight. -->
+    <BundleResource Include="Platforms/iOS/PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
+  </ItemGroup>
+
+  <!-- Preconfigurazione facoltativa del server clinico, passata da riga di comando (vedi BuildProvisioning). -->
+  <ItemGroup Condition="'$(ProvisionSyncServer)' != ''">
+    <AssemblyMetadata Include="ProvisionSyncServer" Value="$(ProvisionSyncServer)" />
+    <AssemblyMetadata Include="ProvisionSyncApiKey" Value="$(ProvisionSyncApiKey)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="CommunityToolkit.Maui" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ClinicalSensorFusion.Core/ClinicalSensorFusion.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <ProjectReference Include="../ClinicalSensorFusion.MediaPipe/ClinicalSensorFusion.MediaPipe.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <ProjectReference Include="../ClinicalSensorFusion.MediaPipe.Android/ClinicalSensorFusion.MediaPipe.Android.csproj" />
+    <PackageReference Include="Xamarin.AndroidX.Camera.Camera2" />
+    <PackageReference Include="Xamarin.AndroidX.Camera.Lifecycle" />
+    <PackageReference Include="Xamarin.AndroidX.Camera.View" />
+  </ItemGroup>
+
+  <Target Name="CheckMediaPipeModels" BeforeTargets="Build">
+    <Warning Condition="!Exists('Resources/Raw/models/pose_landmarker_full.task')"
+             Text="Modelli MediaPipe assenti: eseguire scripts/download-models.sh, altrimenti la visione non si avvia." />
+  </Target>
+</Project>

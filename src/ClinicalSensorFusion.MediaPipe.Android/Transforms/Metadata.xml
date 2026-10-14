@@ -1,0 +1,4 @@
+<metadata>
+  <!-- Stesso namespace del binding iOS: il codice dell'app usa ClinicalSensorFusion.MediaPipe su entrambe le piattaforme. -->
+  <attr path="/api/package[@name='com.lucaguelfi.csf.vision']" name="managedName">ClinicalSensorFusion.MediaPipe</attr>
+</metadata>

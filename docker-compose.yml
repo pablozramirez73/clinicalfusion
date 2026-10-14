@@ -1,0 +1,13 @@
+# PostgreSQL per lo sviluppo locale del server: docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      # Solo sviluppo locale: nessuna password, porta esposta solo su localhost.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

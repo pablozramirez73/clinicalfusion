@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:l="clr-namespace:ClinicalSensorFusion.App.Localization"
+             xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             xmlns:controls="clr-namespace:ClinicalSensorFusion.App.Controls"
+             x:Class="ClinicalSensorFusion.App.Views.SessionsPage"
+             x:DataType="vm:SessionsViewModel"
+             Title="{l:Tr Text='Rilevazioni'}"
+             Shell.NavBarIsVisible="False"
+             SafeAreaEdges="Container">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="14" Padding="20,12,20,0">
+    <!-- Intestazione -->
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+      <VerticalStackLayout Spacing="2">
+        <Label Text="{l:Tr Text='Rilevazioni'}" Style="{StaticResource LargeTitle}" SemanticProperties.HeadingLevel="Level1" />
+        <Label Text="{Binding CountText}" Style="{StaticResource Muted}" />
+      </VerticalStackLayout>
+      <!-- Invia al server clinico tutte le rilevazioni non ancora sincronizzate -->
+      <Border Grid.Column="1" Style="{StaticResource IconTile}" WidthRequest="46" HeightRequest="46" StrokeShape="RoundRectangle 14"
+              VerticalOptions="Center" SemanticProperties.Description="{l:Tr Text='Sincronizza con il server clinico'}">
+        <Border.GestureRecognizers>
+          <TapGestureRecognizer Command="{Binding SyncCommand}" />
+        </Border.GestureRecognizers>
+        <Grid>
+          <Path Style="{StaticResource IconUpload}" WidthRequest="20" HeightRequest="20"
+                IsVisible="{Binding IsSyncing, Converter={StaticResource InvertedBool}}" />
+          <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}" WidthRequest="20" HeightRequest="20" />
+        </Grid>
+      </Border>
+      <Button Grid.Column="2" Text="{l:Tr Text='＋ Nuova'}" Style="{StaticResource SecondaryButton}" VerticalOptions="Center"
+              Command="{Binding NewCaptureCommand}" SemanticProperties.Description="{l:Tr Text='Nuova acquisizione'}" />
+    </Grid>
+
+    <!-- Ricerca -->
+    <Border Grid.Row="1" Style="{StaticResource FieldBox}"
+            BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <Path Style="{StaticResource IconSearch}" />
+        <Entry Grid.Column="1" Placeholder="{l:Tr Text='Cerca per codice soggetto'}" Text="{Binding SearchText}"
+               ClearButtonVisibility="WhileEditing" ReturnType="Search"
+               IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Style="{StaticResource BannerDanger}"
+            IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullOrEmpty}}">
+      <Label Text="{Binding ErrorMessage}" Style="{StaticResource BannerDangerText}" />
+    </Border>
+
+    <Border Grid.Row="3" Style="{StaticResource BannerInfo}"
+            IsVisible="{Binding SyncStatus, Converter={StaticResource IsNotNullOrEmpty}}">
+      <Label Text="{Binding SyncStatus}" Style="{StaticResource BannerInfoText}" />
+    </Border>
+
+    <RefreshView Grid.Row="4" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+      <CollectionView ItemsSource="{Binding Sessions}" SelectionMode="None">
+        <CollectionView.EmptyView>
+          <Grid>
+            <VerticalStackLayout Spacing="10" Padding="24,0,24,80" VerticalOptions="Center">
+              <Border Style="{StaticResource IconTile}" WidthRequest="72" HeightRequest="72" StrokeShape="RoundRectangle 22"
+                      HorizontalOptions="Center" Margin="0,0,0,6">
+                <Path Style="{StaticResource IconPulse}" WidthRequest="34" HeightRequest="34" StrokeThickness="2.4" />
+              </Border>
+              <Label Text="{l:Tr Text='Nessuna rilevazione'}" Style="{StaticResource Title}" HorizontalTextAlignment="Center" />
+              <Label Text="{l:Tr Text='Le rilevazioni completate compaiono qui, cifrate e conservate solo su questo dispositivo.'}"
+                     Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
+              <Button Text="{l:Tr Text='Avvia un\'acquisizione'}" Command="{Binding NewCaptureCommand}" HorizontalOptions="Center" Margin="0,10,0,0" />
+            </VerticalStackLayout>
+          </Grid>
+        </CollectionView.EmptyView>
+        <CollectionView.ItemsLayout>
+          <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+        </CollectionView.ItemsLayout>
+        <CollectionView.ItemTemplate>
+          <DataTemplate x:DataType="vm:SessionListItem">
+            <SwipeView>
+              <SwipeView.RightItems>
+                <SwipeItems>
+                  <SwipeItem Text="{l:Tr Text='Elimina'}" BackgroundColor="{StaticResource Danger}"
+                             Command="{Binding DeleteCommand, Source={RelativeSource AncestorType={x:Type vm:SessionsViewModel}}, x:DataType=vm:SessionsViewModel}"
+                             CommandParameter="{Binding .}" />
+                </SwipeItems>
+              </SwipeView.RightItems>
+              <Border Style="{StaticResource Card}" Padding="14">
+                <Border.GestureRecognizers>
+                  <TapGestureRecognizer Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:SessionsViewModel}}, x:DataType=vm:SessionsViewModel}"
+                                        CommandParameter="{Binding .}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" SemanticProperties.Description="{Binding Subject}">
+                  <controls:ModeBadge Mode="{Binding Mode}" Size="48" VerticalOptions="Center" />
+                  <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                    <Label Text="{Binding Subject}" Style="{StaticResource Headline}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Details}" Style="{StaticResource Muted}" LineBreakMode="TailTruncation" />
+                    <HorizontalStackLayout Spacing="8">
+                      <Label Text="{Binding When}" Style="{StaticResource Muted}" FontSize="12" VerticalOptions="Center" />
+                      <Border Style="{StaticResource ChipWarning}" Padding="8,2"
+                              IsVisible="{Binding Completed, Converter={StaticResource InvertedBool}}">
+                        <Label Text="{l:Tr Text='Incompleta'}" Style="{StaticResource ChipWarningText}" FontSize="11" />
+                      </Border>
+                      <Border Style="{StaticResource Chip}" Padding="8,2" IsVisible="{Binding Synced}">
+                        <Label Text="{l:Tr Text='✓ Inviata'}" Style="{StaticResource ChipText}" FontSize="11" />
+                      </Border>
+                    </HorizontalStackLayout>
+                  </VerticalStackLayout>
+                  <Path Grid.Column="2" Style="{StaticResource IconChevron}" />
+                </Grid>
+              </Border>
+            </SwipeView>
+          </DataTemplate>
+        </CollectionView.ItemTemplate>
+      </CollectionView>
+    </RefreshView>
+  </Grid>
+</ContentPage>
