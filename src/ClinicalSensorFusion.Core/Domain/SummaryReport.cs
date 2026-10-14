@@ -9,6 +9,15 @@ namespace ClinicalSensorFusion.Core.Domain;
 /// <summary>Riga del riepilogo leggibile, raggruppata per sezione.</summary>
 public sealed record SummaryRow(string Section, string Label, string Value, bool Warning = false);
 
+/// <summary>Un canale di un sensore ambientale: valore principale e, se è variato, intervallo e media.</summary>
+public sealed record SensorTile(string Name, string Value, string Detail, bool Warning = false)
+{
+    public bool HasDetail => Detail.Length > 0;
+}
+
+/// <summary>Un sensore ambientale con i suoi canali.</summary>
+public sealed record SensorCard(string Sensor, IReadOnlyList<SensorTile> Tiles);
+
 /// <summary>
 /// Trasforma il riepilogo in righe leggibili per la schermata di dettaglio. Le soglie di "attenzione"
 /// sono indicatori di qualità del dato, non giudizi clinici.
@@ -123,6 +132,56 @@ public static class SummaryReport
         return min == max
             ? string.Format(c, "{0:0.##}{1}", ch.Last, unit)
             : string.Format(c, Loc.T("{0}–{1}{3} (media {2:0.##}, ultimo {4:0.##})"), min, max, ch.Mean, unit, ch.Last);
+    }
+
+    /// <summary>
+    /// Sensori ambientali come schede: una per sensore, con un riquadro per canale. Il valore principale è
+    /// l'ultimo letto; intervallo e media vanno nel dettaglio solo se il canale è cambiato.
+    /// </summary>
+    public static IReadOnlyList<SensorCard> Environment(SessionSummary s, CultureInfo? culture = null)
+    {
+        var c = culture ?? CultureInfo.CurrentCulture;
+        var cards = new List<SensorCard>();
+        foreach (var (kind, stream) in (s.Sensors ?? []).OrderBy(k => k.Key))
+        {
+            var tiles = kind == SensorKind.Location
+                ? LocationTiles(stream, c)
+                : [.. stream.Channels.Select(ch => Tile(Loc.T(ch.Name, c), ch, c))];
+            if (tiles.Count > 0)
+            {
+                cards.Add(new SensorCard(StreamName(kind), tiles));
+            }
+        }
+
+        return cards;
+    }
+
+    private static SensorTile Tile(string name, ChannelStats ch, CultureInfo c)
+    {
+        var unit = ch.Unit.Length == 0 ? string.Empty : char.IsDigit(ch.Unit[0]) ? " " + string.Format(c, Loc.T("(scala {0})", c), ch.Unit) : " " + Loc.T(ch.Unit, c);
+        var (min, max) = (ch.Min.ToString("0.##", c), ch.Max.ToString("0.##", c));
+        var detail = min == max ? string.Empty : string.Format(c, Loc.T("{0}–{1} · media {2:0.##}", c), min, max, ch.Mean);
+        return new SensorTile(name, string.Format(c, "{0:0.##}{1}", ch.Last, unit), detail);
+    }
+
+    private static List<SensorTile> LocationTiles(SensorStreamSummary stream, CultureInfo c)
+    {
+        var tiles = new List<SensorTile>();
+        var byName = stream.Channels.ToDictionary(ch => ch.Name);
+        if (byName.TryGetValue("Latitudine", out var lat) && byName.TryGetValue("Longitudine", out var lon))
+        {
+            tiles.Add(new(Loc.T("Posizione", c), string.Format(CultureInfo.InvariantCulture, "{0:F5}, {1:F5}", lat.Last, lon.Last),
+                string.Format(c, Loc.T("{0:N0} rilevamenti", c), lat.Samples)));
+        }
+
+        if (byName.TryGetValue("Accuratezza orizzontale", out var accuracy))
+        {
+            tiles.Add(new(Loc.T("Accuratezza", c), string.Format(c, "±{0:F0} m", accuracy.Last),
+                string.Format(c, Loc.T("migliore ±{0:F0} m", c), accuracy.Min), accuracy.Min > 50));
+        }
+
+        tiles.AddRange(stream.Channels.Where(ch => ch.Name is "Altitudine" or "Velocità").Select(ch => Tile(Loc.T(ch.Name, c), ch, c)));
+        return tiles;
     }
 
     /// <summary>La posizione si legge come coppia di coordinate, non come cinque statistiche separate.</summary>

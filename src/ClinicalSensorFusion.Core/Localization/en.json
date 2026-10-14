@@ -547,5 +547,12 @@
   "Archivio audio non scrivibile.": "Audio storage is not writable.",
   "Il file non è in formato CAF.": "The file is not in CAF format.",
   "Solo CAF little endian.": "Little-endian CAF only.",
-  "La ricerca riguarda più di {0} rilevazioni: restringerla con patient o date.": "The search covers more than {0} sessions: narrow it with patient or date."
+  "La ricerca riguarda più di {0} rilevazioni: restringerla con patient o date.": "The search covers more than {0} sessions: narrow it with patient or date.",
+  "Sensori ambientali": "Environmental sensors",
+  "Mostra": "Show",
+  "Mostra o nascondi i sensori ambientali": "Show or hide the environmental sensors",
+  "Nascosti: attiva «Mostra» per vedere barometro, luce, posizione e stato del dispositivo.": "Hidden: turn on “Show” to see barometer, light, position and device state.",
+  "{0}–{1} · media {2:0.##}": "{0}–{1} · mean {2:0.##}",
+  "{0:N0} rilevamenti": "{0:N0} fixes",
+  "migliore ±{0:F0} m": "best ±{0:F0} m"
 }

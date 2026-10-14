@@ -145,6 +145,17 @@ public class ClinicalTestTests
         Assert.Contains(report, r => r.Label == "Luce ambientale · Intensità" && r.Value.StartsWith("300–500", StringComparison.Ordinal));
         Assert.Contains(report, r => r.Label == "Stato dispositivo · Batteria" && r.Value == "0,82 (scala 0–1)");
 
+        // Schede del dettaglio: una per sensore, ultimo valore in evidenza e intervallo solo se è cambiato.
+        var cards = SummaryReport.Environment(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        Assert.Equal(["Barometro", "GPS", "Luce ambientale", "Stato dispositivo"], cards.Select(c => c.Sensor));
+        var gps = cards[1].Tiles;
+        Assert.Contains(gps, t => t is { Name: "Posizione", Value: "45.46425, 9.19002", Detail: "2 rilevamenti" });
+        Assert.Contains(gps, t => t is { Name: "Accuratezza", Value: "±8 m", Warning: false });
+        var light = Assert.Single(cards[2].Tiles);
+        Assert.Equal(("Intensità", "300–500 · media 400"), (light.Name, light.Detail));
+        Assert.StartsWith("500 ", light.Value, StringComparison.Ordinal);
+        Assert.False(cards[3].Tiles.Single(t => t.Name == "Batteria").HasDetail);
+
         // Il riepilogo si rilegge identico dal JSON che va al server.
         var json = System.Text.Json.JsonSerializer.Serialize(summary, ClinicalSensorFusion.Core.Persistence.CsfJsonContext.Default.SessionSummary);
         var back = System.Text.Json.JsonSerializer.Deserialize(json, ClinicalSensorFusion.Core.Persistence.CsfJsonContext.Default.SessionSummary)!;
