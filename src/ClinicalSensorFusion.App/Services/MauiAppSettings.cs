@@ -1,0 +1,122 @@
+using ClinicalSensorFusion.Core.Settings;
+
+namespace ClinicalSensorFusion.App.Services;
+
+/// <summary>Impostazioni su <see cref="Preferences"/> (NSUserDefaults) con le stesse chiavi dell'app originale.</summary>
+public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
+{
+    private const string RecordLocationKey = "capture.location";
+    private const string DepthOverlayKey = "capture.depth_overlay";
+    private const string EnvironmentSensorsKey = "detail.environment_sensors";
+    private const string UseLidarKey = "capture.use_lidar";
+    private const string SetupCompletedKey = "setup.completed";
+    private const string RequireAuthKey = "security.require_auth";
+    private const string SyncServerKey = "sync.server";
+    private const string AutoSyncKey = "sync.auto";
+
+    public string OllamaServer
+    {
+        get => preferences.Get(SettingsKeys.OllamaServer, string.Empty);
+        set => preferences.Set(SettingsKeys.OllamaServer, value?.Trim() ?? string.Empty);
+    }
+
+    public string OllamaModel
+    {
+        get => preferences.Get(SettingsKeys.OllamaModel, SettingsDefaults.OllamaModel);
+        set => preferences.Set(SettingsKeys.OllamaModel, value?.Trim() ?? SettingsDefaults.OllamaModel);
+    }
+
+    public string OllamaLanguage
+    {
+        get => preferences.Get(SettingsKeys.OllamaLanguage, SettingsDefaults.OllamaLanguage);
+        set => preferences.Set(SettingsKeys.OllamaLanguage, value ?? SettingsDefaults.OllamaLanguage);
+    }
+
+    public string OllamaPrompt
+    {
+        get => preferences.Get(SettingsKeys.OllamaPrompt, string.Empty);
+        set => preferences.Set(SettingsKeys.OllamaPrompt, value?.Trim() ?? string.Empty);
+    }
+
+    public ClinicalSensorFusion.Core.Fhir.FhirRelease OllamaFhirRelease
+    {
+        get => Enum.TryParse<ClinicalSensorFusion.Core.Fhir.FhirRelease>(preferences.Get(SettingsKeys.OllamaFhirRelease, string.Empty), out var release)
+            ? release
+            : ClinicalSensorFusion.Core.Fhir.FhirRelease.R4;
+        set => preferences.Set(SettingsKeys.OllamaFhirRelease, value.ToString());
+    }
+
+    public string OperatorId
+    {
+        get => preferences.Get(SettingsKeys.OperatorId, string.Empty);
+        set => preferences.Set(SettingsKeys.OperatorId, value?.Trim() ?? string.Empty);
+    }
+
+    public string OperatorName
+    {
+        get => preferences.Get(SettingsKeys.OperatorName, string.Empty);
+        set => preferences.Set(SettingsKeys.OperatorName, value?.Trim() ?? string.Empty);
+    }
+
+    /// <summary>Lingua dell'interfaccia scelta dall'utente; vuoto = quella del telefono. Letta all'avvio (vedi <see cref="MauiProgram"/>).</summary>
+    public string UiLanguage
+    {
+        get => preferences.Get(SettingsKeys.UiLanguage, string.Empty);
+        set => preferences.Set(SettingsKeys.UiLanguage, value ?? string.Empty);
+    }
+
+    /// <summary>Registrazione GPS: disattivata per default (minimizzazione dei dati).</summary>
+    public bool RecordLocation
+    {
+        get => preferences.Get(RecordLocationKey, false);
+        set => preferences.Set(RecordLocationKey, value);
+    }
+
+    /// <summary>Indirizzo del server clinico (es. https://clinica.esempio.it).</summary>
+    public string SyncServer
+    {
+        get => preferences.Get(SyncServerKey, string.Empty);
+        set => preferences.Set(SyncServerKey, value?.Trim() ?? string.Empty);
+    }
+
+    /// <summary>Invio automatico al termine di ogni rilevazione.</summary>
+    public bool AutoSync
+    {
+        get => preferences.Get(AutoSyncKey, true);
+        set => preferences.Set(AutoSyncKey, value);
+    }
+
+    /// <summary>Profondità LiDAR in modalità corpo. Spenta per impostazione predefinita: si accende quando serve.</summary>
+    public bool UseLidar
+    {
+        get => preferences.Get(UseLidarKey, false);
+        set => preferences.Set(UseLidarKey, value);
+    }
+
+    /// <summary>Chiede Face ID (o il codice del telefono) all'avvio e al ritorno dal background.</summary>
+    public bool RequireDeviceAuthentication
+    {
+        get => preferences.Get(RequireAuthKey, false);
+        set => preferences.Set(RequireAuthKey, value);
+    }
+
+    /// <summary>La pagina iniziale di scelta della lingua è già stata completata (o non serviva).</summary>
+    public bool SetupCompleted
+    {
+        get => preferences.Get(SetupCompletedKey, false);
+        set => preferences.Set(SetupCompletedKey, value);
+    }
+
+    public bool ShowDepthOverlay
+    {
+        get => preferences.Get(DepthOverlayKey, true);
+        set => preferences.Set(DepthOverlayKey, value);
+    }
+
+    /// <summary>Nel dettaglio della rilevazione, la sezione dei sensori ambientali è aperta.</summary>
+    public bool ShowEnvironmentSensors
+    {
+        get => preferences.Get(EnvironmentSensorsKey, true);
+        set => preferences.Set(EnvironmentSensorsKey, value);
+    }
+}

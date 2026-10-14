@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:l="clr-namespace:ClinicalSensorFusion.App.Localization"
+             xmlns:vm="clr-namespace:ClinicalSensorFusion.App.ViewModels"
+             xmlns:svc="clr-namespace:ClinicalSensorFusion.App.Services"
+             xmlns:controls="clr-namespace:ClinicalSensorFusion.App.Controls"
+             x:Class="ClinicalSensorFusion.App.Views.CapturePage"
+             x:DataType="vm:CaptureViewModel"
+             Title="{l:Tr Text='Acquisizione'}"
+             Shell.NavBarIsVisible="False"
+             SafeAreaEdges="None"
+             BackgroundColor="Black">
+  <!--
+    L'anteprima occupa tutto lo schermo tranne la striscia del pannello abbassato: per inquadrare una persona
+    a figura intera serve spazio. Il pannello è un foglio a due stati: abbassato mostra solo registrazione e
+    modalità; alzato (trascinando, o toccando la maniglia) copre parte dell'anteprima con il resto dei parametri.
+    L'anteprima non cambia dimensione quando il foglio si alza: la camera non si riconfigura.
+  -->
+  <Grid RowDefinitions="*,Auto" SafeAreaEdges="None">
+    <!-- Anteprima: camera + profondità con overlay dei punti MediaPipe. Prosegue sotto il bordo arrotondato del pannello. -->
+    <Grid BackgroundColor="Black" Margin="0,0,0,-28" SafeAreaEdges="None">
+      <controls:CapturePreview DepthOverlayOpacity="{Binding DepthOpacity}" />
+      <GraphicsView x:Name="OverlayView" Drawable="{Binding Overlay}" InputTransparent="True" />
+
+      <!-- Riga alta: stato dell'inferenza a sinistra, REC a destra -->
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Start" Margin="16,60,16,0" InputTransparent="True">
+        <Border Style="{StaticResource Hud}" HorizontalOptions="Start"
+                IsVisible="{Binding Caption, Converter={StaticResource IsNotNullOrEmpty}}">
+          <Label Text="{Binding Caption}" Style="{StaticResource HudText}" FontAttributes="None" LineBreakMode="TailTruncation" />
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Hud}" BackgroundColor="{StaticResource Danger}" IsVisible="{Binding IsRecording}">
+          <HorizontalStackLayout Spacing="6">
+            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="White" VerticalOptions="Center" />
+            <Label Text="REC" Style="{StaticResource HudText}" />
+            <Label Text="{Binding Elapsed}" Style="{StaticResource HudText}" />
+          </HorizontalStackLayout>
+        </Border>
+      </Grid>
+
+      <!-- Riga bassa: avviso e interruttore della mappa di profondità, sopra il bordo del pannello -->
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="End" Margin="16,0,16,44">
+        <Border Style="{StaticResource Hud}" StrokeShape="RoundRectangle 14" BackgroundColor="#E6B45309" HorizontalOptions="Start"
+                IsVisible="{Binding Warning, Converter={StaticResource IsNotNullOrEmpty}}">
+          <Label Text="{Binding Warning}" Style="{StaticResource HudText}" FontAttributes="None" />
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Hud}" Padding="10" VerticalOptions="End" IsVisible="{Binding ShowDepthToggle}"
+                SemanticProperties.Description="{l:Tr Text='Profondità'}" SemanticProperties.Hint="{l:Tr Text='Mostra o nasconde la mappa di profondità LiDAR'}">
+          <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding ToggleDepthCommand}" />
+          </Border.GestureRecognizers>
+          <Path Style="{StaticResource IconLayers}" Stroke="White" WidthRequest="20" HeightRequest="20" />
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- Riserva lo spazio del pannello abbassato (altezza impostata dal codice sulla misura dell'intestazione). -->
+    <BoxView x:Name="SheetSpace" Grid.Row="1" HeightRequest="236" Opacity="0" InputTransparent="True" />
+
+    <!-- Pannello di controllo -->
+    <Border x:Name="Sheet" Grid.RowSpan="2" VerticalOptions="End" HeightRequest="236"
+            StrokeThickness="0" StrokeShape="RoundRectangle 28,28,0,0" SafeAreaEdges="None"
+            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+      <Grid RowDefinitions="Auto,*">
+        <!-- Sempre visibile: maniglia, registrazione, modalità. Trascinare in su o in giù alza o abbassa il pannello. -->
+        <VerticalStackLayout x:Name="SheetHeader" Spacing="0" SizeChanged="OnSheetHeaderSizeChanged">
+          <VerticalStackLayout.GestureRecognizers>
+            <SwipeGestureRecognizer Direction="Up" Swiped="OnSheetSwipedUp" />
+            <SwipeGestureRecognizer Direction="Down" Swiped="OnSheetSwipedDown" />
+          </VerticalStackLayout.GestureRecognizers>
+          <Grid HeightRequest="26" SemanticProperties.Description="{l:Tr Text='Parametri della rilevazione'}"
+                SemanticProperties.Hint="{l:Tr Text='Mostra o nasconde test, codice soggetto e note'}">
+            <Grid.GestureRecognizers>
+              <TapGestureRecognizer Tapped="OnSheetHandleTapped" />
+            </Grid.GestureRecognizers>
+            <BoxView WidthRequest="44" HeightRequest="5" CornerRadius="2.5" HorizontalOptions="Center" VerticalOptions="Center"
+                     Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+          </Grid>
+        <!-- Pulsante di registrazione: con un test selezionato fa partire la guida vocale, poi registra sul «Via» -->
+        <VerticalStackLayout Spacing="6" HorizontalOptions="Center" Padding="0,0,0,10">
+          <Border WidthRequest="76" HeightRequest="76" StrokeShape="RoundRectangle 38" StrokeThickness="4" HorizontalOptions="Center"
+                  Stroke="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                  SemanticProperties.Description="{Binding RecordHint}">
+            <Border.GestureRecognizers>
+              <TapGestureRecognizer Command="{Binding RecordButtonCommand}" />
+            </Border.GestureRecognizers>
+            <Grid>
+              <Border WidthRequest="58" HeightRequest="58" StrokeShape="RoundRectangle 29" StrokeThickness="0"
+                      BackgroundColor="{StaticResource Danger}" HorizontalOptions="Center" VerticalOptions="Center">
+                <Border.Triggers>
+                  <!-- In registrazione il cerchio diventa il quadrato di stop -->
+                  <DataTrigger TargetType="Border" Binding="{Binding IsRecording}" Value="True">
+                    <Setter Property="WidthRequest" Value="30" />
+                    <Setter Property="HeightRequest" Value="30" />
+                    <Setter Property="StrokeShape" Value="RoundRectangle 7" />
+                  </DataTrigger>
+                </Border.Triggers>
+              </Border>
+              <Label Text="{Binding GuideCountdown}" TextColor="White" FontSize="16" FontAttributes="Bold"
+                     HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
+            </Grid>
+          </Border>
+          <Label Text="{Binding RecordHint}" Style="{StaticResource Muted}" HorizontalTextAlignment="Center"
+                 MaxLines="1" LineBreakMode="TailTruncation" />
+        </VerticalStackLayout>
+          <!-- Modalità -->
+          <FlexLayout BindableLayout.ItemsSource="{Binding Modes}" Direction="Row" Margin="16,0,16,10">
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="vm:CaptureModeOption">
+                <Border FlexLayout.Grow="1" FlexLayout.Basis="0" Margin="4,0" Style="{StaticResource Tile}" Padding="8,10"
+                        SemanticProperties.Description="{Binding Title}">
+                  <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                      <Setter Property="Stroke" Value="{StaticResource Accent}" />
+                      <Setter Property="StrokeThickness" Value="2" />
+                      <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentSoftLight}, Dark={StaticResource AccentSoftDark}}" />
+                    </DataTrigger>
+                  </Border.Triggers>
+                  <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectModeCommand, Source={RelativeSource AncestorType={x:Type vm:CaptureViewModel}}, x:DataType=vm:CaptureViewModel}"
+                                          CommandParameter="{Binding .}" />
+                  </Border.GestureRecognizers>
+                  <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                    <controls:ModeBadge Mode="{Binding Mode}" Size="30" VerticalOptions="Center" />
+                    <Label Text="{Binding Title}" FontAttributes="Bold" VerticalOptions="Center" />
+                  </HorizontalStackLayout>
+                </Border>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
+
+          <!-- Che cosa si sta per registrare; toccando la riga il pannello si alza (o si abbassa). -->
+          <Border Style="{StaticResource Tile}" Padding="14,10" Margin="20,0,20,14"
+                  SemanticProperties.Description="{l:Tr Text='Test e codice soggetto'}"
+                  SemanticProperties.Hint="{l:Tr Text='Mostra o nasconde test, codice soggetto e note'}">
+            <Border.GestureRecognizers>
+              <TapGestureRecognizer Tapped="OnSheetHandleTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+              <Label Text="{Binding SetupSummary}" FontSize="14" MaxLines="1" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+              <Label x:Name="SheetToggleLabel" Grid.Column="1" Text="{l:Tr Text='Modifica'}" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource Accent}" VerticalOptions="Center" />
+            </Grid>
+          </Border>
+        </VerticalStackLayout>
+      <ScrollView x:Name="SheetBody" Grid.Row="1" IsVisible="False">
+        <VerticalStackLayout Padding="20,0,20,24" Spacing="12">
+          <Label Text="{Binding SelectedMode.Description}" Style="{StaticResource Muted}" Margin="2,0" />
+
+          <!-- Test standardizzato: guida l'operatore e dà un punteggio a fine rilevazione -->
+          <controls:FormField Label="{l:Tr Text='Test'}" IsVisible="{Binding ShowTests}">
+            <Picker Title="{l:Tr Text='Scegli'}" ItemsSource="{Binding Tests}" ItemDisplayBinding="{Binding Title, x:DataType=vm:TestOption}"
+                    SelectedItem="{Binding SelectedTest}" IsEnabled="{Binding CanChooseTest}" />
+          </controls:FormField>
+          <Border Style="{StaticResource Card}" Padding="14" IsVisible="{Binding HasTest}">
+            <VerticalStackLayout Spacing="8">
+              <Label Text="{Binding Test.Purpose}" Style="{StaticResource Headline}" FontSize="15" />
+              <Label Text="{Binding Test.Setup}" Style="{StaticResource Muted}" />
+              <Label Text="{Binding TestSteps}" FontSize="14" />
+              <Border Style="{StaticResource BannerInfo}" Padding="12,10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="{l:Tr Text='Da dire al paziente'}" Style="{StaticResource BannerInfoText}" FontSize="11" FontAttributes="Bold" />
+                  <Label Text="{Binding Test.PatientScript}" Style="{StaticResource BannerInfoText}" FontSize="14" />
+                </VerticalStackLayout>
+              </Border>
+              <Label Text="{Binding Test.Reference}" Style="{StaticResource Muted}" FontSize="12" />
+              <Label Text="{Binding Test.Source}" Style="{StaticResource Muted}" FontSize="11" />
+            </VerticalStackLayout>
+          </Border>
+
+          <!-- LiDAR: spento di norma, si accende solo quando servono misure in metri -->
+          <Border Style="{StaticResource Tile}" Padding="14,10" IsVisible="{Binding ShowLidarOption}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label Text="LiDAR" FontAttributes="Bold" />
+                <Label Text="{l:Tr Text='Angoli e distanza in metri reali. Spento, li stima MediaPipe.'}" Style="{StaticResource Muted}" FontSize="12" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="1" IsToggled="{Binding UseLidar}" IsEnabled="{Binding CanChangeLidar}" VerticalOptions="Center"
+                      SemanticProperties.Description="{l:Tr Text='Usa il LiDAR per la profondità'}" />
+            </Grid>
+          </Border>
+
+          <controls:FormField Label="{l:Tr Text='Codice soggetto'}">
+            <Entry Placeholder="{l:Tr Text='Pseudonimo, non nome e cognome'}" Text="{Binding SubjectCode}"
+                   IsEnabled="{Binding IsRecording, Converter={StaticResource InvertedBool}}" ReturnType="Done"
+                   IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+          </controls:FormField>
+          <controls:FormField Label="{l:Tr Text='Note (facoltative)'}">
+            <Editor Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="44" MaximumHeightRequest="100" />
+          </controls:FormField>
+
+          <!-- Un solo pulsante principale: cambia con lo stato della registrazione -->
+          <Grid Margin="0,4,0,0">
+            <Button Text="{l:Tr Text='Avvia rilevazione'}" Command="{Binding StartCommand}"
+                    IsVisible="{Binding IsRecording, Converter={StaticResource InvertedBool}}" />
+            <Button Text="{l:Tr Text='Termina e salva'}" Style="{StaticResource DangerButton}" Command="{Binding StopCommand}"
+                    IsVisible="{Binding IsRecording}" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="White"
+                               HorizontalOptions="End" Margin="0,0,18,0" InputTransparent="True" />
+          </Grid>
+
+          <Label Text="{l:Tr Text='Valori in tempo reale'}" Style="{StaticResource Section}" />
+          <FlexLayout BindableLayout.ItemsSource="{Binding Tiles}" Wrap="Wrap" Direction="Row" Margin="-4,0">
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="vm:MetricTile">
+                <Grid FlexLayout.Basis="33.33%" Padding="4">
+                  <Border Style="{StaticResource Tile}">
+                    <VerticalStackLayout Spacing="2">
+                      <Label Text="{Binding Name}" Style="{StaticResource MetricName}" />
+                      <Label Text="{Binding Value}" Style="{StaticResource MetricValue}" />
+                    </VerticalStackLayout>
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
+
+          <Label Text="{l:Tr Text='Sensori'}" Style="{StaticResource Section}" />
+          <FlexLayout BindableLayout.ItemsSource="{Binding Sensors}" Wrap="Wrap" Direction="Row" Margin="-3,0">
+            <BindableLayout.EmptyView>
+              <Label Text="{l:Tr Text='I sensori compaiono all\'avvio dell\'anteprima.'}" Style="{StaticResource Muted}" Margin="5,0" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="svc:SensorStatus">
+                <Border Style="{StaticResource Tile}" StrokeShape="RoundRectangle 999" Padding="10,6" Margin="3">
+                  <HorizontalStackLayout Spacing="6">
+                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center"
+                             Color="{Binding Running, Converter={StaticResource StatusColor}}" />
+                    <Label Text="{Binding Name}" FontSize="13" />
+                  </HorizontalStackLayout>
+                </Border>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </FlexLayout>
+        </VerticalStackLayout>
+      </ScrollView>
+      </Grid>
+    </Border>
+  </Grid>
+</ContentPage>

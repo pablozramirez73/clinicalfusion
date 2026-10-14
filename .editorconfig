@@ -1,0 +1,34 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{csproj,props,targets,xml,xaml,slnx,yml,yaml,json,plist}]
+indent_size = 2
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+dotnet_style_qualification_for_field = false:suggestion
+
+# Logging: i messaggi sono rari (avvio, errori) → i LoggerMessage source-generated non valgono la verbosità.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+# App monolingua per i testi di log/eccezione; la formattazione numerica sensibile usa InvariantCulture esplicita.
+dotnet_diagnostic.CA1303.severity = none
+# Le eccezioni di dominio hanno costruttori mirati, non l'insieme standard.
+dotnet_diagnostic.CA1032.severity = none
+# Array come proprietà: usati per buffer numerici ad alte prestazioni (copie evitate di proposito).
+dotnet_diagnostic.CA1819.severity = none
+# Nessun SynchronizationContext nel Core; nell'app MAUI ConfigureAwait(false) non si usa nei ViewModel.
+dotnet_diagnostic.CA2007.severity = none
+
+# Migrazioni EF Core: codice generato.
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

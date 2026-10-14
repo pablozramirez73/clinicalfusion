@@ -13,3 +13,12 @@ obj/
 *.db-wal
 *.db-shm
 *.caf
+src/ClinicalSensorFusion.App/Resources/Raw/models/*.task
+
+# Credenziali locali del server esposto in rete (scripts/run-server-lan.sh)
+.server-lan.env
+
+# Dashboard compilata (generata da src/ClinicalSensorFusion.Dashboard con npm run build)
+src/ClinicalSensorFusion.Server/wwwroot/
+src/ClinicalSensorFusion.Server/data/
+node_modules/
