@@ -42,7 +42,7 @@ public enum SyncState
 public sealed partial class SessionDetailViewModel(
     ClinicalRepository repository,
     OllamaClient ollama,
-    IAppSettings settings,
+    MauiAppSettings settings,
     IAudioPlayback playback,
     SyncService sync,
     IDialogService dialogs) : ObservableObject, IQueryAttributable
@@ -54,6 +54,25 @@ public sealed partial class SessionDetailViewModel(
     private CancellationTokenSource? _analysisCts;
 
     public ObservableCollection<SummaryGroup> Summary { get; } = [];
+
+    /// <summary>Sensori ambientali, mostrati a parte come schede e nascondibili con l'interruttore.</summary>
+    public ObservableCollection<SensorCard> Environment { get; } = [];
+
+    public bool HasEnvironment => Environment.Count > 0;
+
+    /// <summary>Interruttore "Mostra": la scelta vale per tutte le rilevazioni e resta tra un avvio e l'altro.</summary>
+    public bool ShowEnvironment
+    {
+        get => settings.ShowEnvironmentSensors;
+        set
+        {
+            if (settings.ShowEnvironmentSensors != value)
+            {
+                settings.ShowEnvironmentSensors = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     public ObservableCollection<AudioItem> Audio { get; } = [];
 
@@ -192,6 +211,7 @@ public sealed partial class SessionDetailViewModel(
             Notes = _session.Notes;
 
             Summary.Clear();
+            Environment.Clear();
             if (_session.Summary is { } summary)
             {
                 // Prima degli indicatori: quanto ci si può fidare della misura e del documento che parte per il server.
@@ -199,11 +219,19 @@ public sealed partial class SessionDetailViewModel(
                 var payload = await sync.InspectPayloadAsync(_session);
                 Summary.Add(new SummaryGroup(ClinicalSensorFusion.Core.Sync.PayloadReport.Section, payload.ToRows(c)));
 
-                foreach (var group in SummaryReport.Build(summary, c).GroupBy(r => r.Section))
+                var environmentSection = Loc.T(SummaryReport.SensorsSection);
+                foreach (var group in SummaryReport.Build(summary, c).Where(r => r.Section != environmentSection).GroupBy(r => r.Section))
                 {
                     Summary.Add(new SummaryGroup(group.Key, [.. group]));
                 }
+
+                foreach (var card in SummaryReport.Environment(summary, c))
+                {
+                    Environment.Add(card);
+                }
             }
+
+            OnPropertyChanged(nameof(HasEnvironment));
 
             Audio.Clear();
             foreach (var a in await repository.ListAudioRecordingsAsync(id))

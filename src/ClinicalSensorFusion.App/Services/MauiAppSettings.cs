@@ -7,6 +7,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
 {
     private const string RecordLocationKey = "capture.location";
     private const string DepthOverlayKey = "capture.depth_overlay";
+    private const string EnvironmentSensorsKey = "detail.environment_sensors";
     private const string UseLidarKey = "capture.use_lidar";
     private const string RequireAuthKey = "security.require_auth";
     private const string SyncServerKey = "sync.server";
@@ -95,5 +96,12 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(DepthOverlayKey, true);
         set => preferences.Set(DepthOverlayKey, value);
+    }
+
+    /// <summary>Nel dettaglio della rilevazione, la sezione dei sensori ambientali è aperta.</summary>
+    public bool ShowEnvironmentSensors
+    {
+        get => preferences.Get(EnvironmentSensorsKey, true);
+        set => preferences.Set(EnvironmentSensorsKey, value);
     }
 }

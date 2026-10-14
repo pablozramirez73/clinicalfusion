@@ -183,6 +183,59 @@
         </BindableLayout.ItemTemplate>
       </VerticalStackLayout>
 
+      <!-- Sensori ambientali: una scheda per sensore, riquadri per canale; l'interruttore li nasconde. -->
+      <VerticalStackLayout Spacing="6" IsVisible="{Binding HasEnvironment}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <Label Text="{l:Tr Text='Sensori ambientali'}" Style="{StaticResource Section}" VerticalOptions="Center" />
+          <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center" Margin="0,14,0,2">
+            <Label Text="{l:Tr Text='Mostra'}" Style="{StaticResource Muted}" VerticalOptions="Center" />
+            <Switch IsToggled="{Binding ShowEnvironment}" VerticalOptions="Center"
+                    SemanticProperties.Description="{l:Tr Text='Mostra o nascondi i sensori ambientali'}" />
+          </HorizontalStackLayout>
+        </Grid>
+
+        <Label Text="{l:Tr Text='Nascosti: attiva «Mostra» per vedere barometro, luce, posizione e stato del dispositivo.'}"
+               Style="{StaticResource Muted}" Margin="4,0"
+               IsVisible="{Binding ShowEnvironment, Converter={StaticResource InvertedBool}}" />
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Environment}" Spacing="10" IsVisible="{Binding ShowEnvironment}">
+          <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="domain:SensorCard">
+              <Border Style="{StaticResource Card}" Padding="14">
+                <VerticalStackLayout Spacing="10">
+                  <HorizontalStackLayout Spacing="10">
+                    <Border Style="{StaticResource IconTile}" WidthRequest="30" HeightRequest="30">
+                      <Path Style="{StaticResource IconWave}" Scale="0.8" />
+                    </Border>
+                    <Label Text="{Binding Sensor}" FontSize="16" FontAttributes="Bold" VerticalOptions="Center" />
+                  </HorizontalStackLayout>
+                  <FlexLayout BindableLayout.ItemsSource="{Binding Tiles}" Wrap="Wrap" JustifyContent="Start" Margin="-4,0">
+                    <BindableLayout.ItemTemplate>
+                      <DataTemplate x:DataType="domain:SensorTile">
+                        <Border FlexLayout.Basis="50%" Margin="4" Padding="12,10" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource FieldLight}, Dark={StaticResource FieldDark}}">
+                          <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding Warning}" Value="True">
+                              <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource WarningSoftLight}, Dark={StaticResource WarningSoftDark}}" />
+                            </DataTrigger>
+                          </Border.Triggers>
+                          <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding Name}" Style="{StaticResource MetricName}" />
+                            <Label Text="{Binding Value}" Style="{StaticResource MetricValue}" FontSize="17" />
+                            <Label Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="11" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding HasDetail}" />
+                          </VerticalStackLayout>
+                        </Border>
+                      </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                  </FlexLayout>
+                </VerticalStackLayout>
+              </Border>
+            </DataTemplate>
+          </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+      </VerticalStackLayout>
+
       <!-- Audio -->
       <Label Text="{l:Tr Text='Registrazioni audio'}" Style="{StaticResource Section}" />
       <VerticalStackLayout BindableLayout.ItemsSource="{Binding Audio}" Spacing="8">
