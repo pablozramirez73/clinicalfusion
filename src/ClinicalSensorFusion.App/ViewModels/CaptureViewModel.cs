@@ -73,10 +73,9 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
             new(CaptureMode.BodyLidar, Loc.T("Corpo"), engine.IsLidarSupported
                 ? Loc.T("Postura, escursione articolare e cammino (MediaPipe Pose, LiDAR a richiesta)")
                 : Loc.T("Postura, escursione articolare e cammino (MediaPipe Pose)")),
+            // La rilevazione del volto non si propone più: le rilevazioni del volto già registrate restano
+            // consultabili, ma non se ne creano di nuove.
             new(CaptureMode.HandsLidar, Loc.T("Mani"), Loc.T("Motricità fine e tremore (MediaPipe Hands)")),
-            new(CaptureMode.FaceTrueDepth, Loc.T("Volto"), DeviceInfo.Current.Platform == DevicePlatform.iOS
-                ? Loc.T("Mimica facciale (TrueDepth + MediaPipe Face)")
-                : Loc.T("Mimica facciale (fotocamera frontale + MediaPipe Face)")),
         ];
         SelectedTest = Tests[0];
         SelectedMode = Modes[0];
@@ -380,7 +379,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private static string FreeCaptureGuide(CaptureMode mode) => mode switch
     {
         CaptureMode.HandsLidar => Loc.T("Inizio della rilevazione delle mani. Tenga le mani ben visibili davanti alla fotocamera e segua le indicazioni dell'operatore."),
-        CaptureMode.FaceTrueDepth => Loc.T("Inizio della rilevazione del volto. Guardi verso lo schermo, tenga il viso ben illuminato e segua le indicazioni dell'operatore."),
         _ => Loc.T("Inizio della rilevazione del movimento. Resti a figura intera nell'inquadratura e segua le indicazioni dell'operatore."),
     };
 
@@ -463,12 +461,6 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     {
         try
         {
-            if (SelectedMode.Mode == CaptureMode.FaceTrueDepth && !_engine.IsFaceTrackingSupported)
-            {
-                Warning = Loc.T("Questo telefono non ha la fotocamera necessaria al tracciamento del volto.");
-                return;
-            }
-
             await _engine.StartPreviewAsync(SelectedMode.Mode);
             _previewActive = true;
             RefreshSensors();
