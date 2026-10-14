@@ -51,7 +51,8 @@
     <!-- Icone della barra delle schede (il sistema le ricolora da sé: solo la forma conta). -->
     <MauiImage Include="Resources/Images/*" />
     <!-- Modelli MediaPipe: copiati nel bundle in models/*.task (scaricarli con scripts/download-models.sh). -->
-    <MauiAsset Include="Resources/Raw/**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Il modello del volto non serve più: la rilevazione del volto è stata tolta dalle app. -->
+    <MauiAsset Include="Resources/Raw/**" Exclude="Resources/Raw/models/face_landmarker.task" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">

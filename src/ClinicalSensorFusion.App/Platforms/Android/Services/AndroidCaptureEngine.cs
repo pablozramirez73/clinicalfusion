@@ -41,7 +41,6 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
 
     public bool UseLidar { get; set; }
 
-    public bool IsFaceTrackingSupported => CameraController.HasFrontCamera;
 
     public bool IsRecording { get; private set; }
 
@@ -52,7 +51,7 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
         var mode = Camera.Mode;
         var list = new List<SensorStatus>
         {
-            new(mode == CaptureMode.FaceTrueDepth ? Loc.T("Fotocamera frontale") : Loc.T("Fotocamera posteriore"), true, Camera.IsRunning),
+            new(Loc.T("Fotocamera posteriore"), true, Camera.IsRunning),
             new($"MediaPipe {ModeModel(mode)} · {(_vision.IsGpu ? "GPU" : "CPU")}", _vision.IsReady, Camera.IsRunning && _vision.IsReady),
         };
 
@@ -201,7 +200,6 @@ internal sealed class AndroidCaptureEngine : ICaptureEngine, IDisposable
     {
         CaptureMode.BodyLidar => "Pose",
         CaptureMode.HandsLidar => "Hands",
-        CaptureMode.FaceTrueDepth => "Face",
         _ => string.Empty,
     };
 

@@ -24,7 +24,6 @@ internal sealed class ArFrameJob : IDisposable
     /// <summary>Trasformazione da coordinate normalizzate dell'immagine a coordinate normalizzate della vista.</summary>
     public required CGAffineTransform DisplayTransform { get; init; }
 
-    public required bool FrontCamera { get; init; }
 
     public void Dispose() => Image.Dispose();
 }

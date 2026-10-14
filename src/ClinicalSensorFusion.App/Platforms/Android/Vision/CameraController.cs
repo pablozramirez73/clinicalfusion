@@ -35,7 +35,6 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
     private ProcessCameraProvider? _provider;
     private PreviewView? _previewView;
     private bool _wanted;
-    private bool _front;
     private volatile int _viewWidth;
     private volatile int _viewHeight;
 
@@ -43,9 +42,6 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
 
     /// <summary>La camera è collegata e sta consegnando fotogrammi (ciclo di vita permettendo).</summary>
     public bool IsRunning { get; private set; }
-
-    public static bool HasFrontCamera =>
-        global::Android.App.Application.Context.PackageManager?.HasSystemFeature(PackageManager.FeatureCameraFront) == true;
 
     /// <summary>Vista di anteprima creata dall'handler MAUI (null quando la pagina viene smontata).</summary>
     public void AttachPreview(PreviewView? view)
@@ -67,16 +63,10 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
 
     public Task StartAsync(CaptureMode mode)
     {
-        if (mode == CaptureMode.FaceTrueDepth && !HasFrontCamera)
-        {
-            throw new NotSupportedException(Loc.T("Questo telefono non ha una fotocamera frontale."));
-        }
-
         vision.Configure(mode);
         return MainThread.InvokeOnMainThreadAsync(() =>
         {
             Mode = mode;
-            _front = mode == CaptureMode.FaceTrueDepth;
             _wanted = true;
             if (_provider is not null)
             {
@@ -124,7 +114,7 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
             bitmap = image.ToBitmap()!;
             // Il fotogramma va restituito subito a CameraX: da qui in poi si lavora sulla copia.
             image.Close();
-            vision.Process(new CameraFrame(bitmap, rotation, _front, Uptime(timestamp), _viewWidth, _viewHeight));
+            vision.Process(new CameraFrame(bitmap, rotation, Uptime(timestamp), _viewWidth, _viewHeight));
         }
         catch (Exception ex)
         {
@@ -173,7 +163,7 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
                 .Build()!;
             analysis.SetAnalyzer(_analysisExecutor, this);
 
-            var selector = (_front ? CameraSelector.DefaultFrontCamera : CameraSelector.DefaultBackCamera)!;
+            var selector = CameraSelector.DefaultBackCamera!;
             if (_previewView is { } view)
             {
                 var preview = new Preview.Builder().Build()!;
@@ -212,4 +202,4 @@ internal sealed class CameraController(VisionPipeline vision, ILogger logger) : 
 /// <param name="RotationDegrees">Rotazione oraria per vedere l'immagine dritta.</param>
 /// <param name="Timestamp">Secondi dall'avvio del sistema.</param>
 /// <param name="ViewWidth">Larghezza in pixel della vista di anteprima (0 se non c'è).</param>
-internal readonly record struct CameraFrame(Bitmap Image, int RotationDegrees, bool FrontCamera, double Timestamp, int ViewWidth, int ViewHeight);
+internal readonly record struct CameraFrame(Bitmap Image, int RotationDegrees, double Timestamp, int ViewWidth, int ViewHeight);
