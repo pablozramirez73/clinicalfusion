@@ -17,7 +17,6 @@ namespace ClinicalSensorFusion.App.Platforms.Android.Vision;
 /// Differenze rispetto a iOS, tutte dovute all'hardware:
 /// <list type="bullet">
 /// <item>senza LiDAR i punti 3D sono sempre i <i>world landmarks</i> di MediaPipe ("stima 3D");</item>
-/// <item>senza TrueDepth le blendshape del volto vengono da MediaPipe Face, riordinate nel layout ARKit;</item>
 /// <item>come su iOS, MediaPipe usa la rotazione solo per l'inferenza e restituisce i punti nel sistema
 /// del sensore (immagine orizzontale): così vanno in archivio, mentre per l'overlay si raddrizzano.</item>
 /// </list>
@@ -99,7 +98,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             MinConfidence = 0.5f,
             MaxPoses = 1,
             MaxHands = 2,
-            MaxFaces = 1,
         };
 
         // Percorsi negli asset dell'APK (Resources/Raw/models).
@@ -110,9 +108,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
                 break;
             case CaptureMode.HandsLidar:
                 options.HandModelPath = "models/hand_landmarker.task";
-                break;
-            case CaptureMode.FaceTrueDepth:
-                options.FaceModelPath = "models/face_landmarker.task";
                 break;
         }
 
@@ -156,7 +151,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         {
             CaptureMode.BodyLidar when result.PoseCount > 0 => ProcessPose(result, view, recording, t),
             CaptureMode.HandsLidar => ProcessHands(result, view, recording, t),
-            CaptureMode.FaceTrueDepth when result.FaceCount > 0 => ProcessFace(result, view, recording, t),
             _ => null,
         };
 
@@ -269,24 +263,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         return new OverlayFrame(points, connections, caption, result.InferenceMs);
     }
 
-    private static OverlayFrame ProcessFace(CsfVisionResult result, ViewMapping view, (ISensorSink Sink, SensorClock Clock)? recording, double t)
-    {
-        if (recording is { } rec && result.GetFaceBlendshapeNames() is { Length: > 0 } names && result.GetFaceBlendshapes() is { } scores)
-        {
-            rec.Sink.TryWrite(new SensorReading(SensorKind.FaceBlendshapes, t, FaceBlendshapeLayout.FromNamed(names, scores)));
-        }
-
-        // 478 punti: si disegnano solo come nuvola.
-        var raw = result.GetFaceLandmarks() ?? [];
-        var count = Math.Min(raw.Length / Values, 478);
-        var points = new OverlayPoint[count];
-        for (var i = 0; i < count; i++)
-        {
-            points[i] = view.ToView(raw[i * Values], raw[(i * Values) + 1], true, OverlayPointKind.Face);
-        }
-
-        return new OverlayFrame(points, NoConnections, Loc.T("Volto rilevato"), result.InferenceMs);
-    }
 
     private static string PoseCaption(float[] angles)
     {
@@ -311,7 +287,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
     private readonly struct ViewMapping
     {
         private readonly ImageOrientation _orientation;
-        private readonly bool _mirrored;
         private readonly float _scaleX;
         private readonly float _scaleY;
 
@@ -324,8 +299,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
                 270 => ImageOrientation.Left,
                 _ => ImageOrientation.Up,
             };
-            // L'anteprima della fotocamera frontale è specchiata (come uno specchio), i fotogrammi analizzati no.
-            _mirrored = frame.FrontCamera;
 
             // L'anteprima riempie la vista ritagliando l'eccedenza al centro: stessa scala sui due assi.
             var sideways = frame.RotationDegrees is 90 or 270;
@@ -346,10 +319,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         public OverlayPoint ToView(float x, float y, bool valid, OverlayPointKind kind)
         {
             var (u, v) = OrientationMapper.ToOriented(x, y, _orientation);
-            if (_mirrored)
-            {
-                u = 1 - u;
-            }
 
             return new OverlayPoint(0.5f + ((u - 0.5f) * _scaleX), 0.5f + ((v - 0.5f) * _scaleY), valid, kind);
         }

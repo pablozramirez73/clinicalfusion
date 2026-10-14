@@ -19,6 +19,5 @@ download() {
 
 download pose_landmarker_full.task "$BASE/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task"
 download hand_landmarker.task      "$BASE/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
-download face_landmarker.task      "$BASE/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
 
 echo "Modelli in $DEST"

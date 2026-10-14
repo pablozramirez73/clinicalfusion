@@ -73,7 +73,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
             MinConfidence = 0.5f,
             MaxPoses = 1,
             MaxHands = 2,
-            MaxFaces = 1,
             MaxInputDimension = 640,
         };
 
@@ -84,9 +83,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
                 break;
             case CaptureMode.HandsLidar:
                 options.HandModelPath = ModelPath("hand_landmarker");
-                break;
-            case CaptureMode.FaceTrueDepth:
-                options.FaceModelPath = ModelPath("face_landmarker");
                 break;
         }
 
@@ -156,7 +152,7 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         // restituisce comunque i punti nel sistema dell'immagine originale, cioè quello del sensore, lo
         // stesso di profondità LiDAR, intrinseci e displayTransform. Nessuna conversione, quindi.
         const ImageOrientation orientation = ImageOrientation.Up;
-        var uiOrientation = job.FrontCamera ? UIImageOrientation.Left : UIImageOrientation.Right;
+        const UIImageOrientation uiOrientation = UIImageOrientation.Right;
 
         var inferenceStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         using var result = engine.Detect(job.Image, uiOrientation, (nint)(job.Timestamp * 1000), out var error);
@@ -176,7 +172,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         {
             CaptureMode.BodyLidar when result.PoseCount > 0 => ProcessPose(result, job, orientation, recording, t),
             CaptureMode.HandsLidar => ProcessHands(result, job, orientation, recording, t),
-            CaptureMode.FaceTrueDepth when result.FaceCount > 0 => ProcessFace(result, job, orientation),
             _ => null,
         };
 
@@ -294,21 +289,6 @@ internal sealed class VisionPipeline(ILogger<VisionPipeline> logger) : IDisposab
         return new OverlayFrame(points, connections, caption, result.InferenceMs);
     }
 
-    private static OverlayFrame ProcessFace(CSFVisionResult result, ArFrameJob job, ImageOrientation orientation)
-    {
-        // 478 punti: si disegnano solo come nuvola. I dati del volto registrati sono le blendshape ARKit
-        // (TrueDepth, più accurate) scritte da ArCaptureController.
-        var raw = ReadFloats(result.FaceLandmarks);
-        var n = raw.Length / Values;
-        var count = Math.Min(n, 478);
-        var points = new OverlayPoint[count];
-        for (var i = 0; i < count; i++)
-        {
-            points[i] = ToView(raw[i * Values], raw[i * Values + 1], orientation, job.DisplayTransform, true, OverlayPointKind.Face);
-        }
-
-        return new OverlayFrame(points, NoConnections, Loc.T("Volto rilevato"), result.InferenceMs);
-    }
 
     /// <summary>Coordinate orientate MediaPipe → sensore → vista (con la displayTransform di ARKit, che include rotazione, ritaglio aspect-fill ed eventuale specchiatura).</summary>
     private static OverlayPoint ToView(float u, float v, ImageOrientation orientation, CGAffineTransform display, bool valid, OverlayPointKind kind)

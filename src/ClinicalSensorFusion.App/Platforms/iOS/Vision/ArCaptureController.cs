@@ -81,37 +81,20 @@ internal sealed class ArCaptureController : ARSessionDelegate
 
     public static bool LidarSupported => ARWorldTrackingConfiguration.SupportsFrameSemantics(ARFrameSemantics.SceneDepth);
 
-    public static bool FaceTrackingSupported => ARFaceTrackingConfiguration.IsSupported;
-
     private PreviewFrame? _preview;
 
     public void Run(CaptureMode mode)
     {
-        ARConfiguration configuration;
+        var configuration = new ARWorldTrackingConfiguration { LightEstimationEnabled = true };
         var lidar = false;
-        if (mode == CaptureMode.FaceTrueDepth)
+        // Il LiDAR si accende solo se l'operatore lo chiede, e solo in modalità corpo (angoli articolari
+        // in metri reali). Altrimenti basta MediaPipe e si evita il costo della profondità a ogni fotogramma.
+        if (mode == CaptureMode.BodyLidar && UseLidar && LidarSupported)
         {
-            if (!FaceTrackingSupported)
-            {
-                throw new NotSupportedException(Loc.T("Questo iPhone non ha la fotocamera TrueDepth."));
-            }
-
-            configuration = new ARFaceTrackingConfiguration { LightEstimationEnabled = true, MaximumNumberOfTrackedFaces = 1 };
-        }
-        else
-        {
-            var world = new ARWorldTrackingConfiguration { LightEstimationEnabled = true };
-            // Il LiDAR si accende solo se l'operatore lo chiede, e solo in modalità corpo (angoli articolari
-            // in metri reali). Altrimenti basta MediaPipe e si evita il costo della profondità a ogni fotogramma.
-            if (mode == CaptureMode.BodyLidar && UseLidar && LidarSupported)
-            {
-                // sceneDepth "grezza" e non smoothedSceneDepth: lo smoothing temporale introduce ritardo
-                // sui movimenti rapidi degli arti, falsando le escursioni massime.
-                world.FrameSemantics = ARFrameSemantics.SceneDepth;
-                lidar = true;
-            }
-
-            configuration = world;
+            // sceneDepth "grezza" e non smoothedSceneDepth: lo smoothing temporale introduce ritardo
+            // sui movimenti rapidi degli arti, falsando le escursioni massime.
+            configuration.FrameSemantics = ARFrameSemantics.SceneDepth;
+            lidar = true;
         }
 
         Mode = mode;
@@ -137,8 +120,7 @@ internal sealed class ArCaptureController : ARSessionDelegate
         using (frame)
         {
             var recording = Recording;
-            var front = Mode == CaptureMode.FaceTrueDepth;
-            var depthData = front ? null : frame.SceneDepth;
+            var depthData = frame.SceneDepth;
             var depth = ArFrameReader.Depth(depthData);
 
             if (recording is { } rec)
@@ -167,7 +149,6 @@ internal sealed class ArCaptureController : ARSessionDelegate
                 Depth = depth,
                 Intrinsics = ArFrameReader.Intrinsics(frame.Camera),
                 DisplayTransform = displayTransform,
-                FrontCamera = front,
             };
             _vision.TrySubmit(job);
         }
@@ -196,31 +177,5 @@ internal sealed class ArCaptureController : ARSessionDelegate
             _lastDepthReading = t;
             rec.Sink.TryWrite(new SensorReading(SensorKind.LidarDepth, t, ArFrameReader.DepthSummary(depth)));
         }
-
-        if (Mode == CaptureMode.FaceTrueDepth && frame.Anchors is { } anchors)
-        {
-            foreach (var anchor in anchors)
-            {
-                if (anchor is ARFaceAnchor { IsTracked: true } face && face.BlendShapes?.Dictionary is { } shapes)
-                {
-                    rec.Sink.TryWrite(new SensorReading(SensorKind.FaceBlendshapes, t, BlendShapeValues(shapes)));
-                }
-
-                anchor.Dispose();
-            }
-        }
-    }
-
-    /// <summary>Coefficienti in ordine alfabetico della chiave: ordine stabile tra versioni di iOS.</summary>
-    private static float[] BlendShapeValues(NSDictionary shapes)
-    {
-        var keys = shapes.Keys.Select(k => k.ToString() ?? string.Empty).Order(StringComparer.Ordinal).ToArray();
-        var values = new float[keys.Length];
-        for (var i = 0; i < keys.Length; i++)
-        {
-            values[i] = shapes[keys[i]] is NSNumber n ? n.FloatValue : float.NaN;
-        }
-
-        return values;
     }
 }

@@ -23,7 +23,6 @@ public interface ICaptureEngine
     /// </summary>
     bool UseLidar { get; set; }
 
-    bool IsFaceTrackingSupported { get; }
 
     bool IsRecording { get; }
 
