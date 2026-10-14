@@ -176,4 +176,7 @@ export const en: Record<string, string> = {
   "Salva": "Save",
   "Eliminare definitivamente il paziente con tutte le rilevazioni e gli audio? L'operazione non è reversibile.": "Permanently delete the patient with all sessions and audio? This cannot be undone.",
   "Elimina": "Delete",
+  "Questa pagina non si è potuta mostrare.": "This page could not be shown.",
+  "Ricarica": "Reload",
+  "Accesso non riuscito: errore del server ({0}).": "Sign-in failed: server error ({0}).",
 };

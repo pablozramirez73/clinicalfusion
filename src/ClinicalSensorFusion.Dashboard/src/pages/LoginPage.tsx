@@ -16,9 +16,12 @@ export function LoginPage() {
     login.mutate({ userName, password }, { onSuccess: () => navigate('/', { replace: true }) });
   };
 
-  const error = login.error instanceof ApiError
-    ? login.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.') : t('Credenziali non valide.')
-    : login.error ? t('Server non raggiungibile.') : null;
+  // Solo un 401 significa credenziali sbagliate: un errore del server non deve far credere di aver sbagliato password.
+  const error = !login.error ? null
+    : !(login.error instanceof ApiError) ? t('Server non raggiungibile.')
+    : login.error.status === 401 ? t('Credenziali non valide.')
+    : login.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.')
+    : t('Accesso non riuscito: errore del server ({0}).', login.error.status);
 
   return (
     <div className="login">

@@ -42,7 +42,7 @@ flowchart LR
 | Blocchi dei sensori malevoli | Ogni blocco è verificato all'arrivo (decodificabile, numero di campioni coerente) e la decompressione ha un tetto di 8 MB per blocco, anche in lettura: una "bomba" Brotli è rifiutata con 400 invece di esaurire la memoria quando si apre la rilevazione. |
 | Abuso / saturazione | Limiti di frequenza su **tutte** le rotte (sezione `RateLimits`): 600 richieste/minuto per IP, 300/minuto per dispositivo in ingestione, 2 caricamenti audio contemporanei per dispositivo; risposta `429` con `Retry-After`. Lotti di blocchi fino a 16 MB; audio fino a `AudioStorage:MaxFileBytes`, applicato durante la scrittura. |
 | Credenziali della dashboard | Password PBKDF2 (ASP.NET Core Identity v3); verifica a tempo costante anche per utenti inesistenti; **rate limit** 5 login/minuto per IP. |
-| Accesso alle API senza browser | `POST /api/v1/auth/token` emette un **JWT** (HMAC-SHA256, 30 minuti) con le stesse credenziali, lo stesso limite di tentativi e lo stesso audit del login. Dà gli stessi permessi del cookie, non quelli dei dispositivi. `Jwt:SigningKey` (≥ 32 byte) va impostata fuori dal repository; senza, la chiave è casuale e i token scadono al riavvio. |
+| Accesso alle API senza browser | `POST /api/v1/auth/token` emette un **JWT** (HMAC-SHA256; durata `Jwt:LifetimeMinutes`, 30 minuti predefiniti, al massimo 24 ore; non c'è una lista di revoca: un token resta valido fino alla scadenza) con le stesse credenziali, lo stesso limite di tentativi e lo stesso audit del login. Dà gli stessi permessi del cookie, non quelli dei dispositivi. `Jwt:SigningKey` (≥ 32 byte) va impostata fuori dal repository; senza, la chiave è casuale e i token scadono al riavvio. |
 | Furto di sessione / CSRF | Cookie `HttpOnly`, `Secure`, `SameSite=Strict`, scadenza 8 h; SPA sulla stessa origine, nessun token in `localStorage`. |
 | XSS / clickjacking | CSP `default-src 'self'` (niente CDN), `frame-ancestors 'none'`, `nosniff`, `no-referrer`. |
 | Path traversal sui file | Id validati (32 hex) prima di comporre i percorsi; file scritti in modo atomico e verificati come CAF. |
@@ -155,7 +155,7 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
 
 ## 7. Verifiche
 
-- **Server: 55 test di integrazione** su PostgreSQL reale. Coprono:
+- **Server: 61 test di integrazione** su PostgreSQL reale (tutti i test: `./scripts/test.sh`). Coprono:
   - autenticazione e autorizzazioni, compreso l'isolamento tra dispositivi;
   - interfaccia HL7 FHIR R4, con ogni risposta riletta dal modello R4 di riferimento;
   - stato del servizio, metriche, token JWT (anche contraffatti) e documentazione Swagger;
@@ -164,7 +164,7 @@ solo con `ApiDocs:Enabled=true`. In Swagger: eseguire `POST /api/v1/auth/token`,
   - anagrafica CRUD, validazione e concorrenza ottimistica;
   - percorso completo **DB cifrato del telefono → sincronizzatore → API → PostgreSQL → dashboard**, incluso il reinvio idempotente;
   - conversione CAF→WAV, path traversal e dati demo.
-- **Core: 102 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
+- **Core: 120 test.** La sincronizzazione end-to-end ha fatto emergere un errore reale nel calcolo del tremore (il
   modulo dell'accelerazione raddoppiava la frequenza) e la necessità di una soglia di significatività. Entrambi corretti.
 - **Dashboard:** typecheck TypeScript strict, test Vitest, build Vite e verifica visiva con Chromium headless
   (WebGL software) di tutte le pagine, senza errori in console.

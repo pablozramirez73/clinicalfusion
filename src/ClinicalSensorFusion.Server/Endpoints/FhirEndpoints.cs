@@ -26,8 +26,16 @@ public static class FhirEndpoints
     private const int DefaultCount = 50;
     private const int MaxCount = 200;
 
-    /// <summary>Tetto alle rilevazioni lette per una ricerca: le osservazioni si generano dal riepilogo di ciascuna.</summary>
+    /// <summary>
+    /// Tetto alle rilevazioni lette per una ricerca di osservazioni: si generano dal riepilogo di ciascuna, quindi
+    /// filtrare per codice richiede di leggerle tutte. Oltre il tetto la ricerca è rifiutata (too-costly) invece di
+    /// restituire un risultato parziale con un totale falso.
+    /// </summary>
     private const int MaxSessionsScanned = 2_000;
+
+    /// <summary>Rilevazioni per pagina di <c>$everything</c> (predefinite e massime): oltre, il Bundle ha il link <c>next</c>.</summary>
+    private const int DefaultEverythingSessions = 500;
+    private const int MaxEverythingSessions = 2_000;
 
     public static WebApplication MapFhir(this WebApplication app)
     {
@@ -62,11 +70,18 @@ public static class FhirEndpoints
     private static IResult NotFound(string type, string id) =>
         Outcome(StatusCodes.Status404NotFound, "not-found", $"{type}/{id} non esiste.");
 
-    /// <summary>Solo JSON: una richiesta esplicita di XML o Turtle riceve 406 invece di un formato diverso da quello atteso.</summary>
+    /// <summary>
+    /// Solo JSON: una richiesta esplicita di XML o Turtle, con <c>_format</c> o con l'intestazione <c>Accept</c>,
+    /// riceve 406 invece di un formato diverso da quello atteso.
+    /// </summary>
     private static async ValueTask<object?> RejectUnsupportedFormat(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        var format = context.HttpContext.Request.Query["_format"].ToString();
-        return format.Length > 0 && !format.Contains("json", StringComparison.OrdinalIgnoreCase)
+        var request = context.HttpContext.Request;
+        var format = request.Query["_format"].ToString();
+        var accept = request.GetTypedHeaders().Accept;
+        var acceptsJson = accept.Count == 0 || accept.Any(m =>
+            m.MediaType.Value is "*/*" or "application/*" || m.MediaType.Value?.Contains("json", StringComparison.OrdinalIgnoreCase) == true);
+        return (format.Length > 0 && !format.Contains("json", StringComparison.OrdinalIgnoreCase)) || (format.Length == 0 && !acceptsJson)
             ? Outcome(StatusCodes.Status406NotAcceptable, "not-supported", Loc.T("È supportato solo il formato JSON (application/fhir+json).", Ui.Culture))
             : await next(context);
     }
@@ -212,8 +227,22 @@ public static class FhirEndpoints
             return NotFound("Patient", id);
         }
 
-        var entries = new List<(string, JsonObject)> { ($"Patient/{patient.Id}", FhirMapper.Patient(patient)) };
-        foreach (var session in await db.Sessions.AsNoTracking().Where(s => s.PatientId == guid).OrderBy(s => s.StartedAt).Take(MaxSessionsScanned).ToListAsync(ct))
+        // Paginato per rilevazioni: un paziente con molte rilevazioni produce più pagine collegate da "next",
+        // mai un Bundle tagliato in silenzio. La risorsa Patient sta nella prima pagina.
+        var q = http.Request.Query;
+        var count = int.TryParse(q["_count"], out var requested) ? Math.Clamp(requested, 1, MaxEverythingSessions) : DefaultEverythingSessions;
+        var offset = int.TryParse(q["_offset"], out var skip) ? Math.Max(0, skip) : 0;
+        var sessions = await db.Sessions.AsNoTracking().Where(s => s.PatientId == guid)
+            .OrderBy(s => s.StartedAt).ThenBy(s => s.Id).Skip(offset).Take(count + 1).ToListAsync(ct);
+        var hasMore = sessions.Count > count;
+
+        var entries = new List<(string, JsonObject)>();
+        if (offset == 0)
+        {
+            entries.Add(($"Patient/{patient.Id}", FhirMapper.Patient(patient)));
+        }
+
+        foreach (var session in sessions.Take(count))
         {
             var observations = FhirMapper.Observations(session, Summary(session));
             entries.Add(($"DiagnosticReport/{session.Id}", FhirMapper.DiagnosticReport(session, observations.Select(o => $"{session.Id}-{o.Key}"))));
@@ -225,8 +254,9 @@ public static class FhirEndpoints
 
         var baseUrl = Base(http);
         http.Response.Headers.ContentDisposition = $"inline; filename=\"paziente-{patient.Code}.fhir.json\"";
+        // Il totale si dichiara solo se il Bundle è completo: con più pagine non è noto senza leggere tutto.
         return Fhir(FhirMapper.SearchBundle(
-            $"{baseUrl}/Patient/{patient.Id}/$everything", null, entries.Count,
+            SelfUrl(http), hasMore ? NextUrl(http, count, offset + count) : null, hasMore || offset > 0 ? null : entries.Count,
             entries.Select(e => ($"{baseUrl}/{e.Item1}", e.Item2))));
     }
 
@@ -256,8 +286,14 @@ public static class FhirEndpoints
         var (codeSystem, code) = q["code"].ToString() is { Length: > 0 } c ? Token(c) : (null, null);
         var (_, category) = q["category"].ToString() is { Length: > 0 } cat ? Token(cat) : (null, null);
 
+        if (await sessions.CountAsync(ct) > MaxSessionsScanned)
+        {
+            return Outcome(StatusCodes.Status400BadRequest, "too-costly", string.Format(CultureInfo.InvariantCulture,
+                Loc.T("La ricerca riguarda più di {0} rilevazioni: restringerla con patient o date.", Ui.Culture), MaxSessionsScanned));
+        }
+
         var all = new List<(string, JsonObject)>();
-        foreach (var session in await sessions.OrderByDescending(s => s.StartedAt).Take(MaxSessionsScanned).ToListAsync(ct))
+        foreach (var session in await sessions.OrderByDescending(s => s.StartedAt).ToListAsync(ct))
         {
             foreach (var (key, resource) in FhirMapper.Observations(session, Summary(session)))
             {
@@ -355,7 +391,7 @@ public static class FhirEndpoints
             switch (prefix)
             {
                 case "ge": sessions = sessions.Where(s => s.StartedAt >= date); break;
-                case "gt": sessions = sessions.Where(s => s.StartedAt >= end); break;
+                case "gt": sessions = dayOnly ? sessions.Where(s => s.StartedAt >= end) : sessions.Where(s => s.StartedAt > date); break;
                 case "le": sessions = sessions.Where(s => s.StartedAt < (dayOnly ? end : date.AddTicks(1))); break;
                 case "lt": sessions = sessions.Where(s => s.StartedAt < date); break;
                 case "eq": sessions = dayOnly ? sessions.Where(s => s.StartedAt >= date && s.StartedAt < end) : sessions.Where(s => s.StartedAt == date); break;
@@ -395,16 +431,18 @@ public static class FhirEndpoints
     private static JsonObject Bundle(HttpContext http, int total, int offset, int count, IEnumerable<(string Path, JsonObject Resource)> entries)
     {
         var baseUrl = Base(http);
-        var self = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.Path}{http.Request.QueryString}";
-        string? next = null;
-        if (offset + count < total)
-        {
-            var query = http.Request.Query.Where(p => p.Key is not ("_offset" or "_count"))
-                .SelectMany(p => p.Value.Select(v => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
-                .Append($"_count={count}").Append($"_offset={offset + count}");
-            next = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.Path}?{string.Join('&', query)}";
-        }
+        var next = offset + count < total ? NextUrl(http, count, offset + count) : null;
+        return FhirMapper.SearchBundle(SelfUrl(http), next, total, entries.Select(e => ($"{baseUrl}/{e.Path}", e.Resource)));
+    }
 
-        return FhirMapper.SearchBundle(self, next, total, entries.Select(e => ($"{baseUrl}/{e.Path}", e.Resource)));
+    private static string SelfUrl(HttpContext http) => $"{http.Request.Scheme}://{http.Request.Host}{http.Request.Path}{http.Request.QueryString}";
+
+    /// <summary>La stessa richiesta con la pagina successiva.</summary>
+    private static string NextUrl(HttpContext http, int count, int offset)
+    {
+        var query = http.Request.Query.Where(p => p.Key is not ("_offset" or "_count"))
+            .SelectMany(p => p.Value.Select(v => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
+            .Append($"_count={count}").Append($"_offset={offset}");
+        return $"{http.Request.Scheme}://{http.Request.Host}{http.Request.Path}?{string.Join('&', query)}";
     }
 }

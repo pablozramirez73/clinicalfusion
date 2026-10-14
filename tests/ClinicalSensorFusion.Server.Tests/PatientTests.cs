@@ -82,4 +82,14 @@ public sealed class PatientTests(ServerFixture server) : IClassFixture<ServerFix
             Assert.Contains(expected, System.Text.RegularExpressions.Regex.Unescape(await response.Content.ReadAsStringAsync(Ct)), StringComparison.Ordinal);
         }
     }
+
+    [Fact]
+    public async Task A_huge_page_number_is_not_a_server_error()
+    {
+        var client = await server.CreateClinicianClientAsync();
+        foreach (var path in (string[])["api/v1/patients?page=2147483647", "api/v1/audit?page=2147483647&pageSize=200"])
+        {
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path, Ct)).StatusCode);
+        }
+    }
 }

@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { Loading } from './components/Feedback';
 import { LoginPage } from './pages/LoginPage';
 import { useLanguage } from './i18n';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Le pagine con grafici 3D sono caricate su richiesta: il login resta leggero.
 const OverviewPage = lazy(() => import('./pages/OverviewPage'));
@@ -41,6 +42,7 @@ export function App() {
   return (
     <Fragment key={language}>
     <Layout user={me.data}>
+      <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<OverviewPage />} />
@@ -53,6 +55,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Layout>
     </Fragment>
   );

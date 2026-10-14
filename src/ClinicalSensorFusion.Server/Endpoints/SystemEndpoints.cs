@@ -33,10 +33,17 @@ public static class SystemEndpoints
         // Sonde per orchestratori e monitoraggio: fuori dai limiti di frequenza, mai in cache.
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteAsync })
             .AllowAnonymous().DisableRateLimiting();
+        // Le sonde di prontezza toccano database e disco e sono anonime: il risultato si riusa per qualche
+        // secondo, così un'ondata di richieste costa un solo controllo da qualunque indirizzo arrivi. Restano
+        // fuori dai limiti di frequenza: il monitoraggio deve vedere lo stato anche quando un indirizzo li supera.
         foreach (var path in (string[])["/health", "/health/ready"])
         {
-            app.MapHealthChecks(path, new HealthCheckOptions { Predicate = c => c.Tags.Contains(ReadyTag), ResponseWriter = WriteAsync })
-                .AllowAnonymous().DisableRateLimiting();
+            app.MapGet(path, async (HttpContext http, ReadinessCache cache, CancellationToken ct) =>
+            {
+                var report = await cache.GetAsync(ct);
+                http.Response.StatusCode = report.Status == HealthStatus.Unhealthy ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status200OK;
+                await WriteAsync(http, report);
+            }).AllowAnonymous().DisableRateLimiting().ExcludeFromDescription();
         }
 
         return app;
@@ -70,6 +77,44 @@ public static class SystemEndpoints
 
     private static Ok<SystemMetrics> Metrics(MetricsCollector collector) =>
         TypedResults.Ok(new SystemMetrics(Started, collector.Snapshot()));
+
+    /// <summary>
+    /// Ultimo esito dei controlli di prontezza, rifatto al più ogni <see cref="MaxAge"/>. Richieste concorrenti
+    /// attendono lo stesso controllo invece di avviarne uno ciascuna.
+    /// </summary>
+    public sealed class ReadinessCache(HealthCheckService health, TimeProvider clock)
+    {
+        public static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(5);
+
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private HealthReport? _report;
+        private DateTimeOffset _checkedAt = DateTimeOffset.MinValue;
+
+        public async Task<HealthReport> GetAsync(CancellationToken ct)
+        {
+            if (_report is { } fresh && clock.GetUtcNow() - _checkedAt < MaxAge)
+            {
+                return fresh;
+            }
+
+            await _gate.WaitAsync(ct);
+            try
+            {
+                if (_report is null || clock.GetUtcNow() - _checkedAt >= MaxAge)
+                {
+                    // Senza il token della richiesta: un client che chiude la connessione non annulla il controllo degli altri.
+                    _report = await health.CheckHealthAsync(c => c.Tags.Contains(ReadyTag), CancellationToken.None);
+                    _checkedAt = clock.GetUtcNow();
+                }
+
+                return _report;
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+    }
 
     /// <summary>Solo nomi e stati: niente descrizioni né eccezioni a chi non è autenticato.</summary>
     private static Task WriteAsync(HttpContext context, HealthReport report)

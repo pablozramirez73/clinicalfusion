@@ -41,8 +41,9 @@ public static class PatientEndpoints
     private static async Task<Ok<PagedResult<PatientListItem>>> ListAsync(
         ClinicalDbContext db, string? search, bool? placeholdersOnly, int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
-        page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
+        // Una pagina enorme farebbe traboccare (page - 1) * pageSize in un offset negativo: errore 500.
+        page = Math.Clamp(page, 1, int.MaxValue / pageSize);
         var query = db.Patients.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(search))
         {

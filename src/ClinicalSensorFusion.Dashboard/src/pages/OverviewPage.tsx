@@ -9,6 +9,7 @@ import { modeColor, palette, turbo } from '../three/colormap';
 import { Stage } from '../three/Stage';
 import { TremorGalaxy3D } from '../three/TremorGalaxy3D';
 import { t } from '../i18n';
+import { rowLink } from '../components/rowLink';
 
 const MODES: CaptureMode[] = ['BodyLidar', 'HandsLidar', 'FaceTrueDepth'];
 
@@ -98,7 +99,7 @@ export default function OverviewPage() {
           </thead>
           <tbody>
             {data.recent.map((s) => (
-              <tr key={s.id} onClick={() => navigate(`/sessions/${s.id}`)} className="clickable">
+              <tr key={s.id} {...rowLink(() => navigate(`/sessions/${s.id}`))}>
                 <td>{fmtDateTime(s.startedAt)}</td>
                 <td><Link to={`/patients/${s.patientId}`} onClick={(e) => e.stopPropagation()}>{s.patientName ?? s.patientCode}</Link></td>
                 <td><span className="chip" style={{ '--chip': modeColor[s.mode] } as React.CSSProperties}>{t(modeLabel[s.mode])}</span></td>

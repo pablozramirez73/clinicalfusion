@@ -555,5 +555,6 @@
   "Archivio audio scrivibile.": "Audio storage is writable.",
   "Archivio audio non scrivibile.": "Audio storage is not writable.",
   "Il file non è in formato CAF.": "The file is not in CAF format.",
-  "Solo CAF little endian.": "Little-endian CAF only."
+  "Solo CAF little endian.": "Little-endian CAF only.",
+  "La ricerca riguarda più di {0} rilevazioni: restringerla con patient o date.": "The search covers more than {0} sessions: narrow it with patient or date."
 }

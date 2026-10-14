@@ -125,6 +125,7 @@ input[type='range'] { padding: 0; accent-color: var(--cyan); }
 .table--stale { opacity: 0.6; }
 .clickable { cursor: pointer; transition: background 0.12s; }
 .clickable:hover { background: rgba(34, 211, 238, 0.06); }
+.clickable:focus-visible { outline: 2px solid var(--cyan, #22d3ee); outline-offset: -2px; background: rgba(34, 211, 238, 0.06); }
 .chip { --chip: var(--cyan); display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.78rem; color: var(--chip); background: color-mix(in srgb, var(--chip) 14%, transparent); border: 1px solid color-mix(in srgb, var(--chip) 35%, transparent); }
 .chip--warn { --chip: var(--amber); }
 .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }

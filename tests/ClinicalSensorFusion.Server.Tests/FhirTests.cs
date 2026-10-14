@@ -17,8 +17,8 @@ using Task = System.Threading.Tasks.Task;
 namespace ClinicalSensorFusion.Server.Tests;
 
 /// <summary>
-/// Interfaccia HL7 FHIR R4. Ogni risposta viene riletta con il modello R4 di riferimento (Firely) in modalità
-/// rigorosa: un elemento sconosciuto, un tipo sbagliato o un valore fuori dai codici ammessi fanno fallire il test.
+/// Interfaccia HL7 FHIR R4. Ogni risposta viene riletta con il modello R4 di riferimento (Firely): una struttura
+/// o un tipo non conformi a R4 fanno fallire il test. Non è una validazione completa contro profili e vincoli.
 /// </summary>
 public sealed class FhirTests(ServerFixture server) : IClassFixture<ServerFixture>, IAsyncLifetime
 {
@@ -251,5 +251,59 @@ public sealed class FhirTests(ServerFixture server) : IClassFixture<ServerFixtur
         Assert.Equal(HttpStatusCode.MethodNotAllowed, deleted.StatusCode);
         Assert.Equal(OperationOutcome.IssueType.NotSupported, Parse<OperationOutcome>(await deleted.Content.ReadAsStringAsync(Ct)).Issue[0].Code);
         Assert.Equal(HttpStatusCode.OK, (await s_clinician.GetAsync($"fhir/Patient/{s_patientId}", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Gt_with_an_instant_excludes_that_instant()
+    {
+        // La rilevazione inizia esattamente alle 9:30: "dopo le 9:30" non la include, "dalle 9:30" sì.
+        Assert.Equal(0, (await GetAsync<Bundle>($"fhir/Observation?patient={s_patientId}&date=gt2026-10-12T09:30:00Z")).Total);
+        Assert.Equal(7, (await GetAsync<Bundle>($"fhir/Observation?patient={s_patientId}&date=ge2026-10-12T09:30:00Z")).Total);
+    }
+
+    [Fact]
+    public async Task An_accept_header_without_json_gets_406()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"fhir/Patient/{s_patientId}");
+        request.Headers.TryAddWithoutValidation("Accept", "application/fhir+xml");
+        var response = await s_clinician.SendAsync(request, Ct);
+        Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
+
+        using var json = new HttpRequestMessage(HttpMethod.Get, $"fhir/Patient/{s_patientId}");
+        json.Headers.TryAddWithoutValidation("Accept", "application/fhir+json, application/xml;q=0.5");
+        Assert.Equal(HttpStatusCode.OK, (await s_clinician.SendAsync(json, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Everything_is_paged_by_session_instead_of_being_cut()
+    {
+        var device = server.CreateDeviceClient();
+        var ids = new[] { Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N") };
+        for (var i = 0; i < ids.Length; i++)
+        {
+            var start = new DateTimeOffset(2026, 10, 1 + i, 9, 0, 0, TimeSpan.Zero);
+            var upload = new SessionUpload(ids[i], "pz-pagine", "OP1", "Operatrice", CaptureMode.BodyLidar, start, start.AddMinutes(1),
+                null, null, new SessionSummary { DurationSeconds = 60, SitToStandCount = i + 1 }, [], []);
+            (await device.PutAsJsonAsync($"api/v1/ingest/sessions/{ids[i]}", upload, SyncJsonContext.Default.SessionUpload, Ct)).EnsureSuccessStatusCode();
+        }
+
+        var patient = Assert.Single((await s_clinician.GetFromJsonAsync<PagedResult<PatientListItem>>("api/v1/patients?search=PZ-PAGINE", Ct))!.Items);
+
+        // Una rilevazione per pagina: la prima porta il paziente e il link alla seconda, nessuna dichiara un totale parziale.
+        var first = await GetAsync<Bundle>($"fhir/Patient/{patient.Id}/$everything?_count=1");
+        Assert.IsType<Patient>(first.Entry[0].Resource);
+        Assert.Equal(ids[0], Assert.Single(first.Entry, e => e.Resource is DiagnosticReport).Resource.Id);
+        Assert.Null(first.Total);
+        var next = Assert.Single(first.Link, l => l.Relation == "next").Url;
+
+        var second = await GetAsync<Bundle>(new Uri(next).PathAndQuery.TrimStart('/'));
+        Assert.DoesNotContain(second.Entry, e => e.Resource is Patient);
+        Assert.Equal(ids[1], Assert.Single(second.Entry, e => e.Resource is DiagnosticReport).Resource.Id);
+        Assert.DoesNotContain(second.Link, l => l.Relation == "next");
+
+        // Senza paginazione, tutto in un Bundle con il totale.
+        var whole = await GetAsync<Bundle>($"fhir/Patient/{patient.Id}/$everything");
+        Assert.Equal(2, whole.Entry.Count(e => e.Resource is DiagnosticReport));
+        Assert.Equal(whole.Entry.Count, whole.Total);
     }
 }

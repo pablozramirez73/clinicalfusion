@@ -55,6 +55,7 @@ services.ConfigureHttpJsonOptions(o =>
 });
 services.AddProblemDetails();
 services.AddCsfOpenApi();
+services.AddSingleton<ClinicalSensorFusion.Server.Endpoints.SystemEndpoints.ReadinessCache>();
 services.AddHealthChecks()
     .AddDbContextCheck<ClinicalDbContext>("database", tags: [SystemEndpoints.ReadyTag])
     .AddCheck<AudioStorageHealthCheck>("audio-storage", tags: [SystemEndpoints.ReadyTag]);

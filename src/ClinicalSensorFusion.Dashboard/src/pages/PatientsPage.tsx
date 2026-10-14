@@ -4,6 +4,7 @@ import { usePatients } from '../api/hooks';
 import { ErrorBox, Loading, Panel } from '../components/Feedback';
 import { age, fmtDate, fullName } from '../components/format';
 import { n, t } from '../i18n';
+import { rowLink } from '../components/rowLink';
 
 const sexLabel = { Female: n('F'), Male: n('M'), Other: n('Altro'), Unknown: '—' } as const;
 
@@ -53,7 +54,7 @@ export default function PatientsPage() {
               </thead>
               <tbody>
                 {data.items.map((p) => (
-                  <tr key={p.id} className="clickable" onClick={() => navigate(`/patients/${p.id}`)}>
+                  <tr key={p.id} {...rowLink(() => navigate(`/patients/${p.id}`))}>
                     <td><code>{p.code}</code></td>
                     <td>{fullName(p) ?? <span className="chip chip--warn">{t('da completare')}</span>}</td>
                     <td>{age(p.birthDate) ?? '—'}</td>

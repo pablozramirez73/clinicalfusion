@@ -14,6 +14,8 @@ HL7 è una famiglia di standard. Questo server implementa **FHIR R4 in sola lett
 | Risorse in `application/fhir+json` | sì (solo JSON; `_format=xml` → 406) |
 | Interazione `read`: `GET /fhir/{Tipo}/{id}` | Patient, Observation, DiagnosticReport |
 | Interazione `search-type`: risultato come **Bundle** `searchset` con `total`, `link` e paginazione | sì (`_count`, collegamento `next`) |
+| Ricerca di `Observation` su più di 2.000 rilevazioni | rifiutata con `too-costly`: restringere con `patient` o `date` (mai un risultato parziale con un totale falso) |
+| `Patient/{id}/$everything` | paginato per rilevazioni (500 per pagina, `_count` fino a 2.000) con collegamento `next`; `total` solo se il Bundle è completo |
 | Errori come **OperationOutcome** | sì (400, 404, 405, 406) |
 | Terminologie standard | LOINC per segni vitali e passi, UCUM per le unità |
 | Profili | segni vitali di FHIR (`heartrate`, `oxygensat`, `bodytemp`) |
@@ -29,8 +31,9 @@ HL7 è una famiglia di standard. Questo server implementa **FHIR R4 in sola lett
 - **XML**, `_include`/`_revinclude`, cronologia delle versioni, esportazione massiva (`$export`);
 - profili nazionali (es. FSE 2.0): servirebbero codifiche e profili specifici.
 
-Le risorse prodotte sono verificate nei test rileggendole con il modello R4 di riferimento (Firely .NET SDK) in
-modalità rigorosa. Non è una certificazione: il server non è stato sottoposto al validatore ufficiale HL7 né a
+Le risorse prodotte sono verificate nei test rileggendole con il modello R4 di riferimento (Firely .NET SDK):
+la deserializzazione nei tipi R4 controlla struttura e tipi, ma non è una validazione completa contro profili e
+vincoli (FHIRPath, cardinalità, terminologie). Non è una certificazione: il server non è stato sottoposto al validatore ufficiale HL7 né a
 test di interoperabilità con altri sistemi.
 
 ## 2. Accesso

@@ -261,7 +261,7 @@ Da decidere: mantenerli con un uso dichiarato, o rimuoverli.
 | `docs/android.md:17` sulla copertura LiDAR | **risolto** — il testo ora dice "copertura assente dal riepilogo (non 0%)" |
 | `docs/server.md` sul limite dei dispositivi | **risolto** — `:41` documenta l'isolamento per dispositivo, i codici 409/404 e `ingest.denied`; `:43` i limiti di frequenza; `:51-53` la semantica del proprietario |
 | `docs/architettura.md` non cita `FingerTapAnalyzer` né il conteggio sit-to-stand | **aperto** — verifica con `grep`: zero occorrenze |
-| `docs/architettura.md:153` dichiara "38 test" | **aperto** — i casi sono 122 |
+| `docs/architettura.md:153` dichiara "38 test" | **risolto** — conteggi aggiornati (Core 120, server 61, dashboard 10) |
 | `Sync/SyncContracts.cs:8-9` "condiviso dai due lati per costruzione" | **aperto** — il commento è invariato, ma il server continua a non registrare `SyncJsonContext` e si affida al camelCase di default |
 
 Un dettaglio strutturale non documentato, ancora valido: su iOS il sink riceve dati da **due** canali,

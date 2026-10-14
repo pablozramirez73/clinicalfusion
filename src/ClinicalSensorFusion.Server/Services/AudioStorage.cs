@@ -77,6 +77,25 @@ public sealed partial class AudioStorage(IOptions<AudioStorageOptions> options, 
                 }
             }
 
+            // Il file deve essere riproducibile, non solo cominciare con "caff": formato e dati devono esserci.
+            await using (var written = File.OpenRead(temp))
+            {
+                CafToWav.CafInfo info;
+                try
+                {
+                    info = CafToWav.Parse(written);
+                }
+                catch (Exception ex) when (ex is NotSupportedException or EndOfStreamException)
+                {
+                    throw new InvalidDataException(ex.Message, ex);
+                }
+
+                if (info.SampleRate <= 0 || info.Channels <= 0 || info.DataLength <= 0)
+                {
+                    throw new InvalidDataException(Loc.T("CAF senza dati audio.", Ui.Culture));
+                }
+            }
+
             File.Move(temp, target, overwrite: true);
             return (relative, size);
         }
@@ -129,7 +148,7 @@ public static class CafToWav
         caf.ReadExactly(header);
         if (header[0] != 'c' || header[1] != 'a' || header[2] != 'f' || header[3] != 'f')
         {
-            throw new InvalidDataException("Non è un file CAF.");
+            throw new InvalidDataException(Loc.T("Non è un file CAF.", Ui.Culture));
         }
 
         double sampleRate = 0;
@@ -154,7 +173,7 @@ public static class CafToWav
                 bits = (int)BinaryPrimitives.ReadUInt32BigEndian(d[28..]);
                 if (formatId != "lpcm")
                 {
-                    throw new NotSupportedException($"Formato CAF non supportato: {formatId}.");
+                    throw new NotSupportedException(string.Format(System.Globalization.CultureInfo.InvariantCulture, Loc.T("Formato CAF non supportato: {0}.", Ui.Culture), formatId));
                 }
 
                 isFloat = (flags & 1) != 0;   // kCAFLinearPCMFormatFlagIsFloat

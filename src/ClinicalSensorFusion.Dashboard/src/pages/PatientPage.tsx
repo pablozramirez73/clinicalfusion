@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useDeletePatient, usePatient, usePatientSessions, useSavePatient, useTrends } from '../api/hooks';
@@ -9,6 +9,7 @@ import { Bars3D, type Bar } from '../three/Bars3D';
 import { modeColor, palette, turbo } from '../three/colormap';
 import { Stage } from '../three/Stage';
 import { t } from '../i18n';
+import { rowLink } from '../components/rowLink';
 
 const empty: PatientInput = {
   code: '', firstName: null, lastName: null, birthDate: null, sex: 'Unknown', fiscalCode: null,
@@ -60,16 +61,17 @@ function ExistingPatient({ id }: { id: string }) {
         <Kpi label={t('Cadenza (ultima)')} value={latest?.cadenceStepsPerMinute ? `${latest.cadenceStepsPerMinute.toFixed(0)}/min` : '—'} accent={palette.amber} />
       </div>
 
+      {trends.error && <ErrorBox error={trends.error} />}
       {trends.data && trends.data.length > 0 && <RomLandscape trends={trends.data} onSelect={(sid) => navigate(`/sessions/${sid}`)} />}
 
       <div className="grid-2">
         <Panel title={t('Rilevazioni')}>
-          {sessions.isPending ? <Loading /> : (
+          {sessions.isPending ? <Loading /> : sessions.error ? <ErrorBox error={sessions.error} /> : (
             <table className="table">
               <thead><tr><th>{t('Data')}</th><th>{t('Modalità')}</th><th>{t('Durata')}</th><th>{t('Operatore')}</th></tr></thead>
               <tbody>
                 {sessions.data?.map((s) => (
-                  <tr key={s.id} className="clickable" onClick={() => navigate(`/sessions/${s.id}`)}>
+                  <tr key={s.id} {...rowLink(() => navigate(`/sessions/${s.id}`))}>
                     <td>{fmtDateTime(s.startedAt)}</td>
                     <td><span className="chip" style={{ '--chip': modeColor[s.mode] } as React.CSSProperties}>{t(modeLabel[s.mode])}</span></td>
                     <td>{fmtDuration(s.durationSeconds)}</td>
@@ -81,7 +83,7 @@ function ExistingPatient({ id }: { id: string }) {
             </table>
           )}
         </Panel>
-        <PatientForm initial={{ ...p, version: p.version }} id={p.id} />
+        <PatientForm key={`${p.id}:${p.version}`} initial={p} id={p.id} />
       </div>
     </div>
   );
@@ -132,8 +134,6 @@ function PatientForm({ initial, id }: { initial: PatientInput; id?: string }) {
   const remove = useDeletePatient();
   const navigate = useNavigate();
 
-  useEffect(() => setForm(initial), [initial]);
-
   const set = <K extends keyof PatientInput>(key: K) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value === '' ? null : e.target.value }));
 
@@ -183,6 +183,7 @@ function PatientForm({ initial, id }: { initial: PatientInput; id?: string }) {
         <Field label={t('Note')}><textarea rows={3} value={form.notes ?? ''} onChange={set('notes')} /></Field>
 
         {save.error && !Object.keys(fieldErrors).length && <ErrorBox error={save.error} />}
+        {remove.error && <ErrorBox error={remove.error} />}
         {save.isSuccess && <div className="success" role="status">{t('Salvato.')}</div>}
         <div className="form-actions">
           <button className="primary" disabled={save.isPending}>{save.isPending ? t('Salvataggio…') : t('Salva')}</button>

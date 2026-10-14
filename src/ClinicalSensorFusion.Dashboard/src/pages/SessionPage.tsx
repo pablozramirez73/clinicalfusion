@@ -88,7 +88,9 @@ export default function SessionPage() {
 function PoseReplayPlayer({ replay }: { replay: import('../api/types').PoseReplay }) {
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const fps = replay.duration > 0 ? replay.frameCount / replay.duration : 15;
+  // Ritmo reale della registrazione, ma entro 1–30 fotogrammi al secondo: con rilevazioni brevissime il
+  // timer scenderebbe sotto il millisecondo, con centinaia di aggiornamenti al secondo.
+  const fps = Math.min(30, Math.max(1, replay.duration > 0 ? replay.frameCount / replay.duration : 15));
 
   useEffect(() => {
     if (!playing || replay.frameCount < 2) return;
