@@ -51,10 +51,11 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         Assert.True(report.Chunks > 1);
         Assert.Empty(await repo.ListUnsyncedSessionsAsync(Ct));
 
-        // Dashboard: il codice sconosciuto ha creato un'anagrafica segnaposto.
+        // Dashboard: il codice sconosciuto ha creato un'anagrafica segnaposto. Il database è condiviso con gli
+        // altri test della classe, che possono crearne altre: si cerca quella di questo codice, che dev'essere una.
         var clinician = await server.CreateClinicianClientAsync();
         var patients = await clinician.GetFromJsonAsync<PagedResult<PatientListItem>>("api/v1/patients?placeholdersOnly=true", Ct);
-        var patient = Assert.Single(patients!.Items);
+        var patient = Assert.Single(patients!.Items, p => p.Code == "PZ-E2E");
         Assert.Equal("PZ-E2E", patient.Code);
         Assert.Equal(1, patient.SessionCount);
 
@@ -192,8 +193,7 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         return (session, audio);
     }
 
-    /// <summary>CAF minimo come quello di AVAudioFile: lpcm Float32 little endian, mono 48 kHz.</summary>
-[Fact]
+    [Fact]
     public async Task Audio_must_be_a_readable_caf_not_just_its_magic_bytes()
     {
         var device = server.CreateDeviceClient();
@@ -209,6 +209,7 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         Assert.Equal(HttpStatusCode.OK, (await device.PutAsync(path, new ByteArrayContent(Caf(10)), Ct)).StatusCode);
     }
 
+    /// <summary>CAF minimo come quello di AVAudioFile: lpcm Float32 little endian, mono 48 kHz.</summary>
     internal static byte[] Caf(int frames)
     {
         var data = new byte[8 + 12 + 32 + 12 + 4 + frames * 4];
