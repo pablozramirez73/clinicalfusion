@@ -193,22 +193,6 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         return (session, audio);
     }
 
-    [Fact]
-    public async Task Audio_must_be_a_readable_caf_not_just_its_magic_bytes()
-    {
-        var device = server.CreateDeviceClient();
-        var sessionId = Guid.NewGuid().ToString("N");
-        var audioId = Guid.NewGuid().ToString("N");
-        var start = new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
-        var upload = new SessionUpload(sessionId, "pz-caf", "OP1", "Operatrice", CaptureMode.BodyLidar, start, start.AddMinutes(1),
-            null, null, new SessionSummary { DurationSeconds = 60 }, [new AudioUpload(audioId, start, 1, null)], []);
-        (await device.PutAsJsonAsync($"api/v1/ingest/sessions/{sessionId}", upload, SyncJsonContext.Default.SessionUpload, Ct)).EnsureSuccessStatusCode();
-
-        var path = $"api/v1/ingest/sessions/{sessionId}/audio/{audioId}";
-        Assert.Equal(HttpStatusCode.BadRequest, (await device.PutAsync(path, new ByteArrayContent("caff"u8.ToArray()), Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await device.PutAsync(path, new ByteArrayContent(Caf(10)), Ct)).StatusCode);
-    }
-
     /// <summary>CAF minimo come quello di AVAudioFile: lpcm Float32 little endian, mono 48 kHz.</summary>
     internal static byte[] Caf(int frames)
     {
@@ -250,6 +234,31 @@ public sealed class SyncEndToEndTests(ServerFixture server) : IClassFixture<Serv
         }
 
         return ValueTask.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Validazione dell'audio CAF in ingestione. Ha un database suo: crea un'anagrafica segnaposto e una rilevazione,
+/// che nel database di <see cref="SyncEndToEndTests"/> ne falserebbero i conteggi (pazienti, rilevazioni).
+/// </summary>
+public sealed class AudioIngestTests(ServerFixture server) : IClassFixture<ServerFixture>
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Audio_must_be_a_readable_caf_not_just_its_magic_bytes()
+    {
+        var device = server.CreateDeviceClient();
+        var sessionId = Guid.NewGuid().ToString("N");
+        var audioId = Guid.NewGuid().ToString("N");
+        var start = new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
+        var upload = new SessionUpload(sessionId, "pz-caf", "OP1", "Operatrice", CaptureMode.BodyLidar, start, start.AddMinutes(1),
+            null, null, new SessionSummary { DurationSeconds = 60 }, [new AudioUpload(audioId, start, 1, null)], []);
+        (await device.PutAsJsonAsync($"api/v1/ingest/sessions/{sessionId}", upload, SyncJsonContext.Default.SessionUpload, Ct)).EnsureSuccessStatusCode();
+
+        var path = $"api/v1/ingest/sessions/{sessionId}/audio/{audioId}";
+        Assert.Equal(HttpStatusCode.BadRequest, (await device.PutAsync(path, new ByteArrayContent("caff"u8.ToArray()), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await device.PutAsync(path, new ByteArrayContent(SyncEndToEndTests.Caf(10)), Ct)).StatusCode);
     }
 }
 
