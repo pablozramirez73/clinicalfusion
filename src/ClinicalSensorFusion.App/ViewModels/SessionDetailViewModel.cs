@@ -81,6 +81,28 @@ public sealed partial class SessionDetailViewModel(
         }
     }
 
+    /// <summary>Righe «Qualità del dato» (campioni per flusso, campioni persi), nascondibili come i sensori ambientali.</summary>
+    public ObservableCollection<SummaryRow> DataQuality { get; } = [];
+
+    public bool HasDataQuality => DataQuality.Count > 0;
+
+    /// <summary>A sezione chiusa un avviso resta visibile se qualcosa non va (per esempio campioni persi).</summary>
+    public bool DataQualityHiddenWarning => !ShowDataQuality && DataQuality.Any(r => r.Warning);
+
+    public bool ShowDataQuality
+    {
+        get => settings.ShowDataQuality;
+        set
+        {
+            if (settings.ShowDataQuality != value)
+            {
+                settings.ShowDataQuality = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DataQualityHiddenWarning));
+            }
+        }
+    }
+
     public ObservableCollection<AudioItem> Audio { get; } = [];
 
     public ObservableCollection<AnalysisItem> Analyses { get; } = [];
@@ -233,6 +255,7 @@ public sealed partial class SessionDetailViewModel(
 
             Summary.Clear();
             Environment.Clear();
+            DataQuality.Clear();
             if (_session.Summary is { } summary)
             {
                 // Prima degli indicatori: quanto ci si può fidare della misura e del documento che parte per il server.
@@ -241,9 +264,16 @@ public sealed partial class SessionDetailViewModel(
                 Summary.Add(new SummaryGroup(ClinicalSensorFusion.Core.Sync.PayloadReport.Section, payload.ToRows(c)));
 
                 var environmentSection = Loc.T(SummaryReport.SensorsSection);
-                foreach (var group in SummaryReport.Build(summary, c).Where(r => r.Section != environmentSection).GroupBy(r => r.Section))
+                var qualitySection = Loc.T(SummaryReport.DataQualitySection, c);
+                var rows = SummaryReport.Build(summary, c);
+                foreach (var group in rows.Where(r => r.Section != environmentSection && r.Section != qualitySection).GroupBy(r => r.Section))
                 {
                     Summary.Add(new SummaryGroup(group.Key, [.. group]));
+                }
+
+                foreach (var row in rows.Where(r => r.Section == qualitySection))
+                {
+                    DataQuality.Add(row);
                 }
 
                 foreach (var card in SummaryReport.Environment(summary, c))
@@ -253,6 +283,8 @@ public sealed partial class SessionDetailViewModel(
             }
 
             OnPropertyChanged(nameof(HasEnvironment));
+            OnPropertyChanged(nameof(HasDataQuality));
+            OnPropertyChanged(nameof(DataQualityHiddenWarning));
 
             Audio.Clear();
             foreach (var a in await repository.ListAudioRecordingsAsync(id))

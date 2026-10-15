@@ -285,6 +285,44 @@
         </VerticalStackLayout>
       </VerticalStackLayout>
 
+      <!-- Qualità del dato: campioni per flusso e campioni persi; l'interruttore la nasconde come i sensori ambientali. -->
+      <VerticalStackLayout Spacing="6" IsVisible="{Binding HasDataQuality}">
+        <Grid ColumnDefinitions="*,Auto">
+          <Label Text="{l:Tr Text='Qualità del dato'}" Style="{StaticResource Section}" VerticalOptions="Center" />
+          <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center" Margin="0,14,0,2">
+            <Label Text="{l:Tr Text='Mostra'}" Style="{StaticResource Muted}" VerticalOptions="Center" />
+            <Switch IsToggled="{Binding ShowDataQuality}" VerticalOptions="Center"
+                    SemanticProperties.Description="{l:Tr Text='Mostra o nascondi la qualità del dato'}" />
+          </HorizontalStackLayout>
+        </Grid>
+
+        <Label Text="{l:Tr Text='Nascosta: attiva «Mostra» per vedere i campioni registrati per ogni flusso e quelli persi.'}"
+               Style="{StaticResource Muted}" Margin="4,0"
+               IsVisible="{Binding ShowDataQuality, Converter={StaticResource InvertedBool}}" />
+
+        <Border Style="{StaticResource ChipWarning}" Margin="4,0" IsVisible="{Binding DataQualityHiddenWarning}">
+          <Label Text="{l:Tr Text='Attenzione: durante la rilevazione sono andati persi dei campioni.'}" Style="{StaticResource ChipWarningText}" FontSize="12" />
+        </Border>
+
+        <Border Style="{StaticResource Card}" IsVisible="{Binding ShowDataQuality}">
+          <VerticalStackLayout BindableLayout.ItemsSource="{Binding DataQuality}" Spacing="12">
+            <BindableLayout.ItemTemplate>
+              <DataTemplate x:DataType="domain:SummaryRow">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <Label Text="{Binding Label}" Style="{StaticResource Muted}" FontSize="15" VerticalOptions="Center" />
+                  <Label Grid.Column="1" Text="{Binding Value}" FontAttributes="Bold" HorizontalTextAlignment="End" VerticalOptions="Center"
+                         IsVisible="{Binding Warning, Converter={StaticResource InvertedBool}}" />
+                  <Border Grid.Column="1" Style="{StaticResource ChipWarning}" HorizontalOptions="End" VerticalOptions="Center"
+                          IsVisible="{Binding Warning}">
+                    <Label Text="{Binding Value}" Style="{StaticResource ChipWarningText}" FontSize="14" />
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </BindableLayout.ItemTemplate>
+          </VerticalStackLayout>
+        </Border>
+      </VerticalStackLayout>
+
       <!-- Audio -->
       <Label Text="{l:Tr Text='Registrazioni audio'}" Style="{StaticResource Section}" />
       <VerticalStackLayout BindableLayout.ItemsSource="{Binding Audio}" Spacing="8">

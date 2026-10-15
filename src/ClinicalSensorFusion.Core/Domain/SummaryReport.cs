@@ -119,14 +119,16 @@ public static class SummaryReport
 
         foreach (var (kind, count) in s.SampleCounts.OrderBy(k => k.Key))
         {
-            rows.Add(new(Loc.T("Qualità del dato", c), StreamName(kind), string.Format(c, Loc.T("{0:N0} campioni", c), count)));
+            rows.Add(new(Loc.T(DataQualitySection, c), StreamName(kind), string.Format(c, Loc.T("{0:N0} campioni", c), count)));
         }
 
-        rows.Add(new(Loc.T("Qualità del dato", c), Loc.T("Campioni persi", c), s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
+        rows.Add(new(Loc.T(DataQualitySection, c), Loc.T("Campioni persi", c), s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
         return rows;
     }
 
     public const string SensorsSection = "Sensori ambientali";
+
+    public const string DataQualitySection = "Qualità del dato";
 
     /// <summary>Un solo valore se il canale non è mai cambiato, altrimenti intervallo e media.</summary>
     private static string Describe(ChannelStats ch, CultureInfo c)
