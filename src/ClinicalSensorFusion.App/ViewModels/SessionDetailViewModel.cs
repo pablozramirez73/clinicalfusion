@@ -19,6 +19,13 @@ public sealed record AudioItem(string Id, string Title, string Details, string P
 
 public sealed record AnalysisItem(string When, string Model, string Response);
 
+/// <summary>Una misura del soggetto nella scheda del rischio di caduta, con il verso e il peso del suo effetto.</summary>
+/// <param name="BarWidth">Lunghezza della barra (punti), proporzionale all'effetto più grande della scheda.</param>
+public sealed record FallRiskFactorItem(string Name, string Value, string Effect, Color Color, double BarWidth);
+
+/// <summary>Un test che alimenta il modello: eseguito (con il risultato più recente) o mancante.</summary>
+public sealed record FallRiskTestItem(string Name, string Value, bool Done);
+
 /// <summary>Stato dell'invio di una rilevazione al server clinico, come lo vede l'operatore.</summary>
 public enum SyncState
 {
@@ -78,6 +85,10 @@ public sealed partial class SessionDetailViewModel(
 
     public ObservableCollection<AnalysisItem> Analyses { get; } = [];
 
+    public ObservableCollection<FallRiskFactorItem> FallRiskFactors { get; } = [];
+
+    public ObservableCollection<FallRiskTestItem> FallRiskTests { get; } = [];
+
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
 
@@ -126,11 +137,21 @@ public sealed partial class SessionDetailViewModel(
     [ObservableProperty]
     public partial bool FallRiskVisible { get; set; }
 
-    /// <summary>Probabilità in percentuale, oppure un trattino se i test del soggetto non bastano.</summary>
+    /// <summary>Probabilità 0–1 per l'indicatore; NaN se i test del soggetto non bastano.</summary>
     [ObservableProperty]
-    public partial string FallRiskValue { get; set; } = string.Empty;
+    public partial double FallRiskProbability { get; set; } = double.NaN;
 
-    /// <summary>Da quali test viene la stima e quali mancano.</summary>
+    [ObservableProperty]
+    public partial bool FallRiskHasEstimate { get; set; }
+
+    /// <summary>Fascia della stima ("Fascia bassa", …).</summary>
+    [ObservableProperty]
+    public partial string FallRiskBand { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial Color FallRiskBandColor { get; set; } = Colors.Gray;
+
+    /// <summary>Confronto con il soggetto tipico dello studio, oppure cosa manca per avere una stima.</summary>
     [ObservableProperty]
     public partial string FallRiskDetail { get; set; } = string.Empty;
 
@@ -268,22 +289,84 @@ public sealed partial class SessionDetailViewModel(
         }
 
         var code = _session!.SubjectCode;
-        var sessions = (await repository.ListSessionsAsync(code, limit: 500)).Where(s => s.SubjectCode == code);
-        if (FallRisk.Estimate(sessions) is { } estimate)
+        var sessions = (await repository.ListSessionsAsync(code, limit: 500)).Where(s => s.SubjectCode == code).ToList();
+        var estimate = FallRisk.Estimate(sessions);
+
+        FallRiskTests.Clear();
+        foreach (var modelTest in FallRisk.Tests)
         {
-            FallRiskValue = estimate.Probability.ToString("P0", c);
-            var used = string.Join(", ", estimate.TestsUsed.Select(t => t.ShortName));
-            FallRiskDetail = estimate.TestsMissing.Count == 0
-                ? Loc.F("Dai test più recenti di {0}: {1}.", code, used)
-                : Loc.F("Dai test più recenti di {0}: {1}. Mancano {2}: al loro posto vale il valore tipico dello studio.",
-                    code, used, string.Join(", ", estimate.TestsMissing.Select(t => t.ShortName)));
+            var latest = sessions
+                .Where(s => s.Summary?.Test is { Value: { } v } t && t.TestId == modelTest.Id && double.IsFinite(v))
+                .MaxBy(s => s.StartedAt);
+            FallRiskTests.Add(latest?.Summary?.Test is { Value: { } value }
+                ? new FallRiskTestItem(modelTest.ShortName, FallRiskTestValue(modelTest, value, c), true)
+                : new FallRiskTestItem(modelTest.ShortName, Loc.T("da fare"), false));
         }
-        else
+
+        FallRiskFactors.Clear();
+        FallRiskHasEstimate = estimate is not null;
+        if (estimate is null)
         {
-            FallRiskValue = "—";
+            FallRiskProbability = double.NaN;
+            FallRiskBand = Loc.T("Stima non disponibile");
+            FallRiskBandColor = Color.FromArgb("#94A3B8");
             FallRiskDetail = Loc.F("Servono almeno {0} test tra TUG, 10MWT, 5TSTS e tandem, di cui uno tra TUG e 10MWT.", FallRisk.MinTests);
+            return;
+        }
+
+        FallRiskProbability = estimate.Probability;
+        (FallRiskBand, FallRiskBandColor) = estimate.Band switch
+        {
+            Core.Domain.FallRiskBand.Low => (Loc.T("Fascia bassa"), Color.FromArgb("#059669")),
+            Core.Domain.FallRiskBand.Intermediate => (Loc.T("Fascia intermedia"), Color.FromArgb("#D97706")),
+            _ => (Loc.T("Fascia alta"), Color.FromArgb("#DC2626")),
+        };
+
+        var typical = FallRiskModel.Default.Probability(new Dictionary<string, double>());
+        FallRiskDetail = Loc.F("Un soggetto tipico dello studio è al {0}.", typical.ToString("P0", c));
+
+        var factors = estimate.Factors();
+        var largest = factors.Count == 0 ? 1 : Math.Max(factors.Max(f => Math.Abs(f.LogOdds)), 1e-9);
+        foreach (var f in factors.Take(4))
+        {
+            // Sotto 0,05 log-odds (circa un punto percentuale) la misura è in pratica nella norma dello studio.
+            var (effect, color) = f.LogOdds switch
+            {
+                > 0.05 => (Loc.T("alza il rischio"), Color.FromArgb("#DC2626")),
+                < -0.05 => (Loc.T("abbassa il rischio"), Color.FromArgb("#059669")),
+                _ => (Loc.T("nella norma"), Color.FromArgb("#94A3B8")),
+            };
+            FallRiskFactors.Add(new FallRiskFactorItem(FactorName(f.Feature), FactorValue(f, c), effect, color, 6 + (90 * Math.Abs(f.LogOdds) / largest)));
         }
     }
+
+    private static string FallRiskTestValue(ClinicalTest test, double value, CultureInfo c) =>
+        test.Id == ClinicalTests.TenMeterWalk.Id
+            ? value.ToString("0.00", c) + " m/s"
+            : value.ToString("0.0", c) + " s";
+
+    private static string FactorName(string feature) => feature switch
+    {
+        "tug_time_s" => Loc.T("Timed Up and Go"),
+        "gait_speed_m_s" => Loc.T("Velocità del cammino"),
+        "sppb_chair_index" => Loc.T("Alzate dalla sedia (SPPB)"),
+        "sppb_balance_index" => Loc.T("Equilibrio (SPPB)"),
+        "cadence_strides_min" => Loc.T("Cadenza"),
+        "stride_time_s" => Loc.T("Durata della falcata"),
+        "stride_time_cv" => Loc.T("Variabilità del passo"),
+        _ => feature,
+    };
+
+    private static string FactorValue(FallRiskFactor f, CultureInfo c) => f.Feature switch
+    {
+        "tug_time_s" => f.Value.ToString("0.0", c) + " s",
+        "gait_speed_m_s" => f.Value.ToString("0.00", c) + " m/s",
+        "sppb_chair_index" or "sppb_balance_index" => f.Value.ToString("0", c) + "/4",
+        "cadence_strides_min" => Loc.F("{0} falcate/min", f.Value.ToString("0", c)),
+        "stride_time_s" => f.Value.ToString("0.00", c) + " s",
+        "stride_time_cv" => f.Value.ToString("P0", c),
+        _ => f.Value.ToString("G3", c),
+    };
 
     private void RefreshSyncState()
     {

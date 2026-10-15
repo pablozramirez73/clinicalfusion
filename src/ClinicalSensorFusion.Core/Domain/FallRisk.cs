@@ -70,6 +70,25 @@ public sealed class FallRiskModel
         return 1 / (1 + Math.Exp(-z));
     }
 
+    /// <summary>
+    /// Quanto ogni misura misurata sposta la stima rispetto a un soggetto tipico di GSTRIDE, in log-odds
+    /// (positivo = rischio più alto). Le misure assenti valgono la mediana e non compaiono.
+    /// </summary>
+    public IReadOnlyList<FallRiskFactor> Contributions(IReadOnlyDictionary<string, double> inputs)
+    {
+        var result = new List<FallRiskFactor>();
+        for (var i = 0; i < _coef.Length; i++)
+        {
+            if (inputs.TryGetValue(Features[i], out var x) && double.IsFinite(x))
+            {
+                var scale = _scale[i] > 0 ? _scale[i] : 1;
+                result.Add(new FallRiskFactor(Features[i], x, _coef[i] * (x - _median[i]) / scale));
+            }
+        }
+
+        return result;
+    }
+
     // JsonDocument e non la deserializzazione con i tipi: niente riflessione, quindi nessun problema con il
     // trimming delle build iOS/Android e nessun contesto di serializzazione da aggiornare.
     internal static FallRiskModel Parse(Stream json)
@@ -96,6 +115,17 @@ public sealed class FallRiskModel
     }
 }
 
+/// <summary>Una misura del soggetto e il suo effetto sulla stima, in log-odds rispetto alla mediana di GSTRIDE.</summary>
+public sealed record FallRiskFactor(string Feature, double Value, double LogOdds);
+
+/// <summary>Fascia della stima, solo per leggerla a colpo d'occhio: non è una soglia clinica.</summary>
+public enum FallRiskBand
+{
+    Low,
+    Intermediate,
+    High,
+}
+
 /// <summary>Stima del rischio di caduta di un soggetto, con le misure da cui viene.</summary>
 /// <param name="Probability">Probabilità (0–1) di aver avuto almeno una caduta nell'ultimo anno, secondo il modello.</param>
 /// <param name="Inputs">Misure usate, con il nome del modello.</param>
@@ -105,7 +135,15 @@ public sealed record FallRiskEstimate(
     double Probability,
     IReadOnlyDictionary<string, double> Inputs,
     IReadOnlyList<ClinicalTest> TestsUsed,
-    IReadOnlyList<ClinicalTest> TestsMissing);
+    IReadOnlyList<ClinicalTest> TestsMissing)
+{
+    /// <summary>Terzi della scala di probabilità: sotto il 33% bassa, oltre il 66% alta.</summary>
+    public FallRiskBand Band => Probability < 1d / 3 ? FallRiskBand.Low : Probability < 2d / 3 ? FallRiskBand.Intermediate : FallRiskBand.High;
+
+    /// <summary>Le misure del soggetto, da quella che sposta di più la stima.</summary>
+    public IReadOnlyList<FallRiskFactor> Factors(FallRiskModel? model = null) =>
+        [.. (model ?? FallRiskModel.Default).Contributions(Inputs).OrderByDescending(f => Math.Abs(f.LogOdds))];
+}
 
 /// <summary>
 /// Raccoglie dai test di un soggetto le misure del modello e calcola la stima. Per ogni test vale
