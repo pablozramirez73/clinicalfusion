@@ -1,0 +1,145 @@
+{
+  "name": "fall_risk",
+  "version": "pretrained-gstride-1",
+  "created": "2026-10-15",
+  "target": "Cadute nell'ultimo anno riferite dal soggetto (anziani 70–98 anni): 1 = almeno una caduta.",
+  "source": {
+    "dataset": "GSTRIDE, Zenodo, CC BY 4.0",
+    "doi": "10.5281/zenodo.8003441",
+    "sensor": "IMU sul piede; test clinici cronometrati"
+  },
+  "features": [
+    "tug_time_s",
+    "gait_speed_m_s",
+    "sppb_chair_index",
+    "sppb_balance_index",
+    "cadence_strides_min",
+    "stride_time_s",
+    "stride_time_cv"
+  ],
+  "impute_median": [
+    13.04,
+    0.8,
+    3.0,
+    3.0,
+    49.84,
+    1.205,
+    0.07887
+  ],
+  "mean": [
+    15.608773,
+    0.823681,
+    2.490798,
+    3.122699,
+    49.203252,
+    1.25635,
+    0.080672
+  ],
+  "scale": [
+    9.329735,
+    0.327622,
+    1.307684,
+    0.99553,
+    7.521012,
+    0.244713,
+    0.028756
+  ],
+  "coef": [
+    0.082165,
+    -0.127087,
+    -0.053607,
+    -0.099829,
+    -0.079434,
+    0.072132,
+    0.082347
+  ],
+  "intercept": 0.119212,
+  "C": 0.004641588833612777,
+  "validation": {
+    "method": "5-fold stratificata ripetuta 50 volte, penalità scelta dentro ogni parte",
+    "n": 163,
+    "positives": 86,
+    "by_feature_set": {
+      "solo tempo del TUG": {
+        "features": [
+          "tug_time_s"
+        ],
+        "auc": 0.779,
+        "auc_ci95": [
+          0.707,
+          0.845
+        ],
+        "brier": 0.247
+      },
+      "misure cliniche dell'app": {
+        "features": [
+          "tug_time_s",
+          "gait_speed_m_s",
+          "sppb_chair_index",
+          "sppb_balance_index"
+        ],
+        "auc": 0.797,
+        "auc_ci95": [
+          0.728,
+          0.865
+        ],
+        "brier": 0.193
+      },
+      "misure cliniche + ritmo del passo (tutto ciò che l'app ricava)": {
+        "features": [
+          "tug_time_s",
+          "gait_speed_m_s",
+          "sppb_chair_index",
+          "sppb_balance_index",
+          "cadence_strides_min",
+          "stride_time_s",
+          "stride_time_cv"
+        ],
+        "auc": 0.805,
+        "auc_ci95": [
+          0.735,
+          0.871
+        ],
+        "brier": 0.2
+      },
+      "riferimento: tutto, anche ciò che l'app non ha": {
+        "features": [
+          "tug_time_s",
+          "gait_speed_m_s",
+          "sppb_chair_index",
+          "sppb_balance_index",
+          "cadence_strides_min",
+          "stride_time_s",
+          "stride_time_cv",
+          "age",
+          "short_fes_i",
+          "frailty_index",
+          "grip_kg",
+          "stride_length_m",
+          "clearance_m"
+        ],
+        "auc": 0.838,
+        "auc_ci95": [
+          0.772,
+          0.898
+        ],
+        "brier": 0.184
+      }
+    }
+  },
+  "univariate_auc": {
+    "tug_time_s": 0.809,
+    "gait_speed_m_s": 0.802,
+    "sppb_chair_index": 0.649,
+    "sppb_balance_index": 0.719,
+    "cadence_strides_min": 0.711,
+    "stride_time_s": 0.707,
+    "age": 0.645,
+    "short_fes_i": 0.785,
+    "frailty_index": 0.782,
+    "grip_kg": 0.708,
+    "stride_length_m": 0.774,
+    "clearance_m": 0.683,
+    "stride_time_cv": 0.722
+  }
+}
