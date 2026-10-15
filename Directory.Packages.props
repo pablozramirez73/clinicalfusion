@@ -1,7 +1,7 @@
 <Project>
-  <!-- Versioni centralizzate (Central Package Management). Allineate a .NET 11 RC1 / MAUI 11 RC1. -->
+  <!-- Versioni centralizzate (Central Package Management). Allineate a .NET 11 RC1; MAUI a RC2, che deve corrispondere al workload dell'SDK (la CI installa l'ultima anteprima 11.0.x). -->
   <PropertyGroup>
-    <MauiVersion>11.0.0-rc.1.26451.6</MauiVersion>
+    <MauiVersion>11.0.0-rc.2.26505.5</MauiVersion>
     <DotNetExtensionsVersion>11.0.0-rc.1.26425.128</DotNetExtensionsVersion>
     <AspNetCoreVersion>11.0.0-rc.1.26425.128</AspNetCoreVersion>
     <EfCoreVersion>11.0.0-rc.1.26425.128</EfCoreVersion>
