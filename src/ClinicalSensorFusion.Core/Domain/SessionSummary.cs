@@ -25,6 +25,12 @@ public sealed record SessionSummary
 
     public GaitSummary? Gait { get; init; }
 
+    /// <summary>
+    /// Ritmo del passo dai punti della posa (distanza tra le caviglie): c'è anche senza pedometro, quindi
+    /// su Android. Null se i passi riconosciuti non bastano.
+    /// </summary>
+    public PoseGaitSummary? PoseGait { get; init; }
+
     public AudioFeatures? Audio { get; init; }
 
     public double? MedianSubjectDistanceMeters { get; init; }

@@ -22,3 +22,8 @@ src/ClinicalSensorFusion.App/Resources/Raw/models/*.task
 src/ClinicalSensorFusion.Server/wwwroot/
 src/ClinicalSensorFusion.Server/data/
 node_modules/
+
+# Modelli di ML: dati scaricati e ambiente Python (ml/README.md)
+ml/data/
+ml/.venv/
+__pycache__/

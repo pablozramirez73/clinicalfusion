@@ -40,6 +40,7 @@ public sealed class SessionMetricsAggregator
     private readonly TremorAnalyzer _tremor = new();
     private readonly List<float> _distances = [];
     private readonly FingerTapAnalyzer _fingerTaps = new();
+    private readonly PoseStepAnalyzer _poseSteps = new();
     private readonly SensorStreamStats _sensors = new();
 
     private double _elapsed;
@@ -97,6 +98,9 @@ public sealed class SessionMetricsAggregator
                 break;
             case SensorKind.HandLandmarks:
                 _fingerTaps.Add(r.Timestamp, v);
+                break;
+            case SensorKind.PoseLandmarks3D:
+                _poseSteps.Add(r.Timestamp, v);
                 break;
             case SensorKind.JointAngles:
                 // Layout: angoli × JointCount, poi [sorgente (0=LiDAR,1=MediaPipe), distanza soggetto].
@@ -212,6 +216,7 @@ public sealed class SessionMetricsAggregator
             LidarCoverage = lidarUsed && _poseFrames > 0 ? _lidarPoseFrames / (double)_poseFrames : null,
             Tremor = _tremor.Analyze(),
             Gait = gait,
+            PoseGait = _poseSteps.Build(),
             Audio = audio,
             MedianSubjectDistanceMeters = medianDistance,
             SitToStandCount = _poseFrames > 0 ? _sitToStand : null,

@@ -11,6 +11,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     private const string RequireAuthKey = "security.require_auth";
     private const string SyncServerKey = "sync.server";
     private const string AutoSyncKey = "sync.auto";
+    private const string FallRiskKey = "fallrisk.show";
 
     public string OllamaServer
     {
@@ -60,6 +61,13 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(SyncServerKey, string.Empty);
         set => preferences.Set(SyncServerKey, value?.Trim() ?? string.Empty);
+    }
+
+    /// <summary>Stima sperimentale del rischio di caduta nel dettaglio dei test. Spenta finché non la si sceglie.</summary>
+    public bool ShowFallRiskEstimate
+    {
+        get => preferences.Get(FallRiskKey, false);
+        set => preferences.Set(FallRiskKey, value);
     }
 
     /// <summary>Invio automatico al termine di ogni rilevazione.</summary>

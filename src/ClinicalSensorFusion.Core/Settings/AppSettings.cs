@@ -46,5 +46,11 @@ public interface IAppSettings
 
     string OperatorName { get; set; }
 
+    /// <summary>
+    /// Mostra nel dettaglio dei test la stima sperimentale del rischio di caduta (<see cref="Domain.FallRisk"/>).
+    /// Spenta per impostazione predefinita: il modello non è ancora validato sui pazienti della clinica.
+    /// </summary>
+    bool ShowFallRiskEstimate { get; set; }
+
     bool IsOperatorConfigured => !string.IsNullOrWhiteSpace(OperatorId) && !string.IsNullOrWhiteSpace(OperatorName);
 }
