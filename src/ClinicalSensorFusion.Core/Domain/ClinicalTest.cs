@@ -50,7 +50,21 @@ public sealed record ClinicalTest(
     /// È un aiuto: se l'app non riconosce il movimento, l'operatore termina a mano come sempre.
     /// </summary>
     public TestCompletion? Completion { get; init; }
+
+    /// <summary>
+    /// Come si ricava il punteggio dal riepilogo (Strategy). Obbligatorio: un test nuovo non può finire
+    /// senza punteggio perché ci si è dimenticati di aggiungerlo altrove.
+    /// </summary>
+    public required TestScoring Scoring { get; init; }
 }
+
+/// <summary>Calcola il punteggio di un test.</summary>
+/// <param name="summary">Riepilogo della rilevazione appena conclusa.</param>
+/// <param name="testSeconds">Secondi trascorsi dal «Via» alla fine del test.</param>
+public delegate TestScore TestScoring(SessionSummary summary, double testSeconds);
+
+/// <summary>Punteggio prodotto da <see cref="TestScoring"/>; <see cref="ClinicalTests.Evaluate"/> lo completa con i dati del test.</summary>
+public sealed record TestScore(double? Value, bool Flag, string Interpretation, bool Estimated = false);
 
 /// <summary>Che cosa deve aver fatto il paziente, dal «Via», perché il test si consideri eseguito.</summary>
 public enum TestCompletionKind
@@ -164,6 +178,7 @@ public static class ClinicalTests
         "≥ 12 s: rischio di caduta aumentato nell'anziano.",
         Cdc)
     {
+        Scoring = ScoreTimedUpAndGo,
         Completion = new(TestCompletionKind.RisesThenSeated, 1, SeatedHoldSeconds: 1),
     };
 
@@ -185,6 +200,7 @@ public static class ClinicalTests
         "Sotto la media (uomini / donne): 60–64 anni < 14 / < 12 · 65–69 < 12 / < 11 · 70–74 < 12 / < 10 · 75–79 < 11 / < 10 · 80–84 < 10 / < 9 · 85–89 < 8 / < 8 · 90–94 < 7 / < 4.",
         Cdc)
     {
+        Scoring = ScoreChairStand30,
         Cues =
         [
             new(15, "Continui così, è a metà."),
@@ -210,6 +226,7 @@ public static class ClinicalTests
         "Tandem tenuto meno di 10 s: rischio di caduta aumentato nell'anziano.",
         Cdc)
     {
+        Scoring = ScoreTandemStance,
         Cues =
         [
             new(5, "Bene, ancora cinque secondi."),
@@ -234,6 +251,7 @@ public static class ClinicalTests
         "> 12 s distingue gli adulti sani dalle persone con ictus; 13 s indica disfunzione dell'equilibrio. Medie nei sani: 60–69 anni 7,8 s · 70–79 9,3 s · 80–85 10,8 s.",
         Anpt)
     {
+        Scoring = ScoreFiveTimesSitToStand,
         Completion = new(TestCompletionKind.RisesThenSeated, 5, SeatedHoldSeconds: 0.3),
     };
 
@@ -252,7 +270,10 @@ public static class ClinicalTests
         + "Al mio via cammini al suo passo comodo fino al segno in fondo, senza fermarsi prima.",
         null, TestResultKind.MetersPerSecond,
         "Ictus: < 0,4 m/s deambulazione domestica · 0,4–0,8 comunitaria limitata · > 0,8 comunitaria. Anziani sani: < 0,7 m/s rischio aumentato di eventi avversi.",
-        Anpt);
+        Anpt)
+    {
+        Scoring = ScoreTenMeterWalk,
+    };
 
     public static readonly ClinicalTest SixMinuteWalk = new(
         "6mwt", "6MWT", "6 Minute Walk Test (6MWT)",
@@ -271,6 +292,7 @@ public static class ClinicalTests
         "Medie negli anziani autonomi (uomini / donne): 60–69 anni 572 / 538 m · 70–79 527 / 471 m · 80–89 417 / 392 m.",
         Anpt)
     {
+        Scoring = ScoreSixMinuteWalk,
         Cues =
         [
             new(60, "Sta andando bene. Mancano cinque minuti."),
@@ -299,6 +321,7 @@ public static class ClinicalTests
         "Nella MDS-UPDRS il clinico assegna un punteggio da 0 a 4 valutando velocità, ampiezza, esitazioni, arresti e riduzione progressiva dell'ampiezza. L'app misura queste grandezze, non assegna il punteggio.",
         "MDS-UPDRS Parte III, item 3.4 — Movement Disorder Society")
     {
+        Scoring = ScoreFingerTapping,
         Mode = CaptureMode.HandsLidar,
         Completion = new(TestCompletionKind.FingerTaps, 10),
     };
@@ -318,96 +341,93 @@ public static class ClinicalTests
     /// </param>
     public static TestOutcome Evaluate(ClinicalTest test, SessionSummary summary, double? testSeconds)
     {
-        TestOutcome Outcome(double? value, bool flag, string interpretation, bool estimated = false) =>
-            new(test.Id, test.Name, test.ResultKind, value, estimated, flag, interpretation);
+        var score = testSeconds is { } seconds
+            ? test.Scoring(summary, seconds)
+            : new TestScore(null, false, "Rilevazione terminata prima del «Via»: nessun punteggio.");
+        return new(test.Id, test.Name, test.ResultKind, score.Value, score.Estimated, score.Flag, score.Interpretation);
+    }
 
-        if (testSeconds is not { } seconds)
+    private static TestScore ScoreTimedUpAndGo(SessionSummary summary, double seconds) => seconds >= 12
+        ? new(seconds, true, "12 secondi o più: rischio di caduta aumentato nell'anziano.")
+        : new(seconds, false, "Meno di 12 secondi: sotto la soglia di rischio di caduta.");
+
+    private static TestScore ScoreChairStand30(SessionSummary summary, double seconds) =>
+        new(summary.SitToStandCount, false,
+            "Alzate contate in automatico dall'angolo del ginocchio: verifica con il tuo conteggio e confronta con i valori per età e sesso.",
+            Estimated: true);
+
+    private static TestScore ScoreTandemStance(SessionSummary summary, double seconds) => seconds < 10
+        ? new(seconds, true, "Meno di 10 secondi: rischio di caduta aumentato nell'anziano.")
+        : new(10, false, "Posizione tenuta per 10 secondi.");
+
+    private static TestScore ScoreFiveTimesSitToStand(SessionSummary summary, double seconds)
+    {
+        var counted = summary.SitToStandCount is { } n && n != 5
+            ? string.Create(CultureInfo.InvariantCulture, $" Alzate rilevate in automatico: {n} (attese 5).")
+            : string.Empty;
+        return seconds > 12
+            ? new(seconds, true, "Oltre 12 secondi: sopra il cut-off che distingue gli adulti sani; da 13 secondi indica disfunzione dell'equilibrio." + counted)
+            : new(seconds, false, "Entro 12 secondi: sotto il cut-off." + counted);
+    }
+
+    private static TestScore ScoreTenMeterWalk(SessionSummary summary, double seconds)
+    {
+        if (seconds <= 0)
         {
-            return Outcome(null, false, "Rilevazione terminata prima del «Via»: nessun punteggio.");
+            return new(null, false, "Durata non valida.");
         }
 
-        switch (test.Id)
+        var speed = 6.0 / seconds;
+        var category = speed switch
         {
-            case "tug":
-                return seconds >= 12
-                    ? Outcome(seconds, true, "12 secondi o più: rischio di caduta aumentato nell'anziano.")
-                    : Outcome(seconds, false, "Meno di 12 secondi: sotto la soglia di rischio di caduta.");
+            < 0.4 => "Sotto 0,4 m/s: deambulazione domestica (classi per l'ictus).",
+            <= 0.8 => "Tra 0,4 e 0,8 m/s: deambulazione comunitaria limitata (classi per l'ictus).",
+            _ => "Oltre 0,8 m/s: deambulazione comunitaria (classi per l'ictus).",
+        };
+        return new(speed, speed < 0.7,
+            speed < 0.7 ? category + " Sotto 0,7 m/s: rischio aumentato di eventi avversi nell'anziano." : category);
+    }
 
-            case "chair30":
-                return Outcome(summary.SitToStandCount, false,
-                    "Alzate contate in automatico dall'angolo del ginocchio: verifica con il tuo conteggio e confronta con i valori per età e sesso.",
-                    estimated: true);
-
-            case "tandem":
-                return seconds < 10
-                    ? Outcome(seconds, true, "Meno di 10 secondi: rischio di caduta aumentato nell'anziano.")
-                    : Outcome(10, false, "Posizione tenuta per 10 secondi.");
-
-            case "5tsts":
-                var counted = summary.SitToStandCount is { } n && n != 5
-                    ? string.Create(CultureInfo.InvariantCulture, $" Alzate rilevate in automatico: {n} (attese 5).")
-                    : string.Empty;
-                return seconds > 12
-                    ? Outcome(seconds, true, "Oltre 12 secondi: sopra il cut-off che distingue gli adulti sani; da 13 secondi indica disfunzione dell'equilibrio." + counted)
-                    : Outcome(seconds, false, "Entro 12 secondi: sotto il cut-off." + counted);
-
-            case "10mwt":
-                if (seconds <= 0)
-                {
-                    return Outcome(null, false, "Durata non valida.");
-                }
-
-                var speed = 6.0 / seconds;
-                var category = speed switch
-                {
-                    < 0.4 => "Sotto 0,4 m/s: deambulazione domestica (classi per l'ictus).",
-                    <= 0.8 => "Tra 0,4 e 0,8 m/s: deambulazione comunitaria limitata (classi per l'ictus).",
-                    _ => "Oltre 0,8 m/s: deambulazione comunitaria (classi per l'ictus).",
-                };
-                return Outcome(speed, speed < 0.7,
-                    speed < 0.7 ? category + " Sotto 0,7 m/s: rischio aumentato di eventi avversi nell'anziano." : category);
-
-            case "ftap":
-                // Contano solo i tocchi dopo il «Via»: prima la voce sta ancora spiegando.
-                var taps = FingerTapMetrics.From(
-                    summary.FingerTaps ?? new FingerTapSeries([], []),
-                    summary.DurationSeconds - seconds);
-                if (taps.Taps == 0)
-                {
-                    return Outcome(null, false, "Nessun tocco rilevato: controlla che pollice e indice siano ben visibili di lato.", estimated: true);
-                }
-
-                var parts = new List<string> { string.Create(CultureInfo.InvariantCulture, $"Tocchi rilevati: {taps.Taps}.") };
-                if (taps.MeanAmplitude is { } amplitude)
-                {
-                    parts.Add(string.Create(CultureInfo.InvariantCulture, $"Ampiezza media: {amplitude * 100:F0}% della lunghezza del palmo."));
-                }
-
-                if (taps.AmplitudeDecrement is { } decrement)
-                {
-                    parts.Add(decrement > 0.05
-                        ? string.Create(CultureInfo.InvariantCulture, $"Ampiezza in calo del {decrement * 100:F0}% tra i primi e gli ultimi tre tocchi.")
-                        : "Ampiezza mantenuta dall'inizio alla fine.");
-                }
-
-                if (taps.IntervalVariability is { } variability)
-                {
-                    parts.Add(string.Create(CultureInfo.InvariantCulture, $"Irregolarità del ritmo: {variability * 100:F0}%."));
-                }
-
-                parts.Add("Misure automatiche dai punti della mano: da verificare a vista.");
-                return Outcome(taps.FrequencyHz, false, string.Join(" ", parts), estimated: true);
-
-            case "6mwt":
-                var distance = summary.Gait is { } gait && double.IsFinite(gait.DistanceMeters) ? gait.DistanceMeters : (double?)null;
-                return Outcome(distance, false,
-                    distance is null
-                        ? "Pedometro non disponibile: usa il conteggio dei giri sul percorso di 12 m."
-                        : "Distanza stimata dal pedometro dell'iPhone: il valore ufficiale è il conteggio dei giri sul percorso di 12 m.",
-                    estimated: true);
-
-            default:
-                return Outcome(null, false, string.Empty);
+    private static TestScore ScoreFingerTapping(SessionSummary summary, double seconds)
+    {
+        // Contano solo i tocchi dopo il «Via»: prima la voce sta ancora spiegando.
+        var taps = FingerTapMetrics.From(
+            summary.FingerTaps ?? new FingerTapSeries([], []),
+            summary.DurationSeconds - seconds);
+        if (taps.Taps == 0)
+        {
+            return new(null, false, "Nessun tocco rilevato: controlla che pollice e indice siano ben visibili di lato.", Estimated: true);
         }
+
+        var parts = new List<string> { string.Create(CultureInfo.InvariantCulture, $"Tocchi rilevati: {taps.Taps}.") };
+        if (taps.MeanAmplitude is { } amplitude)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Ampiezza media: {amplitude * 100:F0}% della lunghezza del palmo."));
+        }
+
+        if (taps.AmplitudeDecrement is { } decrement)
+        {
+            parts.Add(decrement > 0.05
+                ? string.Create(CultureInfo.InvariantCulture, $"Ampiezza in calo del {decrement * 100:F0}% tra i primi e gli ultimi tre tocchi.")
+                : "Ampiezza mantenuta dall'inizio alla fine.");
+        }
+
+        if (taps.IntervalVariability is { } variability)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Irregolarità del ritmo: {variability * 100:F0}%."));
+        }
+
+        parts.Add("Misure automatiche dai punti della mano: da verificare a vista.");
+        return new(taps.FrequencyHz, false, string.Join(" ", parts), Estimated: true);
+    }
+
+    private static TestScore ScoreSixMinuteWalk(SessionSummary summary, double seconds)
+    {
+        var distance = summary.Gait is { } gait && double.IsFinite(gait.DistanceMeters) ? gait.DistanceMeters : (double?)null;
+        return new(distance, false,
+            distance is null
+                ? "Pedometro non disponibile: usa il conteggio dei giri sul percorso di 12 m."
+                : "Distanza stimata dal pedometro dell'iPhone: il valore ufficiale è il conteggio dei giri sul percorso di 12 m.",
+            Estimated: true);
     }
 }

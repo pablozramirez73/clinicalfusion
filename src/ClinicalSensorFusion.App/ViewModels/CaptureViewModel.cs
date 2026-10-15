@@ -46,8 +46,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     private readonly IDialogService _dialogs;
     private readonly ISpeechGuide _speech;
     private CancellationTokenSource? _guideCts;
-    private int _nextCue;
-    private TestCompletionTracker? _completion;
+    private TestRun? _run;
     private IDispatcherTimer? _timer;
     private bool _previewActive;
 
@@ -330,8 +329,7 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     {
         using var cts = new CancellationTokenSource();
         _guideCts = cts;
-        _nextCue = 0;
-        _completion = null;
+        _run = test is null ? null : new TestRun(test);
         IsGuiding = true;
         try
         {
@@ -512,50 +510,46 @@ public sealed partial class CaptureViewModel : ObservableObject, IDisposable
     {
         var c = CultureInfo.CurrentCulture;
         // Con un test il tempo che conta è quello dal «Via», non dall'inizio della registrazione.
-        var test = IsRecording ? Test : null;
-        var seconds = test is null ? _coordinator.Elapsed : _coordinator.TestElapsed;
+        var run = IsRecording ? _run : null;
+        var seconds = run is null ? _coordinator.Elapsed : _coordinator.TestElapsed;
         var time = seconds is { } value ? TimeSpan.FromSeconds(value).ToString(@"mm\:ss", c) : "—";
         _elapsed.Value = IsRecording ? time : "—";
         Elapsed = !IsRecording ? "00:00" : seconds is null ? Loc.T("guida") : time;
 
-        if (test is not null && seconds is { } sinceStart)
+        if (run is not null && seconds is not null)
         {
-            // Frasi previste durante il test (tempo residuo, incoraggiamenti).
-            if (_nextCue < test.Cues.Count && sinceStart >= test.Cues[_nextCue].AtSeconds)
+            // Le regole del protocollo (frasi previste, chiusura automatica) sono in TestRun: qui si eseguono.
+            var step = run.Advance(seconds, live);
+            if (step.Cue is { } cue)
             {
-                _ = SpeakQuietlyAsync(test.Cues[_nextCue++].Text);
+                _ = SpeakQuietlyAsync(cue);
             }
 
-            // I test con un compito riconoscibile (dieci tocchi, cinque alzate, di nuovo seduto) si chiudono
-            // da soli quando il paziente lo ha completato. Si conta dal «Via».
-            if (test.Completion is { } rule && live is not null)
+            if (run.Done is { } done)
             {
-                _completion ??= new TestCompletionTracker(rule);
-                var completedAt = _completion.Update(live);
-                Elapsed = $"{time} · {Math.Min(_completion.Done, _completion.Required)}/{_completion.Required}";
-                if (completedAt is { } at && StopCommand.CanExecute(null))
-                {
-                    // Per i test a tempo il risultato è l'istante del completamento, non quello della chiusura.
-                    if (test.ResultKind == TestResultKind.Seconds)
-                    {
-                        _coordinator.MarkTestEnd(at);
-                    }
-
-                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
-                    StopCommand.Execute(null);
-                }
+                Elapsed = $"{time} · {done}/{run.Required}";
             }
 
-            // I test a durata fissa (30 secondi, 6 minuti, 10 secondi) si chiudono da soli allo scadere.
-            if (test.AutoStopSeconds is { } limit)
+            if (run.Test.AutoStopSeconds is { } limit)
             {
                 Elapsed = $"{time} / {TimeSpan.FromSeconds(limit).ToString(@"mm\:ss", c)}";
-                if (sinceStart >= limit && StopCommand.CanExecute(null))
-                {
-                    // Avvisa il paziente: l'operatore può essere lontano dal telefono.
-                    _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
-                    StopCommand.Execute(null);
-                }
+            }
+
+            if (step.CompletedAt is { } at)
+            {
+                _coordinator.MarkTestEnd(at);
+            }
+
+            if (step.Finished)
+            {
+                // Avvisa il paziente: l'operatore può essere lontano dal telefono.
+                _ = SpeakQuietlyAsync(Loc.T("Stop. Il test è finito."));
+            }
+
+            // Si riprova al passo successivo se in questo momento la chiusura non è possibile.
+            if (run.State == TestRunState.Finished && StopCommand.CanExecute(null))
+            {
+                StopCommand.Execute(null);
             }
         }
 
