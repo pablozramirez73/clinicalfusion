@@ -154,16 +154,16 @@ public static class SummaryReport
     /// <summary>Titolo della sezione nella lingua di <paramref name="culture"/>.</summary>
     public static string SectionTitle(SummarySection section, CultureInfo culture) => Loc.T(section switch
     {
-        SummarySection.General => "Generale",
-        SummarySection.JointRange => "Escursione articolare (ROM)",
-        SummarySection.Tremor => "Tremore (accelerometro)",
-        SummarySection.PedometerGait => "Cammino (pedometro)",
-        SummarySection.PoseGait => "Cammino (posa)",
-        SummarySection.Audio => "Voce e suoni (microfono)",
-        SummarySection.EnvironmentSensors => "Sensori ambientali",
-        SummarySection.DataQuality => "Qualità del dato",
-        SummarySection.Reliability => "Affidabilità della misura",
-        SummarySection.Payload => "Payload JSON",
+        SummarySection.General => Loc.N("Generale"),
+        SummarySection.JointRange => Loc.N("Escursione articolare (ROM)"),
+        SummarySection.Tremor => Loc.N("Tremore (accelerometro)"),
+        SummarySection.PedometerGait => Loc.N("Cammino (pedometro)"),
+        SummarySection.PoseGait => Loc.N("Cammino (posa)"),
+        SummarySection.Audio => Loc.N("Voce e suoni (microfono)"),
+        SummarySection.EnvironmentSensors => Loc.N("Sensori ambientali"),
+        SummarySection.DataQuality => Loc.N("Qualità del dato"),
+        SummarySection.Reliability => Loc.N("Affidabilità della misura"),
+        SummarySection.Payload => Loc.N("Payload JSON"),
         _ => section.ToString(),
     }, culture);
 

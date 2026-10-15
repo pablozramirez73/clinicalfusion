@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Sensors;
 using ClinicalSensorFusion.Core.Signal;
 
@@ -23,18 +24,18 @@ public sealed class SensorStreamStats
     /// <summary>Canali di ogni flusso, nell'ordine di <see cref="SensorReading.Values"/> (vedi <see cref="SensorKind"/>).</summary>
     private static readonly Dictionary<SensorKind, (string Name, string Unit)[]> Layouts = new()
     {
-        [SensorKind.Barometer] = [("Altitudine relativa", "m"), ("Pressione", "kPa")],
-        [SensorKind.Pedometer] = [("Passi", ""), ("Distanza", "m"), ("Cadenza", "passi/s"), ("Piani saliti", ""), ("Piani scesi", "")],
-        [SensorKind.Location] = [("Latitudine", "°"), ("Longitudine", "°"), ("Altitudine", "m"), ("Accuratezza orizzontale", "m"), ("Velocità", "m/s")],
-        [SensorKind.Proximity] = [("Vicino", "0–1")],
+        [SensorKind.Barometer] = [(Loc.N("Altitudine relativa"), "m"), (Loc.N("Pressione"), "kPa")],
+        [SensorKind.Pedometer] = [(Loc.N("Passi"), ""), (Loc.N("Distanza"), "m"), (Loc.N("Cadenza"), Loc.N("passi/s")), (Loc.N("Piani saliti"), ""), (Loc.N("Piani scesi"), "")],
+        [SensorKind.Location] = [(Loc.N("Latitudine"), "°"), (Loc.N("Longitudine"), "°"), (Loc.N("Altitudine"), "m"), (Loc.N("Accuratezza orizzontale"), "m"), (Loc.N("Velocità"), "m/s")],
+        [SensorKind.Proximity] = [(Loc.N("Vicino"), "0–1")],
         // iOS stima i lumen da ARKit, Android misura i lux: i valori dei due sistemi non sono confrontabili.
-        [SensorKind.AmbientLight] = [("Intensità", "lm (iOS) / lx (Android)"), ("Temperatura colore", "K")],
-        [SensorKind.DeviceState] = [("Stato termico", "0–3"), ("Batteria", "0–1")],
-        [SensorKind.LidarDepth] = [("Profondità al centro", "m"), ("Pixel validi", "0–1")],
-        [SensorKind.AudioLevel] = [("Livello RMS", "dBFS"), ("Picco", "0–1")],
-        [SensorKind.HeartRate] = [("Frequenza cardiaca", "bpm"), ("Contatto con la pelle", "0–1"), ("Intervallo RR", "s")],
-        [SensorKind.PulseOximeter] = [("SpO2", "%"), ("Frequenza del polso", "bpm")],
-        [SensorKind.BodyTemperature] = [("Temperatura", "°C")],
+        [SensorKind.AmbientLight] = [(Loc.N("Intensità"), "lm (iOS) / lx (Android)"), (Loc.N("Temperatura colore"), "K")],
+        [SensorKind.DeviceState] = [(Loc.N("Stato termico"), "0–3"), (Loc.N("Batteria"), "0–1")],
+        [SensorKind.LidarDepth] = [(Loc.N("Profondità al centro"), "m"), (Loc.N("Pixel validi"), "0–1")],
+        [SensorKind.AudioLevel] = [(Loc.N("Livello RMS"), "dBFS"), (Loc.N("Picco"), "0–1")],
+        [SensorKind.HeartRate] = [(Loc.N("Frequenza cardiaca"), "bpm"), (Loc.N("Contatto con la pelle"), "0–1"), (Loc.N("Intervallo RR"), "s")],
+        [SensorKind.PulseOximeter] = [(Loc.N("SpO2"), "%"), (Loc.N("Frequenza del polso"), "bpm")],
+        [SensorKind.BodyTemperature] = [(Loc.N("Temperatura"), "°C")],
     };
 
     private readonly Dictionary<SensorKind, Channel[]> _streams = [];

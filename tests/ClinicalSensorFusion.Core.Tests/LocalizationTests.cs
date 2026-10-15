@@ -122,7 +122,7 @@ public sealed partial class LocalizationTests
     private static partial Regex XamlText();
 
     // Loc.T("…") e Loc.F("…", …), anche con il testo spezzato in più letterali uniti da +.
-    [GeneratedRegex(@"Loc\.[TF]\(\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)[,)]")]
+    [GeneratedRegex(@"Loc\.[TFN]\(\s*((?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)[,)]")]
     private static partial Regex CodeText();
 
     [GeneratedRegex(@"""((?:[^""\\]|\\.)*)""")]

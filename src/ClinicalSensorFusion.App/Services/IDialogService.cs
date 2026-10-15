@@ -17,6 +17,7 @@ internal sealed class ShellDialogService : IDialogService
     public Task AlertAsync(string title, string message) =>
         MainThread.InvokeOnMainThreadAsync(() => Shell.Current.DisplayAlertAsync(Loc.T(title), Loc.T(message), "OK"));
 
-    public Task<bool> ConfirmAsync(string title, string message, string accept = "Sì", string cancel = "Annulla") =>
-        MainThread.InvokeOnMainThreadAsync(() => Shell.Current.DisplayAlertAsync(Loc.T(title), Loc.T(message), Loc.T(accept), Loc.T(cancel)));
+    public Task<bool> ConfirmAsync(string title, string message, string? accept = null, string? cancel = null) =>
+        MainThread.InvokeOnMainThreadAsync(() =>
+            Shell.Current.DisplayAlertAsync(Loc.T(title), Loc.T(message), accept is null ? Loc.T("Sì") : Loc.T(accept), cancel is null ? Loc.T("Annulla") : Loc.T(cancel)));
 }

@@ -60,6 +60,13 @@ public static class Loc
     /// <summary>Traduce nella lingua di <paramref name="culture"/> (per chi produce testo per un lettore preciso, come i rapporti).</summary>
     public static string T(string italian, CultureInfo culture) => Translate(italian, LanguageFor(culture));
 
+    /// <summary>
+    /// Marca un testo da tradurre senza tradurlo (il <c>N_()</c> di gettext). Serve per le tabelle statiche e per i
+    /// nomi salvati nei dati (canali dei sensori, titoli delle sezioni): restano in italiano dove sono scritti e si
+    /// traducono con <see cref="T(string)"/> solo quando si mostrano. Il test di completezza li trova come quelli di T e F.
+    /// </summary>
+    public static string N(string italian) => italian;
+
     /// <summary>Traduce un testo con segnaposto e lo completa con i valori, formattati secondo la cultura corrente.</summary>
     public static string F(string italianFormat, params object?[] args) =>
         string.Format(CultureInfo.CurrentCulture, T(italianFormat), args);
