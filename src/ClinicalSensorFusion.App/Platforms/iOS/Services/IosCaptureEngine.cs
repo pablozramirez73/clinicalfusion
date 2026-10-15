@@ -18,7 +18,7 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _logger;
     private readonly VisionPipeline _vision;
-    private readonly List<ISensorSource> _sources = [];
+    private SensorSourceGroup? _sources;
     private AudioCaptureSource? _audio;
 
     public IosCaptureEngine(ILoggerFactory loggerFactory)
@@ -61,7 +61,7 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
 
         if (IsRecording)
         {
-            list.AddRange(_sources.Select(s => new SensorStatus(s.DisplayName, s.IsAvailable, s.IsAvailable)));
+            list.AddRange(_sources!.Members.Select(s => new SensorStatus(s.DisplayName, s.IsAvailable, s.IsAvailable)));
         }
 
         return list;
@@ -113,45 +113,26 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
             Ar.Run(session.Mode);
         }
 
-        _sources.Clear();
-        _sources.Add(new MotionSensorSource(clock));
-        _sources.Add(new BarometerSensorSource(clock));
-        _sources.Add(new PedometerSensorSource(clock));
-        _sources.Add(new SystemSensorSource(clock));
+        List<ISensorSource> sources =
+        [
+            new MotionSensorSource(clock),
+            new BarometerSensorSource(clock),
+            new PedometerSensorSource(clock),
+            new SystemSensorSource(clock),
+        ];
         if (includeLocation)
         {
-            _sources.Add(new LocationSensorSource(clock));
+            sources.Add(new LocationSensorSource(clock));
         }
 
-        _audio = new AudioCaptureSource(clock, session.Id, _loggerFactory.CreateLogger<AudioCaptureSource>());
-        _sources.Add(_audio);
+        var audio = new AudioCaptureSource(clock, session.Id, _loggerFactory.CreateLogger<AudioCaptureSource>());
+        sources.Add(audio);
 
-        var started = new List<ISensorSource>();
-        try
-        {
-            foreach (var source in _sources.Where(s => s.IsAvailable))
-            {
-                await source.StartAsync(sink, CancellationToken.None);
-                started.Add(source);
-            }
-        }
-        catch
-        {
-            // Avvio parziale: si ferma quanto già partito per non lasciare sensori accesi.
-            foreach (var source in started)
-            {
-                await SafeStopAsync(source);
-            }
-
-            foreach (var source in _sources)
-            {
-                source.Dispose();
-            }
-
-            _sources.Clear();
-            _audio = null;
-            throw;
-        }
+        // Se una sorgente non parte, il gruppo ferma e rilascia quelle già avviate prima di rilanciare.
+        var group = new SensorSourceGroup(sources, _logger);
+        await group.StartAsync(sink, CancellationToken.None);
+        _sources = group;
+        _audio = audio;
 
         Ar.Recording = (sink, clock);
         _vision.Recording = (sink, clock);
@@ -167,18 +148,10 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
 
         Ar.Recording = null;
         _vision.Recording = null;
-        foreach (var source in _sources)
-        {
-            await SafeStopAsync(source);
-        }
-
+        await _sources!.StopAsync();
         var audio = _audio?.Complete();
-        foreach (var source in _sources)
-        {
-            source.Dispose();
-        }
-
-        _sources.Clear();
+        _sources.Dispose();
+        _sources = null;
         _audio = null;
         IsRecording = false;
         return audio;
@@ -189,18 +162,6 @@ internal sealed class IosCaptureEngine : ICaptureEngine, IDisposable
         Ar.Pause();
         _vision.Dispose();
         Ar.Dispose();
-    }
-
-    private async Task SafeStopAsync(ISensorSource source)
-    {
-        try
-        {
-            await source.StopAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Arresto di {Source} fallito.", source.DisplayName);
-        }
     }
 
     private static string ModeModel(CaptureMode mode) => mode switch
