@@ -118,6 +118,31 @@
         </VerticalStackLayout>
       </Border>
 
+      <!-- Stima sperimentale del rischio di caduta (Impostazioni → Rischio di caduta) -->
+      <Border Style="{StaticResource Card}" IsVisible="{Binding FallRiskVisible}">
+        <VerticalStackLayout Spacing="10">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+              <Path Style="{StaticResource IconShield}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="0">
+              <Label Text="{l:Tr Text='Rischio di caduta'}" Style="{StaticResource Muted}" />
+              <HorizontalStackLayout Spacing="8">
+                <Label Text="{Binding FallRiskValue}" FontSize="28" FontAttributes="Bold" />
+                <Border Style="{StaticResource Chip}" VerticalOptions="Center">
+                  <Label Text="{l:Tr Text='sperimentale'}" Style="{StaticResource ChipText}" />
+                </Border>
+              </HorizontalStackLayout>
+            </VerticalStackLayout>
+          </Grid>
+          <Label Text="{Binding FallRiskDetail}" FontSize="13" />
+          <Border Style="{StaticResource BannerInfo}"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource WarningSoftLight}, Dark={StaticResource WarningSoftDark}}">
+            <Label Text="{Binding FallRiskNote}" Style="{StaticResource ChipWarningText}" FontSize="12" FontAttributes="None" />
+          </Border>
+        </VerticalStackLayout>
+      </Border>
+
       <Border Style="{StaticResource Card}" IsVisible="{Binding Notes, Converter={StaticResource IsNotNullOrEmpty}}">
         <VerticalStackLayout Spacing="4">
           <Label Text="{l:Tr Text='Note'}" Style="{StaticResource FieldLabel}" Margin="0" />

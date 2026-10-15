@@ -100,6 +100,25 @@ public sealed partial class SessionDetailViewModel(
 
     public string TestSource => ClinicalTests.Find(TestResult?.TestId)?.Source ?? string.Empty;
 
+    /// <summary>
+    /// Scheda della stima sperimentale del rischio di caduta: solo per i test che alimentano il modello e solo
+    /// se l'operatore l'ha accesa nelle Impostazioni.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool FallRiskVisible { get; set; }
+
+    /// <summary>Probabilità in percentuale, oppure un trattino se i test del soggetto non bastano.</summary>
+    [ObservableProperty]
+    public partial string FallRiskValue { get; set; } = string.Empty;
+
+    /// <summary>Da quali test viene la stima e quali mancano.</summary>
+    [ObservableProperty]
+    public partial string FallRiskDetail { get; set; } = string.Empty;
+
+    public string FallRiskNote => Loc.F(
+        "Probabilità di almeno una caduta nell'ultimo anno secondo un modello addestrato su 163 anziani fragili ({0}; AUC {1:F2}, IC 95% {2:F2}–{3:F2}). Sperimentale: non è validato sui nostri pazienti e non va usato per decisioni cliniche.",
+        FallRiskModel.Default.Dataset, FallRiskModel.Default.Auc, FallRiskModel.Default.AucLow, FallRiskModel.Default.AucHigh);
+
     /// <summary>Falso se la rilevazione è stata interrotta prima del calcolo degli indicatori.</summary>
     [ObservableProperty]
     public partial bool HasSummary { get; set; }
@@ -195,6 +214,7 @@ public sealed partial class SessionDetailViewModel(
                 Audio.Add(new AudioItem(a.Id, "audio.caf (48 kHz, Float32)", details, AppPaths.Audio(a)));
             }
 
+            await LoadFallRiskAsync(c);
             await LoadAnalysesAsync();
             RefreshSyncState();
 
@@ -207,6 +227,33 @@ public sealed partial class SessionDetailViewModel(
         catch (Exception ex)
         {
             await dialogs.AlertAsync(Loc.T("Errore"), ex.Message);
+        }
+    }
+
+    /// <summary>La stima usa tutti i test del soggetto, non solo questo: per ciascuno vale il più recente.</summary>
+    private async Task LoadFallRiskAsync(CultureInfo c)
+    {
+        FallRiskVisible = settings.ShowFallRiskEstimate && _session?.Summary?.Test is { } test && FallRisk.Tests.Any(t => t.Id == test.TestId);
+        if (!FallRiskVisible)
+        {
+            return;
+        }
+
+        var code = _session!.SubjectCode;
+        var sessions = (await repository.ListSessionsAsync(code, limit: 500)).Where(s => s.SubjectCode == code);
+        if (FallRisk.Estimate(sessions) is { } estimate)
+        {
+            FallRiskValue = estimate.Probability.ToString("P0", c);
+            var used = string.Join(", ", estimate.TestsUsed.Select(t => t.ShortName));
+            FallRiskDetail = estimate.TestsMissing.Count == 0
+                ? Loc.F("Dai test più recenti di {0}: {1}.", code, used)
+                : Loc.F("Dai test più recenti di {0}: {1}. Mancano {2}: al loro posto vale il valore tipico dello studio.",
+                    code, used, string.Join(", ", estimate.TestsMissing.Select(t => t.ShortName)));
+        }
+        else
+        {
+            FallRiskValue = "—";
+            FallRiskDetail = Loc.F("Servono almeno {0} test tra TUG, 10MWT, 5TSTS e tandem, di cui uno tra TUG e 10MWT.", FallRisk.MinTests);
         }
     }
 

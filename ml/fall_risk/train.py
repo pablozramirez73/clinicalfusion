@@ -65,23 +65,24 @@ def build_features(skeletons: Path) -> pd.DataFrame:
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
-def oof_predictions(X: pd.DataFrame, y: np.ndarray, repeats: int, seed: int) -> np.ndarray:
+def oof_predictions(X: pd.DataFrame, y: np.ndarray, repeats: int, seed: int, scoring: str = "roc_auc") -> np.ndarray:
     """Probabilità fuori campione mediate sulle ripetizioni; la penalità è scelta dentro ogni parte."""
     cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=repeats, random_state=seed)
     total = np.zeros(len(y))
     counts = np.zeros(len(y))
     for train, test in cv.split(X, y):
-        model = make_model(inner_cv=True, seed=seed)
+        model = make_model(inner_cv=True, seed=seed, scoring=scoring)
         model.fit(X.iloc[train], y[train])
         total[test] += model.predict_proba(X.iloc[test])[:, 1]
         counts[test] += 1
     return total / counts
 
 
-def make_model(inner_cv: bool, seed: int, c: float = 1.0):
+def make_model(inner_cv: bool, seed: int, c: float = 1.0, scoring: str = "roc_auc"):
+    """``scoring`` sceglie la penalità: l'AUC guarda solo l'ordine, la log-loss anche la scala delle probabilità."""
     clf = (
         LogisticRegressionCV(Cs=np.logspace(-3, 1, 13), cv=StratifiedKFold(4, shuffle=True, random_state=seed),
-                             scoring="roc_auc", max_iter=5000)
+                             scoring=scoring, max_iter=5000)
         if inner_cv
         else LogisticRegression(C=c, max_iter=5000)
     )

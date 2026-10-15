@@ -26,7 +26,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, roc_auc_score
 
+from .calibrate import calibration
 from .train import bootstrap_auc, make_model, oof_predictions
+
+# La penalità si sceglie con la log-loss e non con l'AUC: il modello finisce nell'app, dove contano anche le
+# probabilità e non solo l'ordine dei pazienti. Scelta per AUC, la penalità schiaccia tutto verso il 50%.
+SCORING = "neg_log_loss"
+
+APP_SET = "misure cliniche + ritmo del passo (tutto ciò che l'app ricava)"
 
 FALLS = "Falls during the last year - prior to test (YES/NO)"
 
@@ -73,10 +80,11 @@ def load(path: Path) -> tuple[pd.DataFrame, np.ndarray]:
 
 
 def evaluate(X: pd.DataFrame, y: np.ndarray, repeats: int, seed: int) -> dict:
-    p = oof_predictions(X, y, repeats, seed)
+    p = oof_predictions(X, y, repeats, seed, scoring=SCORING)
     lo, hi = bootstrap_auc(y, p)
     return {"features": list(X.columns), "auc": round(float(roc_auc_score(y, p)), 3),
-            "auc_ci95": [round(lo, 3), round(hi, 3)], "brier": round(float(brier_score_loss(y, p)), 3)}
+            "auc_ci95": [round(lo, 3), round(hi, 3)], "brier": round(float(brier_score_loss(y, p)), 3),
+            **calibration(y, p)}
 
 
 def main() -> None:
@@ -102,23 +110,24 @@ def main() -> None:
     sets = {
         "solo tempo del TUG": ["tug_time_s"],
         "misure cliniche dell'app": app_clinical,
-        "misure cliniche + ritmo del passo (tutto ciò che l'app ricava)": app_all,
+        APP_SET: app_all,
         "riferimento: tutto, anche ciò che l'app non ha": app_all + list(NOT_IN_APP),
     }
     results = {}
     for name, cols in sets.items():
         results[name] = evaluate(df[cols], y, args.repeats, args.seed)
         r = results[name]
-        print(f"{name:66s} AUC {r['auc']:.3f} (IC 95% {r['auc_ci95'][0]:.3f}–{r['auc_ci95'][1]:.3f})  Brier {r['brier']:.3f}")
+        print(f"{name:66s} AUC {r['auc']:.3f} (IC 95% {r['auc_ci95'][0]:.3f}–{r['auc_ci95'][1]:.3f})  "
+              f"Brier {r['brier']:.3f}  calibrazione {r['calibration_intercept']:+.2f} / {r['calibration_slope']:.2f}")
 
     # Modello finale: solo ciò che l'app ricava.
     X = df[app_all]
-    selector = make_model(inner_cv=True, seed=args.seed).fit(X, y)
+    selector = make_model(inner_cv=True, seed=args.seed, scoring=SCORING).fit(X, y)
     c_best = float(selector[-1].C_[0])
     imputer, scaler, clf = make_model(inner_cv=False, seed=args.seed, c=c_best).fit(X, y)
     model = {
         "name": "fall_risk",
-        "version": "pretrained-gstride-1",
+        "version": "pretrained-gstride-2",
         "created": date.today().isoformat(),
         "target": "Cadute nell'ultimo anno riferite dal soggetto (anziani 70–98 anni): 1 = almeno una caduta.",
         "source": {"dataset": "GSTRIDE, Zenodo, CC BY 4.0", "doi": "10.5281/zenodo.8003441",
@@ -130,7 +139,8 @@ def main() -> None:
         "coef": clf.coef_[0].round(6).tolist(),
         "intercept": round(float(clf.intercept_[0]), 6),
         "C": c_best,
-        "validation": {"method": f"5-fold stratificata ripetuta {args.repeats} volte, penalità scelta dentro ogni parte",
+        "validation": {"auc": results[APP_SET]["auc"], "auc_ci95": results[APP_SET]["auc_ci95"],
+                       "method": f"5-fold stratificata ripetuta {args.repeats} volte, penalità scelta dentro ogni parte (log-loss)",
                        "n": int(len(y)), "positives": int(y.sum()), "by_feature_set": results},
         "univariate_auc": univariate,
     }

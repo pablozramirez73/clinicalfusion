@@ -3,8 +3,11 @@
 Stima la probabilità che una persona over 65 sia caduta nell'ultimo anno dalle caratteristiche del movimento
 nei test dell'app: TUG, 5 alzate dalla sedia (5TSTS), tandem e cammino (10MWT).
 
-Il modello **non è ancora nell'app**. Prima va tarato e validato sulle nostre rilevazioni (sotto), e un
-modello che stima un rischio clinico va inquadrato secondo l'MDR prima di mostrarlo agli operatori.
+Il modello GSTRIDE è nell'app come **stima sperimentale**, spenta per impostazione predefinita
+(Impostazioni → *Rischio di caduta*): una copia di `models/fall_risk_gstride.json` è incorporata in
+`src/ClinicalSensorFusion.Core/Models/` e la calcola `FallRisk.cs`. Va ancora tarato e validato sulle
+nostre rilevazioni (sotto), e un modello che stima un rischio clinico va inquadrato secondo l'MDR prima di
+usarlo per decisioni cliniche. Dopo aver rigenerato il modello, ricopiare il JSON in Core.
 
 ## Come funziona
 
@@ -33,7 +36,7 @@ nell'ultimo anno. Si usano solo le misure che l'app ricava anch'essa ([`gstride_
 |---|---|
 | Solo tempo del TUG | 0,78 (0,71–0,85) |
 | TUG, velocità del cammino, punteggi SPPB di alzata ed equilibrio | 0,80 (0,73–0,87) |
-| Le stesse + cadenza, durata e variabilità del passo → **`models/fall_risk_gstride.json`** | **0,81 (0,74–0,87)** |
+| Le stesse + cadenza, durata e variabilità del passo → **`models/fall_risk_gstride.json`** | **0,81 (0,74–0,88)** |
 | Riferimento: anche età, questionari, forza, lunghezza del passo (l'app non li ha) | 0,84 (0,77–0,90) |
 
 Validazione incrociata stratificata a 5 parti ripetuta 50 volte, penalità scelta dentro ogni parte.
@@ -44,8 +47,9 @@ Limiti da tenere presenti:
 - Le misure dell'app non sono identiche: velocità sul 10MWT invece che sui 4 m; punteggio SPPB
   dell'equilibrio stimato dal solo tandem; passi dalla distanza tra le caviglie invece che da un IMU sul
   piede (le conversioni sono in [`app_export.py`](fall_risk/app_export.py)).
-- Le probabilità del modello pre-addestrato sono troppo vicine al 50% (forte penalità): la ricalibrazione
-  sui nostri dati non è facoltativa.
+- La penalità si sceglie con la log-loss, non con l'AUC: scelta per AUC schiacciava le probabilità verso il
+  50% (pendenza di calibrazione 3,9); ora la pendenza fuori campione è 1,12. Le probabilità restano quelle
+  di una popolazione in cui il 53% è caduto: sui nostri pazienti vanno ricalibrate.
 
 ### KINECAL: scartato
 

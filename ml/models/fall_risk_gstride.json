@@ -1,6 +1,6 @@
 {
   "name": "fall_risk",
-  "version": "pretrained-gstride-1",
+  "version": "pretrained-gstride-2",
   "created": "2026-10-15",
   "target": "Cadute nell'ultimo anno riferite dal soggetto (anziani 70–98 anni): 1 = almeno una caduta.",
   "source": {
@@ -45,18 +45,23 @@
     0.028756
   ],
   "coef": [
-    0.082165,
-    -0.127087,
-    -0.053607,
-    -0.099829,
-    -0.079434,
-    0.072132,
-    0.082347
+    0.291275,
+    -0.527484,
+    -0.036976,
+    -0.357802,
+    -0.201437,
+    0.196906,
+    0.22522
   ],
-  "intercept": 0.119212,
-  "C": 0.004641588833612777,
+  "intercept": 0.184159,
+  "C": 0.1,
   "validation": {
-    "method": "5-fold stratificata ripetuta 50 volte, penalità scelta dentro ogni parte",
+    "auc": 0.811,
+    "auc_ci95": [
+      0.744,
+      0.876
+    ],
+    "method": "5-fold stratificata ripetuta 50 volte, penalità scelta dentro ogni parte (log-loss)",
     "n": 163,
     "positives": 86,
     "by_feature_set": {
@@ -64,12 +69,14 @@
         "features": [
           "tug_time_s"
         ],
-        "auc": 0.779,
+        "auc": 0.789,
         "auc_ci95": [
-          0.707,
-          0.845
+          0.718,
+          0.855
         ],
-        "brier": 0.247
+        "brier": 0.198,
+        "calibration_intercept": 0.001,
+        "calibration_slope": 1.042
       },
       "misure cliniche dell'app": {
         "features": [
@@ -78,12 +85,14 @@
           "sppb_chair_index",
           "sppb_balance_index"
         ],
-        "auc": 0.797,
+        "auc": 0.8,
         "auc_ci95": [
-          0.728,
-          0.865
+          0.731,
+          0.867
         ],
-        "brier": 0.193
+        "brier": 0.182,
+        "calibration_intercept": -0.005,
+        "calibration_slope": 1.072
       },
       "misure cliniche + ritmo del passo (tutto ciò che l'app ricava)": {
         "features": [
@@ -95,12 +104,14 @@
           "stride_time_s",
           "stride_time_cv"
         ],
-        "auc": 0.805,
+        "auc": 0.811,
         "auc_ci95": [
-          0.735,
-          0.871
+          0.744,
+          0.876
         ],
-        "brier": 0.2
+        "brier": 0.179,
+        "calibration_intercept": -0.01,
+        "calibration_slope": 1.118
       },
       "riferimento: tutto, anche ciò che l'app non ha": {
         "features": [
@@ -118,12 +129,14 @@
           "stride_length_m",
           "clearance_m"
         ],
-        "auc": 0.838,
+        "auc": 0.841,
         "auc_ci95": [
-          0.772,
-          0.898
+          0.776,
+          0.901
         ],
-        "brier": 0.184
+        "brier": 0.162,
+        "calibration_intercept": -0.011,
+        "calibration_slope": 1.135
       }
     }
   },

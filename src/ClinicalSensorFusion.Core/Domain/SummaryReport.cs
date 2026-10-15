@@ -78,6 +78,13 @@ public static class SummaryReport
             }
         }
 
+        if (s.PoseGait is { } poseGait)
+        {
+            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Passi riconosciuti", c), poseGait.Steps.ToString(c)));
+            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), poseGait.CadenceStepsPerMinute)));
+            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Variabilità della durata del passo", c), string.Format(c, "{0:P0}", poseGait.StepTimeCv), poseGait.StepTimeCv > 0.1));
+        }
+
         if (s.Audio is { } audio)
         {
             rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Durata registrazione", c), string.Format(c, "{0:F1} s", audio.DurationSeconds)));

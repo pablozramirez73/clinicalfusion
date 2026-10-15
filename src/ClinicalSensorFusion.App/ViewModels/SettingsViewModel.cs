@@ -95,6 +95,9 @@ public sealed partial class SettingsViewModel(
     public partial bool AutoSync { get; set; }
 
     [ObservableProperty]
+    public partial bool ShowFallRiskEstimate { get; set; }
+
+    [ObservableProperty]
     public partial string? ConnectionStatus { get; set; }
 
     [ObservableProperty]
@@ -114,6 +117,7 @@ public sealed partial class SettingsViewModel(
         _loadingLock = false;
         SyncServer = settings.SyncServer;
         AutoSync = settings.AutoSync;
+        ShowFallRiskEstimate = settings.ShowFallRiskEstimate;
         SyncApiKey = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey);
         CloudflareClientId = await secureStorage.GetAsync(SettingsKeys.CloudflareClientId);
         CloudflareClientSecret = await secureStorage.GetAsync(SettingsKeys.CloudflareClientSecret);
@@ -154,6 +158,7 @@ public sealed partial class SettingsViewModel(
         settings.RecordLocation = RecordLocation;
         settings.SyncServer = SyncServer;
         settings.AutoSync = AutoSync;
+        settings.ShowFallRiskEstimate = ShowFallRiskEstimate;
         await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
         await SaveSecretAsync(SettingsKeys.CloudflareClientId, CloudflareClientId);
         await SaveSecretAsync(SettingsKeys.CloudflareClientSecret, CloudflareClientSecret);

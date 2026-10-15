@@ -17,6 +17,8 @@
   <ItemGroup>
     <!-- Traduzioni dei testi dell'interfaccia: vedi Localization/Loc.cs. -->
     <EmbeddedResource Include="Localization/*.json" />
+    <!-- Modello del rischio di caduta, generato da ml/fall_risk/gstride_train.py -->
+    <EmbeddedResource Include="Models/*.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ClinicalSensorFusion.Core.Tests" />

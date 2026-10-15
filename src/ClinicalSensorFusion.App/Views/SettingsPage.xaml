@@ -39,6 +39,22 @@
           </VerticalStackLayout>
         </Border>
 
+        <!-- Stima sperimentale del rischio di caduta -->
+        <Border Style="{StaticResource Card}">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+              <Path Style="{StaticResource IconShield}" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="2">
+              <Label Text="{l:Tr Text='Rischio di caduta (sperimentale)'}" Style="{StaticResource Headline}" />
+              <Label Text="{l:Tr Text='Nel dettaglio dei test mostra una stima da TUG, 10MWT, 5TSTS e tandem dello stesso soggetto. Il modello viene da uno studio su anziani fragili e non è ancora validato sui nostri pazienti: non usarlo per decisioni cliniche.'}"
+                     Style="{StaticResource Muted}" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="2" IsToggled="{Binding ShowFallRiskEstimate}" VerticalOptions="Center"
+                    SemanticProperties.Description="{l:Tr Text='Mostra la stima sperimentale del rischio di caduta'}" />
+          </Grid>
+        </Border>
+
         <!-- Server Ollama -->
         <Border Style="{StaticResource Card}">
           <VerticalStackLayout Spacing="12">
