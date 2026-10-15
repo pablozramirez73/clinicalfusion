@@ -107,8 +107,8 @@ public class ClinicalTestTests
 
         var summary = aggregator.Build(1, null, 0);
         Assert.Equal(expected, summary.LidarCoverage);
-        Assert.DoesNotContain(MeasurementReliability.Assess(summary).Factors, f => expected is null && f.Label == "Copertura LiDAR");
-        Assert.Equal(expected is not null, SummaryReport.Build(summary, System.Globalization.CultureInfo.InvariantCulture).Any(r => r.Label == "Copertura LiDAR"));
+        Assert.DoesNotContain(MeasurementReliability.Assess(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT")).Factors, f => expected is null && f.Label == "Copertura LiDAR");
+        Assert.Equal(expected is not null, SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT")).Any(r => r.Label == "Copertura LiDAR"));
     }
 
     [Fact]

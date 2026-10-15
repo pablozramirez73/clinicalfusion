@@ -10,6 +10,9 @@ namespace ClinicalSensorFusion.Core.Tests;
 /// <summary>Affidabilità della misura e controllo del payload JSON mostrati a fine acquisizione.</summary>
 public class ReliabilityTests
 {
+    // Le etichette attese sono in italiano: con la cultura invariante il testo sarebbe in inglese.
+    private static readonly CultureInfo Italian = CultureInfo.GetCultureInfo("it-IT");
+
     private static SessionSummary GoodBodySummary() => new()
     {
         DurationSeconds = 60,
@@ -22,7 +25,7 @@ public class ReliabilityTests
     [Fact]
     public void A_well_sampled_recording_scores_high()
     {
-        var report = MeasurementReliability.Assess(GoodBodySummary(), CultureInfo.InvariantCulture);
+        var report = MeasurementReliability.Assess(GoodBodySummary(), Italian);
         Assert.Equal(100, report.Score);
         Assert.Equal(ReliabilityLevel.High, report.Level);
         Assert.DoesNotContain(report.Factors, f => f.Warning);
@@ -38,7 +41,7 @@ public class ReliabilityTests
             MedianSubjectDistanceMeters = 6,
         };
 
-        var report = MeasurementReliability.Assess(summary, CultureInfo.InvariantCulture);
+        var report = MeasurementReliability.Assess(summary, Italian);
 
         Assert.Equal(100 - 30 - 30 - 10, report.Score);
         Assert.Equal(ReliabilityLevel.Low, report.Level);
@@ -56,7 +59,7 @@ public class ReliabilityTests
             SampleCounts = new() { [SensorKind.Motion] = 2000, [SensorKind.HandLandmarks] = 500 },
         };
 
-        var report = MeasurementReliability.Assess(summary, CultureInfo.InvariantCulture);
+        var report = MeasurementReliability.Assess(summary, Italian);
 
         Assert.Equal(100, report.Score);
         Assert.Contains(report.Factors, f => f.Label == "Riconoscimento delle mani");
@@ -92,7 +95,7 @@ public class ReliabilityTests
         Assert.False(report.IsValid);
         Assert.Contains("codice soggetto", report.MissingFields);
         Assert.Equal(1, report.NonFiniteNumbers);
-        var rows = report.ToRows(CultureInfo.InvariantCulture);
+        var rows = report.ToRows(Italian);
         Assert.Contains(rows, r => r.Label == "Valori non numerici" && r.Warning);
         Assert.Contains(rows, r => r.Label == "Dati dei sensori" && r.Warning);
     }
