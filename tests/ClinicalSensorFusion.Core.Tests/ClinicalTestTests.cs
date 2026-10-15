@@ -140,10 +140,19 @@ public class ClinicalTestTests
         Assert.Equal("Intensità", Assert.Single(sensors[SensorKind.AmbientLight].Channels).Name);
 
         var report = SummaryReport.Build(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
-        Assert.Contains(report, r => r is { Section: SummaryReport.SensorsSection, Label: "GPS · Posizione", Value: "45.46425, 9.19002" });
+        Assert.Contains(report, r => r is { Kind: SummarySection.EnvironmentSensors, Label: "GPS · Posizione", Value: "45.46425, 9.19002" });
         Assert.Contains(report, r => r.Label == "GPS · Accuratezza" && r.Value == "±8 m (migliore ±8 m)" && !r.Warning);
         Assert.Contains(report, r => r.Label == "Luce ambientale · Intensità" && r.Value.StartsWith("300–500", StringComparison.Ordinal));
         Assert.Contains(report, r => r.Label == "Stato dispositivo · Batteria" && r.Value == "0,82 (scala 0–1)");
+
+        // Le sezioni si riconoscono dall'enum in ogni lingua; il titolo è sempre quello tradotto della sezione.
+        foreach (var culture in new[] { "it-IT", "en-US" }.Select(System.Globalization.CultureInfo.GetCultureInfo))
+        {
+            var rows = SummaryReport.Build(summary, culture);
+            Assert.All(rows, r => Assert.Equal(SummaryReport.SectionTitle(r.Kind, culture), r.Section));
+            Assert.Equal(report.Count(r => r.Kind == SummarySection.EnvironmentSensors), rows.Count(r => r.Kind == SummarySection.EnvironmentSensors));
+            Assert.Contains(rows, r => r.Kind == SummarySection.DataQuality);
+        }
 
         // Schede del dettaglio: una per sensore, ultimo valore in evidenza e intervallo solo se è cambiato.
         var cards = SummaryReport.Environment(summary, System.Globalization.CultureInfo.GetCultureInfo("it-IT"));

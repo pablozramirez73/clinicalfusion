@@ -36,7 +36,7 @@ export interface SessionListItem {
   lidarCoverage: number | null; audioCount: number; analysisCount: number;
 }
 
-export interface SummaryRow { section: string; label: string; value: string; warning: boolean }
+export interface SummaryRow { kind: string; section: string; label: string; value: string; warning: boolean }
 
 export interface AudioItem { id: string; createdAt: string; durationSeconds: number; features: unknown; available: boolean; sizeBytes: number | null }
 

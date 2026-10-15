@@ -23,8 +23,6 @@ public sealed record ReliabilityReport(int Score, ReliabilityLevel Level, IReadO
 /// </summary>
 public static class MeasurementReliability
 {
-    public const string Section = "Affidabilità della misura";
-
     public static ReliabilityReport Assess(SessionSummary s, CultureInfo? culture = null)
     {
         var c = culture ?? CultureInfo.CurrentCulture;
@@ -34,7 +32,7 @@ public static class MeasurementReliability
         void Add(string label, string value, int points)
         {
             penalty += points;
-            factors.Add(new SummaryRow(Section, label, value, points > 0));
+            factors.Add(SummaryRow.Create(SummarySection.Reliability, c, label, value, points > 0));
         }
 
         var duration = s.DurationSeconds;
@@ -84,7 +82,7 @@ public static class MeasurementReliability
         var score = Math.Clamp(100 - penalty, 0, 100);
         var level = score >= 85 ? ReliabilityLevel.High : score >= 65 ? ReliabilityLevel.Medium : ReliabilityLevel.Low;
         var label = level switch { ReliabilityLevel.High => Loc.T("alta", c), ReliabilityLevel.Medium => Loc.T("media", c), _ => Loc.T("bassa", c) };
-        factors.Insert(0, new SummaryRow(Section, Loc.T("Punteggio", c), string.Format(c, "{0}/100 · {1}", score, label), level != ReliabilityLevel.High));
+        factors.Insert(0, SummaryRow.Create(SummarySection.Reliability, c, Loc.T("Punteggio", c), string.Format(c, "{0}/100 · {1}", score, label), level != ReliabilityLevel.High));
         return new ReliabilityReport(score, level, factors);
     }
 

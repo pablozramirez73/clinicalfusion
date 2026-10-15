@@ -1,13 +1,38 @@
 using ClinicalSensorFusion.Core.Localization;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using ClinicalSensorFusion.Core.Fusion;
 using ClinicalSensorFusion.Core.Recording;
 using ClinicalSensorFusion.Core.Sensors;
 
 namespace ClinicalSensorFusion.Core.Domain;
 
-/// <summary>Riga del riepilogo leggibile, raggruppata per sezione.</summary>
-public sealed record SummaryRow(string Section, string Label, string Value, bool Warning = false);
+/// <summary>
+/// Sezione del riepilogo. Chi raggruppa o filtra le righe usa questa, mai il titolo: il titolo è tradotto e
+/// cambia con la lingua.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<SummarySection>))]
+public enum SummarySection
+{
+    General,
+    JointRange,
+    Tremor,
+    PedometerGait,
+    PoseGait,
+    Audio,
+    EnvironmentSensors,
+    DataQuality,
+    Reliability,
+    Payload,
+}
+
+/// <summary>Riga del riepilogo leggibile: <paramref name="Kind"/> la identifica, <paramref name="Section"/> è il titolo da mostrare.</summary>
+public sealed record SummaryRow(SummarySection Kind, string Section, string Label, string Value, bool Warning = false)
+{
+    /// <summary>Riga con il titolo della sezione nella lingua di <paramref name="culture"/>.</summary>
+    public static SummaryRow Create(SummarySection kind, CultureInfo culture, string label, string value, bool warning = false) =>
+        new(kind, SummaryReport.SectionTitle(kind, culture), label, value, warning);
+}
 
 /// <summary>Un canale di un sensore ambientale: valore principale e, se è variato, intervallo e media.</summary>
 public sealed record SensorTile(string Name, string Value, string Detail, bool Warning = false)
@@ -45,62 +70,62 @@ public static class SummaryReport
         var c = culture ?? CultureInfo.CurrentCulture;
         var rows = new List<SummaryRow>
         {
-            new(Loc.T("Generale", c), Loc.T("Durata", c), TimeSpan.FromSeconds(s.DurationSeconds).ToString(@"mm\:ss", c)),
+            Row(SummarySection.General, c, Loc.T("Durata", c), TimeSpan.FromSeconds(s.DurationSeconds).ToString(@"mm\:ss", c)),
         };
 
         if (s.MedianSubjectDistanceMeters is { } distance)
         {
-            rows.Add(new(Loc.T("Generale", c), Loc.T("Distanza mediana soggetto", c), string.Format(c, "{0:F2} m", distance), distance > 4.5));
+            rows.Add(Row(SummarySection.General, c, Loc.T("Distanza mediana soggetto", c), string.Format(c, "{0:F2} m", distance), distance > 4.5));
         }
 
         if (s.LidarCoverage is { } coverage)
         {
-            rows.Add(new(Loc.T("Generale", c), Loc.T("Copertura LiDAR", c), string.Format(c, "{0:P0}", coverage), coverage < 0.6));
+            rows.Add(Row(SummarySection.General, c, Loc.T("Copertura LiDAR", c), string.Format(c, "{0:P0}", coverage), coverage < 0.6));
         }
 
         foreach (var (joint, range) in s.JointRanges.OrderBy(j => j.Key))
         {
-            rows.Add(new(Loc.T("Escursione articolare (ROM)", c), JointName(joint),
+            rows.Add(Row(SummarySection.JointRange, c, JointName(joint),
                 string.Format(c, "{0:F0}°–{1:F0}° (ROM {2:F0}°)", range.Min, range.Max, range.RangeOfMotion), range.Samples < 30));
         }
 
         if (s.Tremor is { } tremor)
         {
-            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Frequenza dominante", c),
+            rows.Add(Row(SummarySection.Tremor, c, Loc.T("Frequenza dominante", c),
                 tremor.IsSignificant ? string.Format(c, "{0:F1} Hz", tremor.DominantFrequencyHz) : Loc.T("nessun tremore significativo", c)));
-            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Potenza in banda 3–12 Hz", c), string.Format(c, "{0:P0}", tremor.BandPowerRatio)));
-            rows.Add(new(Loc.T("Tremore (accelerometro)", c), Loc.T("Ampiezza RMS", c), string.Format(c, "{0:F3} m/s²", tremor.BandRmsMs2)));
+            rows.Add(Row(SummarySection.Tremor, c, Loc.T("Potenza in banda 3–12 Hz", c), string.Format(c, "{0:P0}", tremor.BandPowerRatio)));
+            rows.Add(Row(SummarySection.Tremor, c, Loc.T("Ampiezza RMS", c), string.Format(c, "{0:F3} m/s²", tremor.BandRmsMs2)));
         }
 
         if (s.Gait is { } gait)
         {
-            rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Passi", c), gait.Steps.ToString(c)));
-            rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Distanza", c), double.IsFinite(gait.DistanceMeters) ? string.Format(c, "{0:F1} m", gait.DistanceMeters) : "—"));
+            rows.Add(Row(SummarySection.PedometerGait, c, Loc.T("Passi", c), gait.Steps.ToString(c)));
+            rows.Add(Row(SummarySection.PedometerGait, c, Loc.T("Distanza", c), double.IsFinite(gait.DistanceMeters) ? string.Format(c, "{0:F1} m", gait.DistanceMeters) : "—"));
             if (gait.CadenceStepsPerMinute is { } cadence)
             {
-                rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), cadence)));
+                rows.Add(Row(SummarySection.PedometerGait, c, Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), cadence)));
             }
 
             if (gait.FloorsAscended + gait.FloorsDescended > 0)
             {
-                rows.Add(new(Loc.T("Cammino (pedometro)", c), Loc.T("Piani saliti / scesi", c), string.Format(c, "{0} / {1}", gait.FloorsAscended, gait.FloorsDescended)));
+                rows.Add(Row(SummarySection.PedometerGait, c, Loc.T("Piani saliti / scesi", c), string.Format(c, "{0} / {1}", gait.FloorsAscended, gait.FloorsDescended)));
             }
         }
 
         if (s.PoseGait is { } poseGait)
         {
-            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Passi riconosciuti", c), poseGait.Steps.ToString(c)));
-            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), poseGait.CadenceStepsPerMinute)));
-            rows.Add(new(Loc.T("Cammino (posa)", c), Loc.T("Variabilità della durata del passo", c), string.Format(c, "{0:P0}", poseGait.StepTimeCv), poseGait.StepTimeCv > 0.1));
+            rows.Add(Row(SummarySection.PoseGait, c, Loc.T("Passi riconosciuti", c), poseGait.Steps.ToString(c)));
+            rows.Add(Row(SummarySection.PoseGait, c, Loc.T("Cadenza", c), string.Format(c, Loc.T("{0:F0} passi/min", c), poseGait.CadenceStepsPerMinute)));
+            rows.Add(Row(SummarySection.PoseGait, c, Loc.T("Variabilità della durata del passo", c), string.Format(c, "{0:P0}", poseGait.StepTimeCv), poseGait.StepTimeCv > 0.1));
         }
 
         if (s.Audio is { } audio)
         {
-            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Durata registrazione", c), string.Format(c, "{0:F1} s", audio.DurationSeconds)));
-            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Livello RMS", c), string.Format(c, "{0:F1} dBFS", audio.RmsDbfs)));
-            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Picco", c), string.Format(c, "{0:F1} dBFS", audio.PeakDbfs)));
-            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Tempo con segnale attivo", c), string.Format(c, "{0:P0}", audio.ActiveRatio)));
-            rows.Add(new(Loc.T("Voce e suoni (microfono)", c), Loc.T("Saturazione", c), string.Format(c, "{0:P2}", audio.ClippingRatio), audio.ClippingRatio > 0.001));
+            rows.Add(Row(SummarySection.Audio, c, Loc.T("Durata registrazione", c), string.Format(c, "{0:F1} s", audio.DurationSeconds)));
+            rows.Add(Row(SummarySection.Audio, c, Loc.T("Livello RMS", c), string.Format(c, "{0:F1} dBFS", audio.RmsDbfs)));
+            rows.Add(Row(SummarySection.Audio, c, Loc.T("Picco", c), string.Format(c, "{0:F1} dBFS", audio.PeakDbfs)));
+            rows.Add(Row(SummarySection.Audio, c, Loc.T("Tempo con segnale attivo", c), string.Format(c, "{0:P0}", audio.ActiveRatio)));
+            rows.Add(Row(SummarySection.Audio, c, Loc.T("Saturazione", c), string.Format(c, "{0:P2}", audio.ClippingRatio), audio.ClippingRatio > 0.001));
         }
 
         foreach (var (kind, stream) in (s.Sensors ?? []).OrderBy(k => k.Key))
@@ -113,22 +138,37 @@ public static class SummaryReport
 
             foreach (var channel in stream.Channels)
             {
-                rows.Add(new(SensorsSection, $"{StreamName(kind)} · {channel.Name}", Describe(channel, c)));
+                rows.Add(Row(SummarySection.EnvironmentSensors, c, $"{StreamName(kind)} · {channel.Name}", Describe(channel, c)));
             }
         }
 
         foreach (var (kind, count) in s.SampleCounts.OrderBy(k => k.Key))
         {
-            rows.Add(new(Loc.T(DataQualitySection, c), StreamName(kind), string.Format(c, Loc.T("{0:N0} campioni", c), count)));
+            rows.Add(Row(SummarySection.DataQuality, c, StreamName(kind), string.Format(c, Loc.T("{0:N0} campioni", c), count)));
         }
 
-        rows.Add(new(Loc.T(DataQualitySection, c), Loc.T("Campioni persi", c), s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
+        rows.Add(Row(SummarySection.DataQuality, c, Loc.T("Campioni persi", c), s.DroppedSamples.ToString("N0", c), s.DroppedSamples > 0));
         return rows;
     }
 
-    public const string SensorsSection = "Sensori ambientali";
+    /// <summary>Titolo della sezione nella lingua di <paramref name="culture"/>.</summary>
+    public static string SectionTitle(SummarySection section, CultureInfo culture) => Loc.T(section switch
+    {
+        SummarySection.General => "Generale",
+        SummarySection.JointRange => "Escursione articolare (ROM)",
+        SummarySection.Tremor => "Tremore (accelerometro)",
+        SummarySection.PedometerGait => "Cammino (pedometro)",
+        SummarySection.PoseGait => "Cammino (posa)",
+        SummarySection.Audio => "Voce e suoni (microfono)",
+        SummarySection.EnvironmentSensors => "Sensori ambientali",
+        SummarySection.DataQuality => "Qualità del dato",
+        SummarySection.Reliability => "Affidabilità della misura",
+        SummarySection.Payload => "Payload JSON",
+        _ => section.ToString(),
+    }, culture);
 
-    public const string DataQualitySection = "Qualità del dato";
+    private static SummaryRow Row(SummarySection section, CultureInfo c, string label, string value, bool warning = false) =>
+        SummaryRow.Create(section, c, label, value, warning);
 
     /// <summary>Un solo valore se il canale non è mai cambiato, altrimenti intervallo e media.</summary>
     private static string Describe(ChannelStats ch, CultureInfo c)
@@ -198,18 +238,18 @@ public static class SummaryReport
         var byName = stream.Channels.ToDictionary(ch => ch.Name);
         if (byName.TryGetValue("Latitudine", out var lat) && byName.TryGetValue("Longitudine", out var lon))
         {
-            rows.Add(new(SensorsSection, $"{name} · Posizione", string.Format(CultureInfo.InvariantCulture, "{0:F5}, {1:F5}", lat.Last, lon.Last)));
-            rows.Add(new(SensorsSection, $"{name} · Rilevamenti", lat.Samples.ToString("N0", c)));
+            rows.Add(Row(SummarySection.EnvironmentSensors, c, $"{name} · Posizione", string.Format(CultureInfo.InvariantCulture, "{0:F5}, {1:F5}", lat.Last, lon.Last)));
+            rows.Add(Row(SummarySection.EnvironmentSensors, c, $"{name} · Rilevamenti", lat.Samples.ToString("N0", c)));
         }
 
         if (byName.TryGetValue("Accuratezza orizzontale", out var accuracy))
         {
-            rows.Add(new(SensorsSection, $"{name} · Accuratezza", string.Format(c, Loc.T("±{0:F0} m (migliore ±{1:F0} m)", c), accuracy.Last, accuracy.Min), accuracy.Min > 50));
+            rows.Add(Row(SummarySection.EnvironmentSensors, c, $"{name} · Accuratezza", string.Format(c, Loc.T("±{0:F0} m (migliore ±{1:F0} m)", c), accuracy.Last, accuracy.Min), accuracy.Min > 50));
         }
 
         foreach (var channel in stream.Channels.Where(ch => ch.Name is "Altitudine" or "Velocità"))
         {
-            rows.Add(new(SensorsSection, $"{name} · {channel.Name}", Describe(channel, c)));
+            rows.Add(Row(SummarySection.EnvironmentSensors, c, $"{name} · {channel.Name}", Describe(channel, c)));
         }
     }
 

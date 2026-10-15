@@ -22,8 +22,6 @@ public sealed record ChunkStats(int Chunks, long Samples, long Bytes);
 /// </param>
 public sealed record PayloadReport(int Bytes, string Sha256, bool RoundTrips, IReadOnlyList<string> MissingFields, int NonFiniteNumbers, ChunkStats Chunks)
 {
-    public const string Section = "Payload JSON";
-
     public bool IsValid => RoundTrips && MissingFields.Count == 0;
 
     public static PayloadReport Inspect(SessionUpload upload, ChunkStats chunks)
@@ -70,13 +68,13 @@ public sealed record PayloadReport(int Bytes, string Sha256, bool RoundTrips, IR
         var c = culture ?? CultureInfo.CurrentCulture;
         return
         [
-            new(Section, Loc.T("Esito", c), IsValid ? Loc.T("valido", c) : Loc.T("da verificare", c), !IsValid),
-            new(Section, Loc.T("Dimensione", c), string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
-            new(Section, Loc.T("Impronta SHA-256", c), Sha256[..12] + "…"),
-            new(Section, Loc.T("Rilettura", c), RoundTrips ? Loc.T("identica", c) : Loc.T("non riuscita", c), !RoundTrips),
-            new(Section, Loc.T("Campi obbligatori", c), MissingFields.Count == 0 ? Loc.T("completi", c) : Loc.T("mancano: ", c) + string.Join(", ", MissingFields), MissingFields.Count > 0),
-            new(Section, Loc.T("Valori non numerici", c), NonFiniteNumbers == 0 ? Loc.T("nessuno", c) : string.Format(c, Loc.T("{0} (NaN o infinito)", c), NonFiniteNumbers), NonFiniteNumbers > 0),
-            new(Section, Loc.T("Dati dei sensori", c), string.Format(c, Loc.T("{0:N0} blocchi · {1:N0} campioni · {2:N1} MB", c), Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Esito", c), IsValid ? Loc.T("valido", c) : Loc.T("da verificare", c), !IsValid),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Dimensione", c), string.Format(c, "{0:N1} kB", Bytes / 1024.0)),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Impronta SHA-256", c), Sha256[..12] + "…"),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Rilettura", c), RoundTrips ? Loc.T("identica", c) : Loc.T("non riuscita", c), !RoundTrips),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Campi obbligatori", c), MissingFields.Count == 0 ? Loc.T("completi", c) : Loc.T("mancano: ", c) + string.Join(", ", MissingFields), MissingFields.Count > 0),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Valori non numerici", c), NonFiniteNumbers == 0 ? Loc.T("nessuno", c) : string.Format(c, Loc.T("{0} (NaN o infinito)", c), NonFiniteNumbers), NonFiniteNumbers > 0),
+            SummaryRow.Create(SummarySection.Payload, c, Loc.T("Dati dei sensori", c), string.Format(c, Loc.T("{0:N0} blocchi · {1:N0} campioni · {2:N1} MB", c), Chunks.Chunks, Chunks.Samples, Chunks.Bytes / 1_048_576.0), Chunks.Chunks == 0),
         ];
     }
 

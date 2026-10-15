@@ -259,19 +259,19 @@ public sealed partial class SessionDetailViewModel(
             if (_session.Summary is { } summary)
             {
                 // Prima degli indicatori: quanto ci si può fidare della misura e del documento che parte per il server.
-                Summary.Add(new SummaryGroup(MeasurementReliability.Section, MeasurementReliability.Assess(summary, c).Factors));
+                Summary.Add(new SummaryGroup(SummaryReport.SectionTitle(SummarySection.Reliability, c), MeasurementReliability.Assess(summary, c).Factors));
                 var payload = await sync.InspectPayloadAsync(_session);
-                Summary.Add(new SummaryGroup(ClinicalSensorFusion.Core.Sync.PayloadReport.Section, payload.ToRows(c)));
+                Summary.Add(new SummaryGroup(SummaryReport.SectionTitle(SummarySection.Payload, c), payload.ToRows(c)));
 
-                var environmentSection = Loc.T(SummaryReport.SensorsSection);
-                var qualitySection = Loc.T(SummaryReport.DataQualitySection, c);
+                // Sensori ambientali e qualità del dato hanno sezioni proprie (con interruttore): si riconoscono
+                // dalla sezione, non dal titolo, che cambia con la lingua.
                 var rows = SummaryReport.Build(summary, c);
-                foreach (var group in rows.Where(r => r.Section != environmentSection && r.Section != qualitySection).GroupBy(r => r.Section))
+                foreach (var group in rows.Where(r => r.Kind is not (SummarySection.EnvironmentSensors or SummarySection.DataQuality)).GroupBy(r => r.Kind))
                 {
-                    Summary.Add(new SummaryGroup(group.Key, [.. group]));
+                    Summary.Add(new SummaryGroup(group.First().Section, [.. group]));
                 }
 
-                foreach (var row in rows.Where(r => r.Section == qualitySection))
+                foreach (var row in rows.Where(r => r.Kind == SummarySection.DataQuality))
                 {
                     DataQuality.Add(row);
                 }
