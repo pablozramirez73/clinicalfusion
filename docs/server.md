@@ -83,10 +83,14 @@ l'invio da un telefono sulla stessa Wi-Fi:
 ./scripts/run-server-lan.sh        # http://<indirizzo del computer>:5180
 ```
 
-Al primo avvio lo script genera una password per la dashboard e una chiave del dispositivo, le mostra una sola
-volta e ne salva gli hash in `.server-lan.env` (file locale, escluso da git): le credenziali di sviluppo non
-valgono più. Nell'app: Impostazioni → *Server clinico* → `http://<indirizzo>:5180` e la chiave. Per rigenerarle
-basta cancellare il file. Nello stesso file si può indicare un PostgreSQL diverso da quello di docker compose.
+Al primo avvio lo script genera una password per la dashboard e una chiave del dispositivo: le credenziali di
+sviluppo non valgono più. Il server riceve solo gli hash, da `.server-lan.env`; credenziali in chiaro e hash
+finiscono in `entrata.log`, che lo script mostra a ogni avvio insieme all'indirizzo da inserire nell'app e a cui
+aggiunge una riga con data e indirizzo. Entrambi i file sono locali, leggibili solo dal proprio utente ed esclusi
+da git: `entrata.log` contiene segreti in chiaro e non va condiviso. Nell'app: Impostazioni → *Server clinico* →
+`http://<indirizzo>:5180` e la chiave. Per rigenerarle basta cancellare `.server-lan.env` (o `entrata.log`). Se
+sul computer gira un PostgreSQL senza l'utente `postgres` di docker compose, lo script usa l'utente di sistema;
+altrimenti la stringa di connessione si può cambiare in `.server-lan.env`.
 
 Il traffico è HTTP non cifrato: va bene su una rete fidata, non su una Wi-Fi condivisa. Per un uso reale vale
 la sezione seguente.
