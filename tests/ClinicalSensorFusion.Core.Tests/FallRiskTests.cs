@@ -120,6 +120,30 @@ public class FallRiskTests
     }
 
     [Fact]
+    public void Factors_explain_the_distance_from_a_typical_subject()
+    {
+        var model = FallRiskModel.Default;
+        var inputs = new Dictionary<string, double> { ["tug_time_s"] = 25.0, ["gait_speed_m_s"] = 1.2 };
+        var factors = model.Contributions(inputs);
+
+        // Solo le misure presenti; quelle assenti valgono la mediana e non spostano nulla.
+        Assert.Equal(["tug_time_s", "gait_speed_m_s"], factors.Select(f => f.Feature));
+        Assert.True(factors[0].LogOdds > 0); // TUG lento: rischio più alto
+        Assert.True(factors[1].LogOdds < 0); // cammino veloce: rischio più basso
+
+        static double Logit(double p) => Math.Log(p / (1 - p));
+        var typical = model.Probability(new Dictionary<string, double>());
+        Assert.Equal(Logit(model.Probability(inputs)) - Logit(typical), factors.Sum(f => f.LogOdds), 9);
+    }
+
+    [Theory]
+    [InlineData(0.2, FallRiskBand.Low)]
+    [InlineData(0.5, FallRiskBand.Intermediate)]
+    [InlineData(0.8, FallRiskBand.High)]
+    public void Band_splits_the_probability_in_thirds(double probability, FallRiskBand band) =>
+        Assert.Equal(band, new FallRiskEstimate(probability, new Dictionary<string, double>(), [], []).Band);
+
+    [Fact]
     public void Standing_still_gives_no_steps()
     {
         var steps = new PoseStepAnalyzer();

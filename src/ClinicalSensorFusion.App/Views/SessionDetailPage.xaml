@@ -119,23 +119,72 @@
       </Border>
 
       <!-- Stima sperimentale del rischio di caduta (Impostazioni → Rischio di caduta) -->
-      <Border Style="{StaticResource Card}" IsVisible="{Binding FallRiskVisible}">
-        <VerticalStackLayout Spacing="10">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-            <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+      <Border Style="{StaticResource Card}" IsVisible="{Binding FallRiskVisible}" Padding="18">
+        <VerticalStackLayout Spacing="14">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource IconTile}" VerticalOptions="Center">
               <Path Style="{StaticResource IconShield}" />
             </Border>
-            <VerticalStackLayout Grid.Column="1" Spacing="0">
-              <Label Text="{l:Tr Text='Rischio di caduta'}" Style="{StaticResource Muted}" />
-              <HorizontalStackLayout Spacing="8">
-                <Label Text="{Binding FallRiskValue}" FontSize="28" FontAttributes="Bold" />
-                <Border Style="{StaticResource Chip}" VerticalOptions="Center">
-                  <Label Text="{l:Tr Text='sperimentale'}" Style="{StaticResource ChipText}" />
-                </Border>
-              </HorizontalStackLayout>
+            <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+              <Label Text="{l:Tr Text='Rischio di caduta'}" FontSize="17" FontAttributes="Bold" SemanticProperties.HeadingLevel="Level2" />
+              <Label Text="{l:Tr Text='Almeno una caduta nell\'ultimo anno'}" Style="{StaticResource Muted}" FontSize="12" />
             </VerticalStackLayout>
+            <Border Grid.Column="2" Style="{StaticResource ChipWarning}" VerticalOptions="Center">
+              <Label Text="{l:Tr Text='sperimentale'}" Style="{StaticResource ChipWarningText}" />
+            </Border>
           </Grid>
-          <Label Text="{Binding FallRiskDetail}" FontSize="13" />
+
+          <!-- Indicatore a semicerchio con la fascia sotto -->
+          <VerticalStackLayout Spacing="2">
+            <controls:FallRiskGauge Probability="{Binding FallRiskProbability}" HorizontalOptions="Fill" />
+            <Border StrokeThickness="0" StrokeShape="RoundRectangle 999" Padding="12,4" HorizontalOptions="Center"
+                    BackgroundColor="{Binding FallRiskBandColor}">
+              <Label Text="{Binding FallRiskBand}" TextColor="White" FontSize="13" FontAttributes="Bold" />
+            </Border>
+            <Label Text="{Binding FallRiskDetail}" Style="{StaticResource Muted}" FontSize="12"
+                   HorizontalTextAlignment="Center" Margin="0,4,0,0" />
+          </VerticalStackLayout>
+
+          <!-- Cosa sposta la stima, dalla misura che pesa di più -->
+          <VerticalStackLayout Spacing="8" IsVisible="{Binding FallRiskHasEstimate}">
+            <BoxView Style="{StaticResource Divider}" />
+            <Label Text="{l:Tr Text='Cosa pesa di più'}" Style="{StaticResource FieldLabel}" Margin="0" />
+            <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding FallRiskFactors}">
+              <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:FallRiskFactorItem">
+                  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                    <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" />
+                    <Label Grid.Column="1" Text="{Binding Value}" FontSize="14" HorizontalTextAlignment="End" />
+                    <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="8">
+                      <BoxView HeightRequest="6" WidthRequest="{Binding BarWidth}" CornerRadius="3" Color="{Binding Color}"
+                               VerticalOptions="Center" />
+                      <Label Text="{Binding Effect}" TextColor="{Binding Color}" FontSize="12" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                  </Grid>
+                </DataTemplate>
+              </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+          </VerticalStackLayout>
+
+          <!-- I test che alimentano il modello -->
+          <VerticalStackLayout Spacing="8">
+            <BoxView Style="{StaticResource Divider}" />
+            <Label Text="{l:Tr Text='Test del soggetto'}" Style="{StaticResource FieldLabel}" Margin="0" />
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding FallRiskTests}">
+              <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:FallRiskTestItem">
+                  <Border Style="{StaticResource Tile}" Margin="0,0,8,8" Padding="10,6">
+                    <VerticalStackLayout Spacing="0">
+                      <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold" />
+                      <Label Text="{Binding Value}" FontSize="12"
+                             TextColor="{Binding Done, Converter={StaticResource StatusColor}}" />
+                    </VerticalStackLayout>
+                  </Border>
+                </DataTemplate>
+              </BindableLayout.ItemTemplate>
+            </FlexLayout>
+          </VerticalStackLayout>
+
           <Border Style="{StaticResource BannerInfo}"
                   BackgroundColor="{AppThemeBinding Light={StaticResource WarningSoftLight}, Dark={StaticResource WarningSoftDark}}">
             <Label Text="{Binding FallRiskNote}" Style="{StaticResource ChipWarningText}" FontSize="12" FontAttributes="None" />
