@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.Core.Localization;
+using ClinicalSensorFusion.Core.Security;
 using ClinicalSensorFusion.Core.Sync;
 using Microsoft.Extensions.Logging;
 
@@ -91,7 +92,24 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
             : null;
     }
 
-    private bool TryGetServer(out Uri? server)
+    /// <summary>
+    /// La chiave del dispositivo, valida solo verso il server clinico configurato: una richiesta verso un altro
+    /// host (anche per un reindirizzamento) parte senza (<see cref="ScopedCredentialsHandler"/>).
+    /// </summary>
+    public static async Task<ScopedCredentials?> CredentialsAsync(MauiAppSettings settings, ISecureStorage secureStorage)
+    {
+        if (!TryGetServer(settings, out var server))
+        {
+            return null;
+        }
+
+        var key = await secureStorage.GetAsync(ApiKeyStorageKey).ConfigureAwait(false);
+        return string.IsNullOrEmpty(key) ? null : new ScopedCredentials(server!, [new(ClinicalSyncClient.ApiKeyHeader, key)]);
+    }
+
+    private bool TryGetServer(out Uri? server) => TryGetServer(settings, out server);
+
+    private static bool TryGetServer(MauiAppSettings settings, out Uri? server)
     {
         server = null;
         if (!Uri.TryCreate(settings.SyncServer?.Trim(), UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
@@ -101,20 +119,5 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
 
         server = uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + "/");
         return true;
-    }
-}
-
-/// <summary>Aggiunge la chiave del dispositivo (dal Portachiavi) alle richieste verso il server clinico.</summary>
-public sealed class DeviceApiKeyHandler(ISecureStorage secureStorage) : DelegatingHandler
-{
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        var key = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey).ConfigureAwait(false);
-        if (!string.IsNullOrEmpty(key))
-        {
-            request.Headers.TryAddWithoutValidation(ClinicalSyncClient.ApiKeyHeader, key);
-        }
-
-        return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 }

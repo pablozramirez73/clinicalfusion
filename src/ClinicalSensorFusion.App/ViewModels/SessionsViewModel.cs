@@ -18,7 +18,8 @@ public sealed partial class SessionsViewModel(
     ClinicalRepository repository,
     CaptureCoordinator coordinator,
     SyncService sync,
-    IDialogService dialogs) : ObservableObject
+    IDialogService dialogs,
+    AppLockController appLock) : ObservableObject
 {
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SyncCommand))]
@@ -120,6 +121,12 @@ public sealed partial class SessionsViewModel(
     private async Task DeleteAsync(SessionListItem item)
     {
         if (!await dialogs.ConfirmAsync(Loc.T("Elimina rilevazione"), Loc.F("Eliminare definitivamente la rilevazione di {0} ({1}) con audio e analisi?", item.Subject, item.When), Loc.T("Elimina")))
+        {
+            return;
+        }
+
+        // Cancellazione definitiva di dati clinici: chi la chiede deve farsi riconoscere.
+        if (!await appLock.ConfirmSensitiveAsync(Loc.T("Conferma l'eliminazione della rilevazione")))
         {
             return;
         }

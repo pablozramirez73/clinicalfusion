@@ -451,5 +451,9 @@
   "SpO2": "SpO2",
   "Cammino (posa)": "Gait (pose)",
   "Affidabilità della misura": "Measurement reliability",
-  "Payload JSON": "JSON payload"
+  "Payload JSON": "JSON payload",
+  "Il server ha risposto con un reindirizzamento: probabilmente serve l'accesso Cloudflare.": "The server replied with a redirect: Cloudflare access is probably required.",
+  "Conferma la modifica di server e credenziali": "Confirm the change of servers and credentials",
+  "Impostazioni non salvate: per cambiare server o credenziali serve farsi riconoscere.": "Settings not saved: changing servers or credentials requires you to identify yourself.",
+  "Conferma l'eliminazione della rilevazione": "Confirm deleting the session"
 }

@@ -1,4 +1,5 @@
 using ClinicalSensorFusion.Core.Localization;
+using ClinicalSensorFusion.Core.Security;
 
 namespace ClinicalSensorFusion.App.Services;
 
@@ -21,9 +22,11 @@ public interface IDeviceAuthenticator
 /// </summary>
 public interface ILockScreen
 {
-    /// <param name="unlockTitle">Testo del pulsante (es. "Sblocca con Face ID").</param>
+    /// <param name="unlockTitle">Testo del pulsante (es. "Sblocca con Face ID"); null per la sola copertura di privacy, senza pulsante.</param>
     /// <param name="unlockRequested">Chiamato quando l'utente tocca il pulsante.</param>
-    void Show(string unlockTitle, Action unlockRequested);
+    /// <remarks>Se chiamato sul thread principale la copertura è già visibile al ritorno: iOS fotografa la
+    /// schermata per il selettore delle app subito dopo il passaggio in background.</remarks>
+    void Show(string? unlockTitle, Action? unlockRequested);
 
     void SetMessage(string message);
 
@@ -37,6 +40,7 @@ public interface ILockScreen
 public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockScreen lockScreen, MauiAppSettings settings)
 {
     private bool _locked;
+    private bool _privacy;
     private bool _authenticating;
 
     public bool IsEnabled => settings.RequireDeviceAuthentication;
@@ -54,8 +58,51 @@ public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockS
         // Stopped e non Deactivated: la richiesta di Face ID disattiva la finestra senza mandarla in
         // background, e bloccare lì farebbe ripartire la richiesta all'infinito. Qui si copre soltanto,
         // così i dati non compaiono nell'anteprima del selettore delle app; la richiesta parte al ritorno.
-        window.Stopped += (_, _) => Lock();
-        window.Resumed += (_, _) => _ = UnlockAsync();
+        // Con il blocco spento la copertura c'è lo stesso, senza richiesta al ritorno.
+        window.Stopped += (_, _) =>
+        {
+            if (AppLockPolicy.OnBackground(IsEnabled, authenticator.IsAvailable) == AppCover.Lock)
+            {
+                Lock();
+            }
+            else if (!_locked)
+            {
+                _privacy = true;
+                lockScreen.Show(null, null);
+            }
+        };
+        window.Resumed += (_, _) =>
+        {
+            if (_privacy)
+            {
+                _privacy = false;
+                lockScreen.Hide();
+            }
+
+            _ = UnlockAsync();
+        };
+    }
+
+    /// <summary>
+    /// Conferma con Face ID (o il codice del telefono) prima di un'operazione sensibile, anche con il blocco
+    /// spento. Falso se l'utente non è stato riconosciuto o ha annullato.
+    /// </summary>
+    public async Task<bool> ConfirmSensitiveAsync(string reason)
+    {
+        if (!AppLockPolicy.RequiresConfirmation(authenticator.IsAvailable))
+        {
+            return true;
+        }
+
+        try
+        {
+            return await authenticator.AuthenticateAsync(reason);
+        }
+        catch (Exception)
+        {
+            // Una richiesta di sistema fallita non vale come conferma.
+            return false;
+        }
     }
 
     /// <summary>Attiva o disattiva il blocco. Per attivarlo (e per toglierlo) serve farsi riconoscere.</summary>
@@ -90,6 +137,7 @@ public sealed class AppLockController(IDeviceAuthenticator authenticator, ILockS
         }
 
         _locked = true;
+        _privacy = false;
         lockScreen.Show(Loc.F("Sblocca con {0}", Loc.T(authenticator.MethodName)), () => _ = UnlockAsync());
     }
 

@@ -1,4 +1,3 @@
-using ClinicalSensorFusion.Core.Localization;
 using Android.App;
 using Android.Graphics.Drawables;
 using Android.Util;
@@ -25,13 +24,20 @@ internal sealed class AndroidLockScreen : ILockScreen
     private TextView? _message;
     private Action? _unlockRequested;
 
-    public void Show(string unlockTitle, Action unlockRequested) => MainThread.BeginInvokeOnMainThread(() =>
+    private bool _withButton;
+
+    public void Show(string? unlockTitle, Action? unlockRequested) => OnMain(() =>
     {
         _unlockRequested = unlockRequested;
-        if (_dialog is not null || Platform.CurrentActivity is not { } activity)
+        var withButton = unlockTitle is not null;
+        if ((_dialog is not null && _withButton == withButton) || Platform.CurrentActivity is not { } activity)
         {
             return;
         }
+
+        // Dalla copertura di privacy al blocco (o viceversa): si ricostruisce con o senza pulsante.
+        HideNow();
+        _withButton = withButton;
 
         int Dp(float value) => (int)TypedValue.ApplyDimension(ComplexUnitType.Dip, value, activity.Resources!.DisplayMetrics);
 
@@ -52,6 +58,7 @@ internal sealed class AndroidLockScreen : ILockScreen
         button.SetTextColor(ButtonText);
         button.SetPadding(Dp(22), Dp(14), Dp(22), Dp(14));
         button.Click += (_, _) => _unlockRequested?.Invoke();
+        button.Visibility = withButton ? ViewStates.Visible : ViewStates.Gone;
 
         var layout = new LinearLayout(activity) { Orientation = Orientation.Vertical };
         layout.SetGravity(GravityFlags.Center);
@@ -70,7 +77,7 @@ internal sealed class AndroidLockScreen : ILockScreen
         _dialog.Show();
     });
 
-    public void SetMessage(string message) => MainThread.BeginInvokeOnMainThread(() =>
+    public void SetMessage(string message) => OnMain(() =>
     {
         if (_message is not null)
         {
@@ -78,11 +85,25 @@ internal sealed class AndroidLockScreen : ILockScreen
         }
     });
 
-    public void Hide() => MainThread.BeginInvokeOnMainThread(() =>
+    public void Hide() => OnMain(HideNow);
+
+    private static void OnMain(Action action)
+    {
+        if (MainThread.IsMainThread)
+        {
+            action();
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(action);
+        }
+    }
+
+    private void HideNow()
     {
         _dialog?.Dismiss();
         _dialog?.Dispose();
         _dialog = null;
         _message = null;
-    });
+    }
 }

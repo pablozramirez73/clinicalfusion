@@ -1,4 +1,3 @@
-using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.Core.Localization;
 using UIKit;
@@ -19,13 +18,20 @@ internal sealed class IosLockScreen : ILockScreen
     private UILabel? _message;
     private Action? _unlockRequested;
 
-    public void Show(string unlockTitle, Action unlockRequested) => MainThread.BeginInvokeOnMainThread(() =>
+    private bool _withButton;
+
+    public void Show(string? unlockTitle, Action? unlockRequested) => OnMain(() =>
     {
         _unlockRequested = unlockRequested;
-        if (_window is not null)
+        var withButton = unlockTitle is not null;
+        if (_window is not null && _withButton == withButton)
         {
             return;
         }
+
+        // Dalla copertura di privacy al blocco (o viceversa): si ricostruisce con o senza pulsante.
+        HideNow();
+        _withButton = withButton;
 
         var scene = UIApplication.SharedApplication.ConnectedScenes.OfType<UIWindowScene>().FirstOrDefault();
         if (scene is null)
@@ -49,16 +55,21 @@ internal sealed class IosLockScreen : ILockScreen
             Lines = 0,
         };
 
-        var configuration = UIButtonConfiguration.FilledButtonConfiguration;
-        configuration.Title = unlockTitle;
-        configuration.BaseBackgroundColor = Accent;
-        configuration.BaseForegroundColor = ButtonText;
-        configuration.CornerStyle = UIButtonConfigurationCornerStyle.Large;
-        configuration.ContentInsets = new NSDirectionalEdgeInsets(14, 22, 14, 22);
-        var button = new UIButton(UIButtonType.System) { Configuration = configuration };
-        button.TouchUpInside += (_, _) => _unlockRequested?.Invoke();
+        UIView[] views = [title, _message];
+        if (unlockTitle is not null)
+        {
+            var configuration = UIButtonConfiguration.FilledButtonConfiguration;
+            configuration.Title = unlockTitle;
+            configuration.BaseBackgroundColor = Accent;
+            configuration.BaseForegroundColor = ButtonText;
+            configuration.CornerStyle = UIButtonConfigurationCornerStyle.Large;
+            configuration.ContentInsets = new NSDirectionalEdgeInsets(14, 22, 14, 22);
+            var button = new UIButton(UIButtonType.System) { Configuration = configuration };
+            button.TouchUpInside += (_, _) => _unlockRequested?.Invoke();
+            views = [.. views, button];
+        }
 
-        var stack = new UIStackView([title, _message, button])
+        var stack = new UIStackView(views)
         {
             Axis = UILayoutConstraintAxis.Vertical,
             Alignment = UIStackViewAlignment.Center,
@@ -86,7 +97,7 @@ internal sealed class IosLockScreen : ILockScreen
         };
     });
 
-    public void SetMessage(string message) => MainThread.BeginInvokeOnMainThread(() =>
+    public void SetMessage(string message) => OnMain(() =>
     {
         if (_message is not null)
         {
@@ -94,7 +105,21 @@ internal sealed class IosLockScreen : ILockScreen
         }
     });
 
-    public void Hide() => MainThread.BeginInvokeOnMainThread(() =>
+    public void Hide() => OnMain(HideNow);
+
+    private static void OnMain(Action action)
+    {
+        if (MainThread.IsMainThread)
+        {
+            action();
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(action);
+        }
+    }
+
+    private void HideNow()
     {
         if (_window is null)
         {
@@ -105,5 +130,5 @@ internal sealed class IosLockScreen : ILockScreen
         _window.Dispose();
         _window = null;
         _message = null;
-    });
+    }
 }

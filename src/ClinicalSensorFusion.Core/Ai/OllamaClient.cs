@@ -174,6 +174,13 @@ public sealed class OllamaClient(HttpClient http, ILogger<OllamaClient>? logger 
             return;
         }
 
+        // I reindirizzamenti non si seguono (le credenziali resterebbero sull'host di partenza): dietro
+        // Cloudflare Access un 3xx è quasi sempre la pagina di login.
+        if ((int)response.StatusCode is >= 300 and < 400)
+        {
+            throw new OllamaException(Loc.T("Il server ha risposto con un reindirizzamento: probabilmente serve l'accesso Cloudflare."));
+        }
+
         var detail = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (detail.Length > 300)
         {

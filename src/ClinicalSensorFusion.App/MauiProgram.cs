@@ -5,6 +5,7 @@ using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Localization;
 using ClinicalSensorFusion.Core.Persistence;
+using ClinicalSensorFusion.Core.Security;
 using ClinicalSensorFusion.Core.Settings;
 using ClinicalSensorFusion.Core.Sync;
 using ClinicalSensorFusion.Core.Telemetry;
@@ -89,29 +90,40 @@ public static class MauiProgram
 
         // Modello linguistico. Timeout ampio: un modello locale può impiegare minuti su prompt lunghi;
         // l'annullamento è affidato al CancellationToken della UI.
-        services.AddTransient<CloudflareAccessHandler>();
         var ollama = services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
-            .AddHttpMessageHandler<CloudflareAccessHandler>();
+            .AddHttpMessageHandler(sp => new ScopedCredentialsHandler(_ =>
+                CloudflareAccess.CredentialsAsync(sp.GetRequiredService<MauiAppSettings>(), sp.GetRequiredService<ISecureStorage>())));
 
         // Sincronizzazione con il server clinico.
-        services.AddTransient<DeviceApiKeyHandler>();
         var sync = services.AddHttpClient<ClinicalSyncClient>(client => client.Timeout = TimeSpan.FromMinutes(5))
-            .AddHttpMessageHandler<DeviceApiKeyHandler>();
+            .AddHttpMessageHandler(sp => new ScopedCredentialsHandler(_ =>
+                SyncService.CredentialsAsync(sp.GetRequiredService<MauiAppSettings>(), sp.GetRequiredService<ISecureStorage>())));
 
+        // Su tutte le piattaforme: niente HTTP in chiaro fuori dalla rete locale e niente reindirizzamenti
+        // seguiti in automatico, che porterebbero le credenziali verso un altro host. Un 3xx arriva al client
+        // come errore, con il suo codice.
 #if ANDROID
-        // Su iOS cookie della WebView e limite dell'HTTP alla rete locale li gestisce il sistema; qui no:
-        // i client condividono un contenitore di cookie (riempito dal login nella WebView) e un controllo esplicito.
+        // Su iOS i cookie della WebView li condivide il sistema; qui i client usano un contenitore comune,
+        // riempito dal login nella WebView.
         services.AddSingleton<System.Net.CookieContainer>();
+#endif
         services.AddTransient<LocalCleartextHandler>();
         foreach (var client in (IHttpClientBuilder[])[ollama, sync])
         {
             client.AddHttpMessageHandler<LocalCleartextHandler>()
+#if ANDROID
                 .ConfigurePrimaryHttpMessageHandler(sp => new Xamarin.Android.Net.AndroidMessageHandler
                 {
                     CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
+                    AllowAutoRedirect = false,
                 });
-        }
+#elif IOS
+                .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.NSUrlSessionHandler { AllowAutoRedirect = false });
+#else
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 #endif
+        }
+
         services.AddTransient<SessionSynchronizer>();
         services.AddSingleton<SyncService>();
 

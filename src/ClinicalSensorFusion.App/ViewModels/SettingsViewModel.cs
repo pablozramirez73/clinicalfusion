@@ -3,6 +3,7 @@ using ClinicalSensorFusion.App.Services;
 using ClinicalSensorFusion.App.Views;
 using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Localization;
+using ClinicalSensorFusion.Core.Security;
 using ClinicalSensorFusion.Core.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,6 +23,9 @@ public sealed partial class SettingsViewModel(
     IDialogService dialogs) : ObservableObject
 {
     private bool _loadingLock;
+
+    // Valori sensibili come sono salvati: un salvataggio che li cambia chiede conferma.
+    private SensitiveSettings _savedSensitive = new(null, null, null, null, null);
 
     /// <summary>Blocco dell'app con riconoscimento biometrico o codice. Ha effetto subito, non con «Salva»: è una scelta di sicurezza.</summary>
     [ObservableProperty]
@@ -132,6 +136,7 @@ public sealed partial class SettingsViewModel(
         SyncApiKey = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey);
         CloudflareClientId = await secureStorage.GetAsync(SettingsKeys.CloudflareClientId);
         CloudflareClientSecret = await secureStorage.GetAsync(SettingsKeys.CloudflareClientSecret);
+        _savedSensitive = CurrentSensitive();
         if (!Models.Contains(OllamaModel))
         {
             Models.Add(OllamaModel);
@@ -153,18 +158,29 @@ public sealed partial class SettingsViewModel(
             return;
         }
 
+        // Prima tutti i controlli, poi le scritture: un salvataggio rifiutato non lascia impostazioni a metà.
+        if (!string.IsNullOrWhiteSpace(SyncServer) &&
+            (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || !LocalNetwork.IsAllowedTransport(syncUri)))
+        {
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale)."));
+            return;
+        }
+
+        // Dove vanno i dati clinici e con quali credenziali: chi cambia questi valori deve farsi riconoscere.
+        var sensitive = CurrentSensitive();
+        if (sensitive.DiffersFrom(_savedSensitive)
+            && !await appLock.ConfirmSensitiveAsync(Loc.T("Conferma la modifica di server e credenziali")))
+        {
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Impostazioni non salvate: per cambiare server o credenziali serve farsi riconoscere."));
+            return;
+        }
+
         settings.OperatorId = OperatorId;
         settings.OperatorName = OperatorName;
         settings.OllamaServer = OllamaServer;
         settings.OllamaModel = OllamaModel;
         settings.OllamaLanguage = OllamaLanguage;
         settings.OllamaPrompt = OllamaPrompt;
-        if (!string.IsNullOrWhiteSpace(SyncServer) &&
-            (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps && !syncUri.IsLoopback && !IsPrivateHost(syncUri.Host)))
-        {
-            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale)."));
-            return;
-        }
 
         // La lingua scelta vale dal prossimo avvio: le pagine già create restano nella lingua di adesso.
         var languageChanged = UiLanguage is { } language && language.Code != settings.UiLanguage;
@@ -180,6 +196,7 @@ public sealed partial class SettingsViewModel(
         await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
         await SaveSecretAsync(SettingsKeys.CloudflareClientId, CloudflareClientId);
         await SaveSecretAsync(SettingsKeys.CloudflareClientSecret, CloudflareClientSecret);
+        _savedSensitive = sensitive;
         await dialogs.AlertAsync(Loc.T("Impostazioni"), languageChanged
             ? Loc.T("Salvate. La nuova lingua si applica al prossimo avvio dell'app.")
             : Loc.T("Salvate."));
@@ -280,9 +297,8 @@ public sealed partial class SettingsViewModel(
         }
     }
 
-    private static bool IsPrivateHost(string host) =>
-        System.Net.IPAddress.TryParse(host, out var ip) && ip.GetAddressBytes() is [10, ..] or [192, 168, ..] or [172, >= 16 and <= 31, ..]
-        || host.EndsWith(".local", StringComparison.OrdinalIgnoreCase);
+    private SensitiveSettings CurrentSensitive() =>
+        new(SyncServer, SyncApiKey, OllamaServer, CloudflareClientId, CloudflareClientSecret);
 
     private async Task SaveSecretAsync(string key, string? value)
     {

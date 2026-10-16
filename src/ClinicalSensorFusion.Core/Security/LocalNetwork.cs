@@ -1,9 +1,8 @@
-using ClinicalSensorFusion.Core.Localization;
 using System.Net;
 using System.Net.Sockets;
 using ClinicalSensorFusion.Core.Localization;
 
-namespace ClinicalSensorFusion.App.Services;
+namespace ClinicalSensorFusion.Core.Security;
 
 /// <summary>Riconosce gli indirizzi della rete locale, gli unici verso cui è ammesso HTTP in chiaro.</summary>
 public static class LocalNetwork
@@ -30,18 +29,22 @@ public static class LocalNetwork
             || host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
             || !host.Contains('.', StringComparison.Ordinal);
     }
+
+    /// <summary>Vero se l'indirizzo è HTTPS, oppure HTTP verso la rete locale.</summary>
+    public static bool IsAllowedTransport(Uri uri) =>
+        uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && IsLocalHost(uri.Host));
 }
 
 /// <summary>
-/// Rifiuta le richieste HTTP in chiaro verso Internet. Su iOS lo fa il sistema (App Transport Security con
-/// <c>NSAllowsLocalNetworking</c>); su Android la regola di sistema non distingue la rete locale, quindi il
-/// controllo sta qui, su ogni richiesta dei client dell'app.
+/// Rifiuta le richieste HTTP in chiaro verso Internet, su ogni piattaforma. Su iOS c'è anche App Transport
+/// Security, ma non copre gli indirizzi IP scritti per esteso: senza questo controllo un «http://1.2.3.4»
+/// manderebbe dati clinici e chiave del dispositivo in chiaro su Internet.
 /// </summary>
 public sealed class LocalCleartextHandler : DelegatingHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.RequestUri is { } uri && uri.Scheme == Uri.UriSchemeHttp && !LocalNetwork.IsLocalHost(uri.Host))
+        if (request.RequestUri is { } uri && !LocalNetwork.IsAllowedTransport(uri))
         {
             throw new HttpRequestException(Loc.F("Connessione non cifrata rifiutata verso {0}: fuori dalla rete locale serve HTTPS.", uri.Host));
         }
