@@ -87,9 +87,12 @@
               </VerticalStackLayout>
             </Grid>
             <controls:FormField Label="{l:Tr Text='Indirizzo'}">
-              <Entry Placeholder="{l:Tr Text='192.168.1.20 o https://ai.esempio.it'}" Text="{Binding OllamaServer}"
+              <Entry Placeholder="{l:Tr Text='https://ai.esempio.it'}" Text="{Binding OllamaServer}"
                      Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </controls:FormField>
+            <Button Text="{l:Tr Text='IA tramite il server clinico'}" Style="{StaticResource SecondaryButton}" Command="{Binding UseClinicalServerForAiCommand}" />
+            <Label Text="{l:Tr Text='Ollama parla solo in chiaro: tramite il server clinico il telefono resta in HTTPS e il server inoltra a Ollama.'}"
+                   Style="{StaticResource Muted}" />
             <Grid>
               <Button Text="{l:Tr Text='Verifica ed elenca i modelli'}" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" />
               <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" HorizontalOptions="End" Margin="0,0,14,0"
@@ -135,6 +138,12 @@
             <controls:FormField Label="{l:Tr Text='Chiave del dispositivo'}">
               <Entry Text="{Binding SyncApiKey}" IsPassword="True" />
             </controls:FormField>
+            <controls:FormField Label="{l:Tr Text='Impronta del certificato (facoltativa)'}">
+              <Entry Text="{Binding SyncServerPin}" Placeholder="{l:Tr Text='SHA-256 in base64, dallo script del server'}"
+                     IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" FontSize="13" />
+            </controls:FormField>
+            <Label Text="{l:Tr Text='Con un certificato autofirmato (server in rete locale) l\'app accetta solo quello con questa impronta. Vuota: vale la verifica del sistema.'}"
+                   Style="{StaticResource Muted}" />
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                 <Label Text="{l:Tr Text='Invio automatico'}" FontAttributes="Bold" />

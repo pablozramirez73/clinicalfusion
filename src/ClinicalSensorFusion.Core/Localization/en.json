@@ -1,7 +1,6 @@
 {
   "(scala {0})": "(scale {0})",
   "1 rilevazione": "1 session",
-  "192.168.1.20 o https://ai.esempio.it": "192.168.1.20 or https://ai.example.com",
   "[incompleta: non salvata]": "[incomplete: not saved]",
   "[interrotta]": "[stopped]",
   "Accedi nella WebView": "Log in with the WebView",
@@ -73,7 +72,6 @@
   "Configurare l'operatore nelle Impostazioni prima di acquisire.": "Set up the operator in Settings before capturing.",
   "Configurare l'operatore nelle Impostazioni prima di iniziare.": "Set up the operator in Settings before starting.",
   "Connessione a {0}…": "Connecting to {0}…",
-  "Connessione non cifrata rifiutata verso {0}: fuori dalla rete locale serve HTTPS.": "Unencrypted connection to {0} refused: HTTPS is required outside the local network.",
   "Contatto con la pelle": "Skin contact",
   "Copertura LiDAR": "LiDAR coverage",
   "Corpo": "Body",
@@ -131,7 +129,6 @@
   "Il Bluetooth è spento: attivarlo dal Centro di Controllo o dalle Impostazioni.": "Bluetooth is off: turn it on from Control Center or Settings.",
   "Il modello linguistico che commenta gli indicatori.": "The language model that comments on the indicators.",
   "Il modello sta scrivendo…": "The model is writing…",
-  "Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale).": "The clinical server must use HTTPS (HTTP is allowed only on the local network).",
   "Il server non ha risposto in tempo.": "The server did not respond in time.",
   "Il server Ollama non ha risposto in tempo.": "The Ollama server did not respond in time.",
   "Impossibile avviare": "Cannot start",
@@ -455,5 +452,18 @@
   "Il server ha risposto con un reindirizzamento: probabilmente serve l'accesso Cloudflare.": "The server replied with a redirect: Cloudflare access is probably required.",
   "Conferma la modifica di server e credenziali": "Confirm the change of servers and credentials",
   "Impostazioni non salvate: per cambiare server o credenziali serve farsi riconoscere.": "Settings not saved: changing servers or credentials requires you to identify yourself.",
-  "Conferma l'eliminazione della rilevazione": "Confirm deleting the session"
+  "Conferma l'eliminazione della rilevazione": "Confirm deleting the session",
+  "Ollama non è configurato sul server (Ai:OllamaUrl).": "Ollama is not configured on the server (Ai:OllamaUrl).",
+  "Ollama non raggiungibile dal server.": "Ollama cannot be reached from the server.",
+  "Connessione non cifrata rifiutata verso {0}: serve HTTPS.": "Unencrypted connection to {0} refused: HTTPS is required.",
+  "Il server clinico deve usare HTTPS.": "The clinical server must use HTTPS.",
+  "Impronta del certificato non valida: deve essere un SHA-256 in base64, come la mostra lo script del server.": "Invalid certificate fingerprint: it must be a base64 SHA-256, as shown by the server script.",
+  "Il server Ollama deve usare HTTPS. Per un Ollama in rete locale usa «IA tramite il server clinico».": "The Ollama server must use HTTPS. For an Ollama on the local network use “AI through the clinical server”.",
+  "Prima inserisci l'indirizzo HTTPS del server clinico.": "First enter the HTTPS address of the clinical server.",
+  "https://ai.esempio.it": "https://ai.example.com",
+  "IA tramite il server clinico": "AI through the clinical server",
+  "Ollama parla solo in chiaro: tramite il server clinico il telefono resta in HTTPS e il server inoltra a Ollama.": "Ollama only speaks unencrypted HTTP: through the clinical server the phone stays on HTTPS and the server forwards to Ollama.",
+  "Impronta del certificato (facoltativa)": "Certificate fingerprint (optional)",
+  "SHA-256 in base64, dallo script del server": "Base64 SHA-256, from the server script",
+  "Con un certificato autofirmato (server in rete locale) l'app accetta solo quello con questa impronta. Vuota: vale la verifica del sistema.": "With a self-signed certificate (server on the local network) the app accepts only the one with this fingerprint. Empty: the system check applies."
 }

@@ -13,6 +13,7 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     private const string SetupCompletedKey = "setup.completed";
     private const string RequireAuthKey = "security.require_auth";
     private const string SyncServerKey = "sync.server";
+    private const string SyncServerPinKey = "sync.server_pin";
     private const string AutoSyncKey = "sync.auto";
     private const string FallRiskKey = "fallrisk.show";
 
@@ -71,6 +72,16 @@ public sealed class MauiAppSettings(IPreferences preferences) : IAppSettings
     {
         get => preferences.Get(SyncServerKey, string.Empty);
         set => preferences.Set(SyncServerKey, value?.Trim() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Impronta SHA-256 della chiave pubblica del certificato del server clinico (base64). Vuota = certificato
+    /// di un'autorità riconosciuta dal telefono. Non è un segreto: serve a riconoscere il server.
+    /// </summary>
+    public string SyncServerPin
+    {
+        get => preferences.Get(SyncServerPinKey, string.Empty);
+        set => preferences.Set(SyncServerPinKey, value?.Trim() ?? string.Empty);
     }
 
     /// <summary>Stima sperimentale del rischio di caduta nel dettaglio dei test. Spenta finché non la si sceglie.</summary>

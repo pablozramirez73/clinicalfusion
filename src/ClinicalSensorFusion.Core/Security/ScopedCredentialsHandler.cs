@@ -4,11 +4,7 @@ namespace ClinicalSensorFusion.Core.Security;
 public sealed record ScopedCredentials(Uri Origin, IReadOnlyList<KeyValuePair<string, string>> Headers)
 {
     /// <summary>Stessa origine: schema, host e porta identici. Il percorso non conta.</summary>
-    public bool Covers(Uri requestUri) =>
-        requestUri.IsAbsoluteUri
-        && string.Equals(requestUri.Scheme, Origin.Scheme, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(requestUri.IdnHost, Origin.IdnHost, StringComparison.OrdinalIgnoreCase)
-        && requestUri.Port == Origin.Port;
+    public bool Covers(Uri requestUri) => Origins.Same(requestUri, Origin);
 }
 
 /// <summary>

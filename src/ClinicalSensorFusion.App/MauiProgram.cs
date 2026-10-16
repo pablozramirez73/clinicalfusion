@@ -92,36 +92,52 @@ public static class MauiProgram
         // l'annullamento è affidato al CancellationToken della UI.
         var ollama = services.AddHttpClient<OllamaClient>(client => client.Timeout = TimeSpan.FromMinutes(10))
             .AddHttpMessageHandler(sp => new ScopedCredentialsHandler(_ =>
-                CloudflareAccess.CredentialsAsync(sp.GetRequiredService<MauiAppSettings>(), sp.GetRequiredService<ISecureStorage>())));
+                OllamaAccess.CredentialsAsync(sp.GetRequiredService<MauiAppSettings>(), sp.GetRequiredService<ISecureStorage>())));
 
         // Sincronizzazione con il server clinico.
         var sync = services.AddHttpClient<ClinicalSyncClient>(client => client.Timeout = TimeSpan.FromMinutes(5))
             .AddHttpMessageHandler(sp => new ScopedCredentialsHandler(_ =>
                 SyncService.CredentialsAsync(sp.GetRequiredService<MauiAppSettings>(), sp.GetRequiredService<ISecureStorage>())));
 
-        // Su tutte le piattaforme: niente HTTP in chiaro fuori dalla rete locale e niente reindirizzamenti
-        // seguiti in automatico, che porterebbero le credenziali verso un altro host. Un 3xx arriva al client
-        // come errore, con il suo codice.
+        // Su tutte le piattaforme: solo HTTPS, nessun reindirizzamento seguito in automatico (porterebbe le
+        // credenziali verso un altro host; un 3xx arriva al client come errore, con il suo codice) e, verso il
+        // server clinico, certificato riconosciuto dall'impronta se l'operatore l'ha inserita (CertificatePin).
 #if ANDROID
         // Su iOS i cookie della WebView li condivide il sistema; qui i client usano un contenitore comune,
         // riempito dal login nella WebView.
         services.AddSingleton<System.Net.CookieContainer>();
 #endif
-        services.AddTransient<LocalCleartextHandler>();
+        services.AddTransient<HttpsOnlyHandler>();
         foreach (var client in (IHttpClientBuilder[])[ollama, sync])
         {
-            client.AddHttpMessageHandler<LocalCleartextHandler>()
-#if ANDROID
-                .ConfigurePrimaryHttpMessageHandler(sp => new Xamarin.Android.Net.AndroidMessageHandler
+            client.AddHttpMessageHandler<HttpsOnlyHandler>()
+                .ConfigurePrimaryHttpMessageHandler(sp =>
                 {
-                    CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
-                    AllowAutoRedirect = false,
-                });
+                    var settings = sp.GetRequiredService<MauiAppSettings>();
+#if ANDROID
+                    return new Xamarin.Android.Net.AndroidMessageHandler
+                    {
+                        CookieContainer = sp.GetRequiredService<System.Net.CookieContainer>(),
+                        AllowAutoRedirect = false,
+                        ServerCertificateCustomValidationCallback = (request, certificate, _, errors) =>
+                            CertificatePin.Validate(request.RequestUri, certificate, errors, SyncService.Pinned(settings)),
+                    };
 #elif IOS
-                .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.NSUrlSessionHandler { AllowAutoRedirect = false });
+                    return new System.Net.Http.NSUrlSessionHandler
+                    {
+                        AllowAutoRedirect = false,
+                        ServerCertificateCustomValidationCallback = (request, certificate, _, errors) =>
+                            CertificatePin.Validate(request.RequestUri, certificate, errors, SyncService.Pinned(settings)),
+                    };
 #else
-                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+                    return new HttpClientHandler
+                    {
+                        AllowAutoRedirect = false,
+                        ServerCertificateCustomValidationCallback = (request, certificate, _, errors) =>
+                            CertificatePin.Validate(request.RequestUri, certificate, errors, SyncService.Pinned(settings)),
+                    };
 #endif
+                });
         }
 
         services.AddTransient<SessionSynchronizer>();

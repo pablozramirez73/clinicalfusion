@@ -56,6 +56,7 @@ services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
 });
 services.AddProblemDetails();
+services.AddAiProxy(builder.Configuration);
 services.AddCsfOpenApi();
 services.AddHealthChecks()
     .AddDbContextCheck<ClinicalDbContext>("database", tags: [SystemEndpoints.ReadyTag])
@@ -190,7 +191,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
-api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest();
+api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest().MapAiProxy();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFhir();
 app.MapHealth();

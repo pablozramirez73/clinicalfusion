@@ -29,7 +29,8 @@ public static class AppLockPolicy
 }
 
 /// <summary>
-/// Le impostazioni che decidono dove vanno i dati clinici e con quali credenziali. Cambiarle chiede conferma
+/// Le impostazioni che decidono dove vanno i dati clinici, con quali credenziali e quale certificato del
+/// server è accettato. Cambiarle chiede conferma
 /// (<see cref="AppLockPolicy.RequiresConfirmation"/>).
 /// </summary>
 public sealed record SensitiveSettings(
@@ -37,7 +38,8 @@ public sealed record SensitiveSettings(
     string? SyncApiKey,
     string? OllamaServer,
     string? CloudflareClientId,
-    string? CloudflareClientSecret)
+    string? CloudflareClientSecret,
+    string? SyncServerPin = null)
 {
     /// <summary>Vero se almeno un valore è cambiato. Spazi ai lati e valore vuoto contano come assente.</summary>
     public bool DiffersFrom(SensitiveSettings other) =>
@@ -45,7 +47,8 @@ public sealed record SensitiveSettings(
         || !Same(SyncApiKey, other.SyncApiKey)
         || !Same(OllamaServer, other.OllamaServer)
         || !Same(CloudflareClientId, other.CloudflareClientId)
-        || !Same(CloudflareClientSecret, other.CloudflareClientSecret);
+        || !Same(CloudflareClientSecret, other.CloudflareClientSecret)
+        || !Same(SyncServerPin, other.SyncServerPin);
 
     private static bool Same(string? a, string? b) =>
         string.Equals(string.IsNullOrWhiteSpace(a) ? null : a.Trim(), string.IsNullOrWhiteSpace(b) ? null : b.Trim(), StringComparison.Ordinal);

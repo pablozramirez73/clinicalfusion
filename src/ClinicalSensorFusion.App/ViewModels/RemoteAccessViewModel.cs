@@ -18,7 +18,8 @@ public sealed partial class RemoteAccessViewModel(IWebSessionBridge bridge, IDia
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue("Url", out var value) && value is string raw && OllamaEndpoint.TryParse(raw, out var uri) && uri is not null)
+        if (query.TryGetValue("Url", out var value) && value is string raw && OllamaEndpoint.TryParse(raw, out var uri) && uri is not null
+            && uri.Scheme == Uri.UriSchemeHttps)
         {
             // Si apre l'endpoint /api/tags: dopo il login la pagina mostra il JSON dei modelli (conferma visiva).
             Url = new Uri(uri, "api/tags").ToString();

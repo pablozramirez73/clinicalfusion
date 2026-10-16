@@ -39,6 +39,7 @@ public class AppLockPolicyTests
         Saved with { OllamaServer = "https://ai.example.net" },
         Saved with { CloudflareClientId = "id" },
         Saved with { CloudflareClientSecret = "segreto" },
+        Saved with { SyncServerPin = "AAAA" }, // accettare un altro certificato del server
     ];
 
     [Theory]

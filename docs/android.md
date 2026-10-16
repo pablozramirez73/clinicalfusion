@@ -26,7 +26,8 @@ TrueDepth, e questa versione non li sostituisce con altro.
 | Chiave del database | Portachiavi | Android Keystore (AES-GCM) |
 | Blocco dell'app | Face ID / Touch ID / codice | impronta o volto / blocco schermo (BiometricPrompt) |
 | Cookie Cloudflare Access | WKWebView → NSHTTPCookieStorage | WebView → `CookieContainer` dei client HTTP |
-| HTTP solo in rete locale | App Transport Security | `LocalCleartextHandler` su ogni richiesta |
+| Solo HTTPS | `HttpsOnlyHandler` su ogni richiesta | `HttpsOnlyHandler` + `cleartextTrafficPermitted="false"` |
+| Certificato del server in rete locale | impronta della chiave pubblica (`CertificatePin`) | impronta della chiave pubblica (`CertificatePin`) |
 
 I layout dei flussi (`SensorKind`) sono identici: una rilevazione Android si legge, si sincronizza e si rivede nella
 dashboard come una iOS. Le differenze da tenere presenti in analisi:
@@ -68,8 +69,8 @@ Come su iOS, a .NET si lega solo una facciata piccola: la libreria di Google arr
 - `allowBackup="false"` e regole di estrazione vuote: archivio, audio e chiave non entrano nei backup di Google né
   nel trasferimento a un altro telefono. I file stanno nella cartella privata dell'app, cifrata dal sistema.
 - Con il blocco dell'app attivo la finestra è `FLAG_SECURE`: niente contenuto nelle app recenti né negli screenshot.
-- Il traffico in chiaro è abilitato nel manifest (Android non sa limitarlo alla rete locale) ma ogni richiesta
-  dell'app passa da `LocalCleartextHandler`, che rifiuta HTTP fuori dalla rete locale. Solo certificati di sistema.
+- Niente traffico in chiaro (`cleartextTrafficPermitted="false"`), e in più ogni richiesta dell'app passa da
+  `HttpsOnlyHandler`. Solo certificati di sistema; il server autofirmato in rete locale si riconosce dall'impronta.
 - Permessi: fotocamera e microfono obbligatori; attività fisica (contapassi) e posizione facoltativi.
 
 ## 4. Build

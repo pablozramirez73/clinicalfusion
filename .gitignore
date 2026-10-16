@@ -17,6 +17,7 @@ src/ClinicalSensorFusion.App/Resources/Raw/models/*.task
 
 # Credenziali locali del server esposto in rete (scripts/run-server-lan.sh)
 .server-lan.env
+.server-lan/
 entrata.log
 auth.log
 

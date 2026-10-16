@@ -130,12 +130,22 @@ sviluppo non valgono più. Il server riceve solo gli hash, da `.server-lan.env`;
 finiscono in `entrata.log`, che lo script mostra a ogni avvio insieme all'indirizzo da inserire nell'app e a cui
 aggiunge una riga con data e indirizzo. Entrambi i file sono locali, leggibili solo dal proprio utente ed esclusi
 da git: `entrata.log` contiene segreti in chiaro e non va condiviso. Nell'app: Impostazioni → *Server clinico* →
-`http://<indirizzo>:5180` e la chiave. Per rigenerarle basta cancellare `.server-lan.env` (o `entrata.log`). Se
+`https://<indirizzo>:5180`, la chiave e l'impronta del certificato. Per rigenerarle basta cancellare `.server-lan.env` (o `entrata.log`). Se
 sul computer gira un PostgreSQL senza l'utente `postgres` di docker compose, lo script usa l'utente di sistema;
 altrimenti la stringa di connessione si può cambiare in `.server-lan.env`.
 
-Il traffico è HTTP non cifrato: va bene su una rete fidata, non su una Wi-Fi condivisa. Per un uso reale vale
-la sezione seguente.
+Il traffico è cifrato anche in rete locale: lo script genera un certificato autofirmato in `.server-lan/`
+(escluso da git; la chiave resta la stessa anche se cambia l'indirizzo) e avvia il server solo in HTTPS. Un
+certificato autofirmato non è riconosciuto dal telefono, quindi l'app lo accetta solo se coincide l'**impronta**
+SHA-256 della chiave pubblica che lo script mostra a ogni avvio (Impostazioni → *Server clinico* → *Impronta del
+certificato*): chi si mettesse in mezzo con un altro certificato verrebbe rifiutato. Il browser della dashboard
+mostra un avviso la prima volta. Per un uso reale vale la sezione seguente, con un certificato di un'autorità
+(lì l'impronta si lascia vuota).
+
+Ollama parla solo HTTP: il telefono non lo chiama più direttamente. Il server inoltra a Ollama (`Ai:OllamaUrl`,
+di default `http://localhost:11434/`) le sole due chiamate che l'app usa, `GET /api/v1/ai/api/tags` e
+`POST /api/v1/ai/api/chat`, con la chiave del dispositivo. Nell'app: Impostazioni → *Server Ollama* → *IA
+tramite il server clinico*. Un Ollama remoto resta utilizzabile se è dietro HTTPS (per esempio Cloudflare Access).
 
 ### Lingua della dashboard e delle risposte del server
 

@@ -107,12 +107,18 @@ public sealed class SyncService(SessionSynchronizer synchronizer, MauiAppSetting
         return string.IsNullOrEmpty(key) ? null : new ScopedCredentials(server!, [new(ClinicalSyncClient.ApiKeyHeader, key)]);
     }
 
+    /// <summary>Il server clinico con l'impronta del suo certificato, se configurata (<see cref="CertificatePin"/>).</summary>
+    public static PinnedServer? Pinned(MauiAppSettings settings) =>
+        TryGetServer(settings, out var server) && CertificatePin.Normalize(settings.SyncServerPin) is { } pin
+            ? new PinnedServer(server!, pin)
+            : null;
+
     private bool TryGetServer(out Uri? server) => TryGetServer(settings, out server);
 
-    private static bool TryGetServer(MauiAppSettings settings, out Uri? server)
+    internal static bool TryGetServer(MauiAppSettings settings, out Uri? server)
     {
         server = null;
-        if (!Uri.TryCreate(settings.SyncServer?.Trim(), UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        if (!Uri.TryCreate(settings.SyncServer?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
         {
             return false;
         }

@@ -105,6 +105,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string? SyncApiKey { get; set; }
 
+    /// <summary>Impronta del certificato del server clinico (vuota = certificato di un'autorità).</summary>
+    [ObservableProperty]
+    public partial string? SyncServerPin { get; set; }
+
     [ObservableProperty]
     public partial bool AutoSync { get; set; }
 
@@ -131,6 +135,7 @@ public sealed partial class SettingsViewModel(
         RequireUnlock = appLock.IsEnabled;
         _loadingLock = false;
         SyncServer = settings.SyncServer;
+        SyncServerPin = settings.SyncServerPin;
         AutoSync = settings.AutoSync;
         ShowFallRiskEstimate = settings.ShowFallRiskEstimate;
         SyncApiKey = await secureStorage.GetAsync(SyncService.ApiKeyStorageKey);
@@ -160,9 +165,21 @@ public sealed partial class SettingsViewModel(
 
         // Prima tutti i controlli, poi le scritture: un salvataggio rifiutato non lascia impostazioni a metà.
         if (!string.IsNullOrWhiteSpace(SyncServer) &&
-            (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || !LocalNetwork.IsAllowedTransport(syncUri)))
+            (!Uri.TryCreate(SyncServer.Trim(), UriKind.Absolute, out var syncUri) || syncUri.Scheme != Uri.UriSchemeHttps))
         {
-            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server clinico deve usare HTTPS (HTTP è ammesso solo in rete locale)."));
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server clinico deve usare HTTPS."));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SyncServerPin) && !CertificatePin.IsWellFormed(SyncServerPin))
+        {
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Impronta del certificato non valida: deve essere un SHA-256 in base64, come la mostra lo script del server."));
+            return;
+        }
+
+        if (OllamaEndpoint.TryParse(OllamaServer, out var ollamaUri) && ollamaUri!.Scheme != Uri.UriSchemeHttps)
+        {
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Il server Ollama deve usare HTTPS. Per un Ollama in rete locale usa «IA tramite il server clinico»."));
             return;
         }
 
@@ -191,6 +208,7 @@ public sealed partial class SettingsViewModel(
 
         settings.RecordLocation = RecordLocation;
         settings.SyncServer = SyncServer;
+        settings.SyncServerPin = CertificatePin.Normalize(SyncServerPin) ?? string.Empty;
         settings.AutoSync = AutoSync;
         settings.ShowFallRiskEstimate = ShowFallRiskEstimate;
         await SaveSecretAsync(SyncService.ApiKeyStorageKey, SyncApiKey);
@@ -288,6 +306,22 @@ public sealed partial class SettingsViewModel(
     private Task OpenRemoteAccessAsync() =>
         Shell.Current.GoToAsync(nameof(RemoteAccessPage), new Dictionary<string, object> { ["Url"] = OllamaServer });
 
+    /// <summary>
+    /// Ollama attraverso il server clinico: l'app parla solo con il server, in HTTPS e con la chiave del
+    /// dispositivo, e il server inoltra a Ollama. È il modo di usare un Ollama in rete locale senza HTTP in chiaro.
+    /// </summary>
+    [RelayCommand]
+    private async Task UseClinicalServerForAiAsync()
+    {
+        if (!Uri.TryCreate(SyncServer?.Trim(), UriKind.Absolute, out var server) || server.Scheme != Uri.UriSchemeHttps)
+        {
+            await dialogs.AlertAsync(Loc.T("Impostazioni"), Loc.T("Prima inserisci l'indirizzo HTTPS del server clinico."));
+            return;
+        }
+
+        OllamaServer = new Uri(server.AbsoluteUri.EndsWith('/') ? server : new Uri(server.AbsoluteUri + "/"), "api/v1/ai/").AbsoluteUri;
+    }
+
     [RelayCommand]
     private void GenerateOperatorId()
     {
@@ -298,7 +332,7 @@ public sealed partial class SettingsViewModel(
     }
 
     private SensitiveSettings CurrentSensitive() =>
-        new(SyncServer, SyncApiKey, OllamaServer, CloudflareClientId, CloudflareClientSecret);
+        new(SyncServer, SyncApiKey, OllamaServer, CloudflareClientId, CloudflareClientSecret, CertificatePin.Normalize(SyncServerPin));
 
     private async Task SaveSecretAsync(string key, string? value)
     {

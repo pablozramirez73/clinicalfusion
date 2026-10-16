@@ -104,8 +104,11 @@ un sistema di riferimento (es. motion capture ottico) e la valutazione regolator
   `audit_log` di creazione/chiusura/eliminazione/analisi.
 - Al modello linguistico vanno **solo indicatori numerici** (no codice soggetto, no operatore, no audio/immagini);
   le note sono delimitate per ridurre la prompt injection.
-- HTTP in chiaro consentito **solo in rete locale** (`NSAllowsLocalNetworking`); da Internet serve HTTPS
-  (Cloudflare Access con login nella WebView o service token salvato nel Portachiavi).
+- **Solo HTTPS**, anche in rete locale (`HttpsOnlyHandler` su ogni richiesta). Il server di sviluppo usa un
+  certificato autofirmato riconosciuto dall'impronta della chiave pubblica (`CertificatePin`); Ollama si raggiunge
+  attraverso il server clinico (`/api/v1/ai/`) o dietro HTTPS (Cloudflare Access, con login nella WebView o service
+  token nel Portachiavi). `NSAllowsLocalNetworking` resta solo per accettare il certificato autofirmato su nomi
+  `.local`: non apre al traffico in chiaro, che l'app rifiuta comunque.
 - Manifest privacy `PrivacyInfo.xcprivacy` con le motivazioni delle API sensibili.
 
 ## 6. Prerequisiti (Mac)

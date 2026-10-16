@@ -7,7 +7,8 @@
 # Entrambi i file sono locali, leggibili solo dal proprio utente ed esclusi da git.
 # Per rigenerare le credenziali: cancellare .server-lan.env (o entrata.log).
 #
-# Traffico in HTTP non cifrato: solo su reti fidate. Per un uso reale vedi docs/server.md (HTTPS, produzione).
+# Traffico in HTTPS con certificato autofirmato (l'app lo riconosce dall'impronta). Per un uso reale vedi
+# docs/server.md (certificato di un'autorità, produzione).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,7 +30,26 @@ dotnet build "$SERVER" -v:q -nologo >/dev/null
 admin() { dotnet run --project "$SERVER" --no-build --no-launch-profile -- "$@" | tail -n 2; }
 
 address="$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || true)"
-url="http://${address:-<indirizzo di questo computer>}:$PORT"
+url="https://${address:-<indirizzo di questo computer>}:$PORT"
+
+# HTTPS anche in rete locale, con un certificato autofirmato generato qui. Non è firmato da un'autorità:
+# l'app lo accetta solo se coincide l'impronta della chiave pubblica (SHA-256), da inserire nelle
+# Impostazioni accanto alla chiave del dispositivo. Il browser della dashboard mostra un avviso la prima volta.
+CERT_DIR="$ROOT/.server-lan"
+CERT="$CERT_DIR/server.crt"
+CERT_KEY="$CERT_DIR/server.key"
+host_name="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
+san="DNS:localhost,DNS:${host_name}.local,IP:127.0.0.1${address:+,IP:$address}"
+if [[ ! -f "$CERT" || ! -f "$CERT_KEY" ]] || ! openssl x509 -in "$CERT" -noout -ext subjectAltName 2>/dev/null | grep -q "${address:-127.0.0.1}"; then
+  # Nuovo certificato anche se l'indirizzo è cambiato; la chiave resta, quindi l'impronta nell'app resta valida.
+  (umask 077 && mkdir -p "$CERT_DIR")
+  [[ -f "$CERT_KEY" ]] || (umask 077 && openssl ecparam -name prime256v1 -genkey -noout -out "$CERT_KEY")
+  openssl req -new -x509 -key "$CERT_KEY" -out "$CERT" -days 825 -subj "/CN=SensorFusion Clinic (rete locale)" \
+    -addext "subjectAltName=$san" -addext "extendedKeyUsage=serverAuth" 2>/dev/null
+fi
+pin="$(openssl x509 -in "$CERT" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64 -A)"
+export Kestrel__Certificates__Default__Path="$CERT"
+export Kestrel__Certificates__Default__KeyPath="$CERT_KEY"
 
 # Il server di sviluppo si aspetta l'utente "postgres" di docker compose; un PostgreSQL installato sul
 # computer (es. Homebrew) di solito ha solo l'utente di sistema.
@@ -93,12 +113,14 @@ fi
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 chmod 600 "$ENTRY_LOG"
-echo "avvio: $(date '+%Y-%m-%d %H:%M:%S')  indirizzo del server: $url" >> "$ENTRY_LOG"
+echo "avvio: $(date '+%Y-%m-%d %H:%M:%S')  indirizzo del server: $url  impronta del certificato: $pin" >> "$ENTRY_LOG"
 
 echo
 echo "Credenziali (anche in $ENTRY_LOG):"
 grep -v '^#' "$ENTRY_LOG" | sed '/^avvio: /d'
 echo "  indirizzo del server da inserire nell'app: $url"
+echo "  impronta del certificato da inserire nell'app: $pin"
+echo "  IA tramite il server (indirizzo Ollama nell'app): ${url}/api/v1/ai/"
 echo
 
-exec dotnet run --project "$SERVER" --no-build --launch-profile http -- --urls "http://0.0.0.0:$PORT"
+exec dotnet run --project "$SERVER" --no-build --launch-profile http -- --urls "https://0.0.0.0:$PORT"

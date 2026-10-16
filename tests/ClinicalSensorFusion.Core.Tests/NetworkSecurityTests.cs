@@ -1,10 +1,13 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using ClinicalSensorFusion.Core.Ai;
 using ClinicalSensorFusion.Core.Security;
 
 namespace ClinicalSensorFusion.Core.Tests;
 
-/// <summary>Credenziali solo verso il server configurato e niente HTTP in chiaro fuori dalla rete locale.</summary>
+/// <summary>Credenziali solo verso il server configurato, solo HTTPS, certificato del server riconosciuto dall'impronta.</summary>
 public class NetworkSecurityTests
 {
     private const string Header = "X-Api-Key";
@@ -70,29 +73,15 @@ public class NetworkSecurityTests
     }
 
     [Theory]
-    [InlineData("localhost", true)]
-    [InlineData("127.0.0.1", true)]
-    [InlineData("192.168.1.204", true)]
-    [InlineData("10.0.0.5", true)]
-    [InlineData("172.16.0.1", true)]
-    [InlineData("172.32.0.1", false)]
-    [InlineData("mac-studio", true)]
-    [InlineData("mac-studio.local", true)]
-    [InlineData("[fd00::1]", true)]
-    [InlineData("8.8.8.8", false)]
-    [InlineData("example.org", false)]
-    public void Local_hosts_are_recognised(string host, bool local) =>
-        Assert.Equal(local, LocalNetwork.IsLocalHost(host));
-
-    [Theory]
-    [InlineData("http://192.168.1.204:5180/", true)]
     [InlineData("https://clinica.example.org/", true)]
-    [InlineData("http://8.8.8.8/", false)] // un IP pubblico scritto per esteso: ATS di iOS non lo copre
-    [InlineData("http://clinica.example.org/", false)]
-    public async Task Cleartext_is_refused_outside_the_local_network(string url, bool allowed)
+    [InlineData("https://192.168.1.204:5180/", true)]
+    [InlineData("http://192.168.1.204:5180/", false)] // anche in rete locale: niente più chiaro
+    [InlineData("http://localhost:11434/", false)]
+    [InlineData("http://8.8.8.8/", false)]
+    public async Task Only_https_leaves_the_app(string url, bool allowed)
     {
         var inner = new Recorder();
-        using var client = new HttpClient(new LocalCleartextHandler { InnerHandler = inner });
+        using var client = new HttpClient(new HttpsOnlyHandler { InnerHandler = inner });
         var send = () => client.GetAsync(new Uri(url), TestContext.Current.CancellationToken);
 
         if (allowed)
@@ -105,6 +94,57 @@ public class NetworkSecurityTests
             await Assert.ThrowsAsync<HttpRequestException>(send);
             Assert.Empty(inner.Requests);
         }
+    }
+
+    private static X509Certificate2 SelfSigned()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var request = new CertificateRequest("CN=SensorFusion Clinic (rete locale)", key, HashAlgorithmName.SHA256);
+        return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(30));
+    }
+
+    private static readonly Uri Server = new("https://192.168.1.204:5180/");
+
+    [Fact]
+    public void A_self_signed_certificate_is_accepted_only_with_its_pin()
+    {
+        using var real = SelfSigned();
+        using var impostor = SelfSigned();
+        var pinned = new PinnedServer(Server, CertificatePin.Compute(real));
+        var request = new Uri(Server, "api/v1/ingest/sessions/1");
+
+        // Autofirmato: per il sistema è un errore di catena, ma la chiave è quella attesa.
+        Assert.True(CertificatePin.Validate(request, real, SslPolicyErrors.RemoteCertificateChainErrors, pinned));
+        // Un altro certificato autofirmato per lo stesso indirizzo (chi si mette in mezzo): rifiutato.
+        Assert.False(CertificatePin.Validate(request, impostor, SslPolicyErrors.RemoteCertificateChainErrors, pinned));
+        // L'impronta vale anche quando il sistema non trova errori: conta la chiave, non l'autorità.
+        Assert.False(CertificatePin.Validate(request, impostor, SslPolicyErrors.None, pinned));
+        Assert.False(CertificatePin.Validate(request, null, SslPolicyErrors.RemoteCertificateNotAvailable, pinned));
+    }
+
+    [Fact]
+    public void Other_hosts_and_unpinned_servers_use_the_system_check()
+    {
+        using var certificate = SelfSigned();
+        var pinned = new PinnedServer(Server, CertificatePin.Compute(certificate));
+        var other = new Uri("https://ai.example.org/api/tags");
+
+        Assert.True(CertificatePin.Validate(other, certificate, SslPolicyErrors.None, pinned));
+        Assert.False(CertificatePin.Validate(other, certificate, SslPolicyErrors.RemoteCertificateChainErrors, pinned));
+        Assert.False(CertificatePin.Validate(Server, certificate, SslPolicyErrors.RemoteCertificateChainErrors, null));
+    }
+
+    [Fact]
+    public void Pins_are_read_as_the_server_script_prints_them()
+    {
+        using var certificate = SelfSigned();
+        var pin = CertificatePin.Compute(certificate);
+
+        Assert.True(CertificatePin.IsWellFormed(pin));
+        Assert.Equal(pin, CertificatePin.Normalize($"  sha256/{pin[..10]} {pin[10..]} "));
+        Assert.True(CertificatePin.Validate(Server, certificate, SslPolicyErrors.RemoteCertificateChainErrors, new PinnedServer(Server, "sha256/" + pin)));
+        Assert.False(CertificatePin.IsWellFormed("non è un'impronta"));
+        Assert.False(CertificatePin.IsWellFormed(Convert.ToBase64String(new byte[20]))); // SHA-1, non SHA-256
     }
 
     [Fact]
