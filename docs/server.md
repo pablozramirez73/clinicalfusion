@@ -74,6 +74,48 @@ il database `clinical_dev` viene popolato con **6 pazienti fittizi** e ~30 rilev
 
 Chiave di sviluppo per l'app: `dev-device-key-solo-sviluppo`.
 
+### Con .NET Aspire
+
+In alternativa ai passi qui sopra, un solo comando avvia tutto con la dashboard di Aspire (log, metriche e
+tracce di ogni servizio, stato delle risorse). Serve Docker (o Podman) per il container di PostgreSQL.
+
+```bash
+# Una volta sola: gli hash delle credenziali, negli user-secrets dell'AppHost (mai nel repository)
+dotnet run --project src/ClinicalSensorFusion.Server --no-launch-profile -- hash-password '<password>'
+dotnet run --project src/ClinicalSensorFusion.Server --no-launch-profile -- new-device-key iphone-aspire
+dotnet user-secrets set Parameters:dashboard-password-hash '<hash della password>' --project src/ClinicalSensorFusion.AppHost
+dotnet user-secrets set Parameters:device-key-sha256 '<KeySha256>' --project src/ClinicalSensorFusion.AppHost
+
+dotnet run --project src/ClinicalSensorFusion.AppHost   # dashboard di Aspire: http://localhost:15180
+```
+
+L'AppHost (`src/ClinicalSensorFusion.AppHost`) orchestra tre risorse:
+
+| Risorsa | Cosa | Indirizzo |
+|---|---|---|
+| `postgres` / `clinical` | PostgreSQL in container, database `clinical`, dati nel volume `clinical-sensor-fusion-pgdata`. La porta sull'host la sceglie Aspire, quindi convive con un PostgreSQL già installato o con docker compose sulla 5432; la password è generata e salvata negli user-secrets dell'AppHost. | indicato nella dashboard di Aspire |
+| `server` | Il server, profilo `aspire` (ambiente Development, dati demo). Riceve `ConnectionStrings__Clinical` dal riferimento al database e parte quando PostgreSQL è pronto; Aspire lo considera sano quando risponde `/health/ready`. | http://localhost:5181 |
+| `dashboard` | Vite con hot reload (`npm run dev`, dipendenze installate da Aspire); inoltra `/api`, `/health` e `/fhir` al server tramite `SERVER_URL`. | indicato nella dashboard di Aspire |
+
+Credenziali: utente `demo` (parametro `dashboard-user`) con la password di cui si è salvato l'hash; nell'app la
+chiave generata, con il nome del parametro `device-name` (predefinito `iphone-aspire`). I parametri sostituiscono
+la prima voce di `Dashboard:Users` e di `Ingest:Devices`, quindi sotto Aspire la password `clinica2026` e la
+chiave di sviluppo non valgono. Se un parametro manca, la dashboard di Aspire lo chiede all'avvio; in
+alternativa vanno bene le variabili `Parameters__<nome>`.
+
+Il server usa `ClinicalSensorFusion.ServiceDefaults` (`builder.AddServiceDefaults()` e
+`app.MapDefaultEndpoints()`): strumentazione OpenTelemetry di ASP.NET Core, client HTTP e runtime, esportazione
+OTLP quando c'è `OTEL_EXPORTER_OTLP_ENDPOINT` (Aspire lo imposta verso la propria dashboard), service discovery e
+resilienza dei client HTTP. Il server aggiunge sopra le proprie metriche e tracce (`csf.*`); le sonde
+`/health`, `/health/ready` e `/health/live` restano quelle del server, con i loro limiti di frequenza, e
+`MapDefaultEndpoints` non ne aggiunge altre.
+
+Cosa resta uguale: l'avvio classico qui sopra, `scripts/run-server-lan.sh` (porta 5180, credenziali in
+`entrata.log`), docker compose, i test e la produzione non dipendono da Aspire. Senza
+`OTEL_EXPORTER_OTLP_ENDPOINT` la telemetria resta nel processo come prima, e `Telemetry:OtlpEndpoint` continua a
+funzionare. Le versioni dei pacchetti Aspire sono in `Directory.Packages.props`, quella dell'SDK dell'AppHost in
+`global.json`: vanno aggiornate insieme.
+
 ### Dal telefono, sulla rete locale
 
 Il profilo di sviluppo ascolta solo su `localhost` e usa credenziali note (quelle qui sopra). Per provare

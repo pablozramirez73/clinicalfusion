@@ -1,0 +1,24 @@
+<Project Sdk="Aspire.AppHost.Sdk">
+  <!--
+    Orchestrazione .NET Aspire per lo sviluppo: PostgreSQL (container), server ASP.NET Core e dashboard React
+    con Vite, più la dashboard di Aspire con log, metriche e tracce. Avvio: dotnet run con questo progetto
+    (vedi docs/server.md). Versione dell'SDK in global.json.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(CsfNetTfm)</TargetFramework>
+    <UserSecretsId>clinical-sensor-fusion-apphost</UserSecretsId>
+    <!-- ASPIRE010: si avvia con dotnet run, senza la CLI di Aspire (aspire run). -->
+    <NoWarn>$(NoWarn);CA1515;ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ClinicalSensorFusion.Server/ClinicalSensorFusion.Server.csproj" />
+  </ItemGroup>
+</Project>

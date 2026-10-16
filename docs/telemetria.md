@@ -92,6 +92,10 @@ Telemetry__OtlpEndpoint=http://otel-collector:4317   # facoltativo: metriche, tr
 Telemetry__LogDirectory=/var/log/clinical            # facoltativo: log su file (10 file da 10 MB)
 ```
 
+- La strumentazione comune (ASP.NET Core, client HTTP, runtime, log OpenTelemetry) e l'esportazione OTLP sono
+  in `ClinicalSensorFusion.ServiceDefaults`; `Telemetry__OtlpEndpoint` equivale a `OTEL_EXPORTER_OTLP_ENDPOINT`
+  (gRPC). Avviato con .NET Aspire (vedi [server.md](server.md)), il server manda log, metriche e tracce alla
+  dashboard di Aspire senza configurazione.
 - Ogni richiesta alle API produce una riga `HTTP {Method} {Route} → {StatusCode} in {DurationMs} ms`; la
   rotta è il modello (`/api/v1/sessions/{id}`), non l'URL.
 - La risposta porta `X-Trace-Id`: lo stesso valore è in tutte le righe di log della richiesta.

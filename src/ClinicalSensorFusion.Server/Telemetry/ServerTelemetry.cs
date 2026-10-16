@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
 using ClinicalSensorFusion.Core.Telemetry;
-using OpenTelemetry;
-using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -36,7 +34,8 @@ public static class ServerTelemetry
 
     /// <summary>
     /// Log strutturati (JSON su console fuori dallo sviluppo, file a rotazione se configurato), metriche e
-    /// tracce con OpenTelemetry, aggregatore in memoria per la pagina di stato.
+    /// tracce dell'applicazione con OpenTelemetry, aggregatore in memoria per la pagina di stato. Va chiamato
+    /// prima di <c>AddServiceDefaults</c>, che legge l'endpoint OTLP.
     /// </summary>
     public static WebApplicationBuilder AddCsfTelemetry(this WebApplicationBuilder builder)
     {
@@ -68,25 +67,24 @@ public static class ServerTelemetry
         // Creato subito: deve essere in ascolto prima della prima richiesta.
         builder.Services.AddSingleton(new MetricsCollector(HttpMeter));
 
-        var otel = builder.Services.AddOpenTelemetry()
-            .ConfigureResource(r => r.AddService(options.ServiceName, serviceVersion: Version))
-            .WithMetrics(m => m
-                .AddMeter(CsfTelemetry.Name)
-                .AddAspNetCoreInstrumentation()
-                .AddRuntimeInstrumentation())
-            .WithTracing(t => t
-                .AddSource(CsfTelemetry.Name)
-                .AddAspNetCoreInstrumentation());
+        // Il resto (strumentazione di ASP.NET Core, client HTTP e runtime, log OpenTelemetry, esportazione OTLP)
+        // è in ServiceDefaults (AddServiceDefaults): qui solo le sorgenti dell'applicazione e il nome del servizio.
+        // Sotto Aspire nome e istanza arrivano da OTEL_SERVICE_NAME / OTEL_RESOURCE_ATTRIBUTES: non vanno sovrascritti,
+        // altrimenti la dashboard di Aspire non associa la telemetria alla risorsa.
+        var serviceName = builder.Configuration["OTEL_SERVICE_NAME"];
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(r => r.AddService(
+                string.IsNullOrWhiteSpace(serviceName) ? options.ServiceName : serviceName,
+                serviceVersion: Version,
+                autoGenerateServiceInstanceId: string.IsNullOrWhiteSpace(serviceName)))
+            .WithMetrics(m => m.AddMeter(CsfTelemetry.Name))
+            .WithTracing(t => t.AddSource(CsfTelemetry.Name));
 
-        var endpoint = options.OtlpEndpoint ?? builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
-        if (!string.IsNullOrWhiteSpace(endpoint))
+        // Telemetry:OtlpEndpoint resta valido: diventa la variabile standard letta da ServiceDefaults (gRPC).
+        if (!string.IsNullOrWhiteSpace(options.OtlpEndpoint) && string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
-            otel.WithLogging(null, o =>
-            {
-                o.IncludeScopes = true;
-                o.IncludeFormattedMessage = true;
-            });
-            otel.UseOtlpExporter(OtlpExportProtocol.Grpc, new Uri(endpoint));
+            builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = options.OtlpEndpoint;
+            builder.Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"] ??= "grpc";
         }
 
         return builder;

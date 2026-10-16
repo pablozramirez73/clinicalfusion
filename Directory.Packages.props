@@ -6,6 +6,10 @@
     <AspNetCoreVersion>11.0.0-rc.2.26504.105</AspNetCoreVersion>
     <EfCoreVersion>11.0.0-rc.1.26425.128</EfCoreVersion>
     <NpgsqlEfVersion>11.0.0-rc.1.1</NpgsqlEfVersion>
+    <!-- .NET Aspire (AppHost e ServiceDefaults). La versione dell'SDK dell'AppHost (Aspire.AppHost.Sdk, che porta con sé Aspire.Hosting.AppHost) è in global.json e va tenuta uguale. -->
+    <AspireVersion>13.6.1</AspireVersion>
+    <!-- Resilienza e service discovery dei client HTTP: escono con Aspire (10.x, valide anche su net11.0). -->
+    <AspireExtensionsVersion>10.11.0</AspireExtensionsVersion>
   </PropertyGroup>
   <!--
     Ripiego per ambienti con solo l'SDK .NET 10 (-p:CsfNetTfm=net10.0): i pacchetti ASP.NET Core / EF Core 11
@@ -43,6 +47,14 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <!-- .NET Aspire: orchestrazione in sviluppo (src/ClinicalSensorFusion.AppHost) e impostazioni comuni dei servizi. -->
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
+    <!-- Dipendenza indiretta di Aspire.Hosting: 2.5.302 ha GHSA-qhrr-8q5h-9q3h, corretta in 2.5.303. -->
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="$(AspireExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="$(AspireExtensionsVersion)" />
     <!-- Test -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetCoreVersion)" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />

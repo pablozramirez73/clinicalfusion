@@ -41,6 +41,7 @@ if (args is ["new-device-key", var deviceName])
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddCsfTelemetry();
+builder.AddServiceDefaults();
 var services = builder.Services;
 
 services.AddSingleton(TimeProvider.System);
@@ -193,6 +194,7 @@ api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFhir();
 app.MapHealth();
+app.MapDefaultEndpoints();
 app.MapApiDocs();
 if (ApiDocs.IsEnabled(app))
 {

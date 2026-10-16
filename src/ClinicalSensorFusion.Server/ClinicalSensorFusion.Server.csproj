@@ -20,14 +20,11 @@
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../ClinicalSensorFusion.Core/ClinicalSensorFusion.Core.csproj" />
+    <ProjectReference Include="../ClinicalSensorFusion.ServiceDefaults/ClinicalSensorFusion.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

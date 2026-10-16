@@ -5,6 +5,8 @@
     <Project Path="src/ClinicalSensorFusion.MediaPipe.Android/ClinicalSensorFusion.MediaPipe.Android.csproj" />
     <Project Path="src/ClinicalSensorFusion.App/ClinicalSensorFusion.App.csproj" />
     <Project Path="src/ClinicalSensorFusion.Server/ClinicalSensorFusion.Server.csproj" />
+    <Project Path="src/ClinicalSensorFusion.ServiceDefaults/ClinicalSensorFusion.ServiceDefaults.csproj" />
+    <Project Path="src/ClinicalSensorFusion.AppHost/ClinicalSensorFusion.AppHost.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ClinicalSensorFusion.Core.Tests/ClinicalSensorFusion.Core.Tests.csproj" />
