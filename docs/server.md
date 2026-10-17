@@ -147,6 +147,30 @@ di default `http://localhost:11434/`) le sole due chiamate che l'app usa, `GET /
 `POST /api/v1/ai/api/chat`, con la chiave del dispositivo. Nell'app: Impostazioni → *Server Ollama* → *IA
 tramite il server clinico*. Un Ollama remoto resta utilizzabile se è dietro HTTPS (per esempio Cloudflare Access).
 
+### Da Internet, con un tunnel Cloudflare
+
+Il server della rete locale si può raggiungere anche da fuori con un tunnel Cloudflare con nome, senza aprire
+porte sul router. Sulla macchina di sviluppo il tunnel `clinicalfusion` risponde a `https://clica.syntaxnode.work`:
+
+- configurazione in `~/.cloudflared/clinicalfusion.yml` (fuori dal repository): l'ingresso inoltra a
+  `https://localhost:5180` verificando il certificato autofirmato con la sua copia (`caPool:
+  .server-lan/server.crt`, `originServerName: localhost`), quindi il traffico è cifrato anche tra
+  `cloudflared` e il server;
+- avvio permanente con launchd (`~/Library/LaunchAgents/work.syntaxnode.clinicalfusion-tunnel.plist`): parte al
+  login e si riavvia se cade; log in `~/Library/Logs/clinicalfusion/tunnel.log`;
+- il server dietro resta quello di `run-server-lan.sh`: se è spento il tunnel risponde 502.
+
+Nell'app, da fuori casa: *Server clinico* → `https://clica.syntaxnode.work` e impronta **vuota** (il certificato
+è di un'autorità pubblica); *IA tramite il server clinico* compila `https://clica.syntaxnode.work/api/v1/ai/`.
+Dati e Ollama restano protetti dalla chiave del dispositivo, la dashboard dal login.
+
+Comandi utili:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel   # riavvio
+launchctl bootout gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel        # stop definitivo
+```
+
 ### Lingua della dashboard e delle risposte del server
 
 La dashboard è in italiano e in inglese: la lingua si sceglie dal menu in fondo alla barra laterale (o nella
