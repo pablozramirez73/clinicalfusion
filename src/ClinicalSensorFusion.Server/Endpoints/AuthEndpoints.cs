@@ -1,3 +1,4 @@
+using ClinicalSensorFusion.Core.Localization;
 using System.Security.Claims;
 using ClinicalSensorFusion.Core.Telemetry;
 using ClinicalSensorFusion.Server.Security;
@@ -11,6 +12,8 @@ using Microsoft.Extensions.Options;
 namespace ClinicalSensorFusion.Server.Endpoints;
 
 public sealed record LoginRequest(string UserName, string Password);
+
+public sealed record RegisterRequest(string Email, string? DisplayName, string Password);
 
 public sealed record CurrentUser(string UserName, string DisplayName, bool IsAdmin = false);
 
@@ -36,6 +39,8 @@ public static class AuthEndpoints
     {
         var g = api.MapGroup("/auth").WithTags("Autenticazione");
         g.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting(LoginRateLimit);
+        g.MapPost("/register", RegisterAsync).AllowAnonymous().RequireRateLimiting(LoginRateLimit)
+            .WithSummary("Registrazione con email e password: crea una richiesta da approvare.");
         g.MapPost("/token", TokenAsync).AllowAnonymous().RequireRateLimiting(LoginRateLimit)
             .WithSummary("Token JWT per usare le API senza browser (Swagger, script).");
         g.MapPost("/logout", (Delegate)LogoutAsync).RequireAuthorization(Policies.Clinician);
@@ -107,11 +112,40 @@ public static class AuthEndpoints
         returnUrl is ['/', not '/' and not '\\', ..] or "/" ? returnUrl : "/";
 
 
-    private static async Task<Results<Ok<CurrentUser>, UnauthorizedHttpResult>> LoginAsync(
-        LoginRequest request, DashboardUserService users, AuditService audit, Data.ClinicalDbContext db, HttpContext http)
+    /// <summary>Codice del problema restituito a chi ha la richiesta di accesso ancora in attesa.</summary>
+    public const string PendingProblem = "account-pending";
+
+    private static async Task<Results<Ok<CurrentUser>, UnauthorizedHttpResult, ProblemHttpResult>> LoginAsync(
+        LoginRequest request, DashboardUserService users, AccountService accounts, AuditService audit, Data.ClinicalDbContext db, HttpContext http)
     {
-        var user = users.Validate(request.UserName ?? "", request.Password ?? "");
-        if (user is null)
+        ClaimsPrincipal? principal = null;
+        CurrentUser? current = null;
+        if (users.Validate(request.UserName ?? "", request.Password ?? "") is { } user)
+        {
+            // Gli utenti della configurazione sono gli amministratori: approvano le richieste di accesso.
+            principal = AccountService.Principal(user.UserName, user.DisplayName, isAdmin: true);
+            current = new CurrentUser(user.UserName, user.DisplayName ?? user.UserName, IsAdmin: true);
+        }
+        else
+        {
+            // Account registrati con email e password: entrano solo dopo l'approvazione.
+            var result = await accounts.SignInWithPasswordAsync(request.UserName, request.Password, http.RequestAborted);
+            if (result.Outcome == GoogleSignInOutcome.Pending)
+            {
+                return TypedResults.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    type: PendingProblem,
+                    detail: Loc.T("La richiesta di accesso è in attesa di approvazione.", Ui.Culture));
+            }
+
+            if (result.Principal is { } p)
+            {
+                principal = p;
+                current = new CurrentUser(p.Identity!.Name!, p.FindFirstValue(AccountService.DisplayNameClaim) ?? p.Identity.Name!, p.IsInRole(Roles.Admin));
+            }
+        }
+
+        if (principal is null)
         {
             // Il nome tentato va nel registro (mai la password): serve a riconoscere i tentativi di intrusione.
             audit.Record(http.User, "auth.login.failed", request.UserName);
@@ -120,13 +154,30 @@ public static class AuthEndpoints
             return TypedResults.Unauthorized();
         }
 
-        // Gli utenti della configurazione sono gli amministratori: approvano le richieste di accesso.
-        var principal = AccountService.Principal(user.UserName, user.DisplayName, isAdmin: true);
         await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
         audit.Record(principal, "auth.login");
         await db.SaveChangesAsync();
         CountLogin("cookie", success: true);
-        return TypedResults.Ok(new CurrentUser(user.UserName, user.DisplayName ?? user.UserName, IsAdmin: true));
+        return TypedResults.Ok(current!);
+    }
+
+    /// <summary>
+    /// Registrazione con email e password: crea una richiesta che un amministratore approva dalla pagina Accessi.
+    /// Risponde sempre allo stesso modo se l'indirizzo esiste già.
+    /// </summary>
+    private static async Task<Results<Accepted, ValidationProblem>> RegisterAsync(
+        RegisterRequest request, AccountService accounts, HttpContext http)
+    {
+        var outcome = await accounts.RegisterAsync(request.Email, request.DisplayName, request.Password, http.User, http.RequestAborted);
+        return outcome switch
+        {
+            RegistrationOutcome.InvalidEmail => TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["email"] = [Loc.T("Indirizzo email non valido.", Ui.Culture)] }),
+            RegistrationOutcome.WeakPassword => TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["password"] = [string.Format(Ui.Culture, Loc.T("La password deve avere almeno {0} caratteri.", Ui.Culture), AccountService.MinPasswordLength)],
+            }),
+            _ => TypedResults.Accepted((string?)null),
+        };
     }
 
     /// <summary>Stesse credenziali, stesso limite di tentativi e stesso audit del login della dashboard.</summary>

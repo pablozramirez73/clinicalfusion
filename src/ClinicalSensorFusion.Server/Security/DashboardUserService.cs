@@ -31,5 +31,18 @@ public sealed class DashboardUserService(IOptionsMonitor<DashboardOptions> optio
             : options.CurrentValue.Users.FirstOrDefault(u =>
                 !string.IsNullOrWhiteSpace(u.GoogleEmail) && string.Equals(u.GoogleEmail.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>Vero se l'indirizzo è di un utente della configurazione (come GoogleEmail o come nome utente).</summary>
+    public bool IsConfiguredEmail(string email) => options.CurrentValue.Users.Any(u =>
+        string.Equals(u.GoogleEmail?.Trim(), email, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(u.UserName, email, StringComparison.OrdinalIgnoreCase));
+
     public static string HashPassword(string password) => Hasher.HashPassword(null!, password);
+
+    /// <summary>
+    /// Verifica una password contro un hash; con hash assente esegue comunque una verifica, così il tempo di
+    /// risposta non rivela se l'account esiste.
+    /// </summary>
+    public static bool VerifyPassword(string? hash, string password) =>
+        Hasher.VerifyHashedPassword(null!, string.IsNullOrEmpty(hash) ? DummyHash : hash, password) != PasswordVerificationResult.Failed
+        && !string.IsNullOrEmpty(hash);
 }

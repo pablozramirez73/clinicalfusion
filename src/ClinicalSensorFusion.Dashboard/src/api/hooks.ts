@@ -33,6 +33,10 @@ export function useLogin() {
   });
 }
 
+/** Registrazione con email e password: la richiesta resta in attesa finché un amministratore non la approva. */
+export const useRegister = () =>
+  useMutation({ mutationFn: (v: { email: string; displayName: string; password: string }) => post<void>('auth/register', v) });
+
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: () => post<void>('auth/logout'), onSettled: () => qc.clear() });

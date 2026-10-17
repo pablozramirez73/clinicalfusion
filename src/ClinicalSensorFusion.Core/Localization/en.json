@@ -465,5 +465,7 @@
   "Ollama parla solo in chiaro: tramite il server clinico il telefono resta in HTTPS e il server inoltra a Ollama.": "Ollama only speaks unencrypted HTTP: through the clinical server the phone stays on HTTPS and the server forwards to Ollama.",
   "Impronta del certificato (facoltativa)": "Certificate fingerprint (optional)",
   "SHA-256 in base64, dallo script del server": "Base64 SHA-256, from the server script",
-  "Con un certificato autofirmato (server in rete locale) l'app accetta solo quello con questa impronta. Vuota: vale la verifica del sistema.": "With a self-signed certificate (server on the local network) the app accepts only the one with this fingerprint. Empty: the system check applies."
+  "Con un certificato autofirmato (server in rete locale) l'app accetta solo quello con questa impronta. Vuota: vale la verifica del sistema.": "With a self-signed certificate (server on the local network) the app accepts only the one with this fingerprint. Empty: the system check applies.",
+  "La richiesta di accesso è in attesa di approvazione.": "The access request is awaiting approval.",
+  "La password deve avere almeno {0} caratteri.": "The password must be at least {0} characters long."
 }

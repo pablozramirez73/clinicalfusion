@@ -16,8 +16,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ClinicalSensorFusion.Server.Tests;
 
 /// <summary>Registrazione con Google e approvazione: chi si registra non vede nulla finché non è approvato.</summary>
-public sealed class AccountTests(ServerFixture server) : IClassFixture<ServerFixture>
+public sealed class AccountTests(AccountTests.Fixture fixture) : IClassFixture<AccountTests.Fixture>
 {
+    /// <summary>Server condiviso con il limite di accessi alzato: questi test fanno molti login e registrazioni.</summary>
+    public sealed class Fixture : IAsyncDisposable
+    {
+        public ServerFixture Server { get; } = new() { Settings = { ["RateLimits:LoginPerMinute"] = "1000" } };
+
+        public ValueTask DisposeAsync() => Server.DisposeAsync();
+    }
+
+    private readonly ServerFixture server = fixture.Server;
+
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
 
     private async Task<GoogleSignInResult> GoogleAsync(string email, bool verified = true, string? subject = null)
@@ -110,6 +120,56 @@ public sealed class AccountTests(ServerFixture server) : IClassFixture<ServerFix
         await sameServerAdmin.PostAsync(new Uri($"api/v1/accounts/{id}/disable", UriKind.Relative), null, ct);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(new Uri("api/v1/auth/me", UriKind.Relative), ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Sign_up_with_email_waits_for_approval_then_signs_in()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var email = $"registrato-{Guid.NewGuid():N}@example.org";
+        const string password = "una-password-lunga-123";
+        var anonymous = server.CreateHttpsClient();
+
+        var register = await anonymous.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest(email, "Dott. Prova", password), ct);
+        Assert.Equal(HttpStatusCode.Accepted, register.StatusCode);
+
+        // In attesa: la password è giusta ma non si entra, e la risposta lo dice.
+        var pending = await anonymous.PostAsJsonAsync("api/v1/auth/login", new LoginRequest(email, password), ct);
+        Assert.Equal(HttpStatusCode.Forbidden, pending.StatusCode);
+        Assert.Contains(AuthEndpoints.PendingProblem, await pending.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsJsonAsync("api/v1/auth/login", new LoginRequest(email, "sbagliata-sbagliata"), ct)).StatusCode);
+
+        var admin = await server.CreateClinicianClientAsync();
+        await admin.PostAsJsonAsync($"api/v1/accounts/{await AccountIdAsync(email)}/approve", new AccountDecision(), ct);
+
+        var client = server.CreateHttpsClient();
+        var login = await client.PostAsJsonAsync("api/v1/auth/login", new LoginRequest(email.ToUpperInvariant(), password), ct);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var me = await client.GetFromJsonAsync<CurrentUser>("api/v1/auth/me", ct);
+        Assert.Equal(email, me!.UserName);
+        Assert.Equal("Dott. Prova", me.DisplayName);
+        Assert.False(me.IsAdmin);
+    }
+
+    [Fact]
+    public async Task Sign_up_rejects_bad_input_and_does_not_reveal_existing_addresses()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var anonymous = server.CreateHttpsClient();
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await anonymous.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest("non-un-indirizzo", null, "una-password-lunga-123"), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await anonymous.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest("corta@example.org", null, "corta"), ct)).StatusCode);
+
+        var email = $"doppio-{Guid.NewGuid():N}@example.org";
+        Assert.Equal(HttpStatusCode.Accepted, (await anonymous.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest(email, null, "prima-password-lunga"), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await anonymous.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest(email, null, "seconda-password-lunga"), ct)).StatusCode);
+
+        // Il secondo tentativo non sostituisce la password del primo.
+        await using var scope = server.Services.CreateAsyncScope();
+        var accounts = scope.ServiceProvider.GetRequiredService<AccountService>();
+        Assert.Equal(GoogleSignInOutcome.Pending, (await accounts.SignInWithPasswordAsync(email, "prima-password-lunga", ct)).Outcome);
+        Assert.Equal(GoogleSignInOutcome.Denied, (await accounts.SignInWithPasswordAsync(email, "seconda-password-lunga", ct)).Outcome);
     }
 
     /// <summary>

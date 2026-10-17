@@ -204,8 +204,8 @@ public enum AccountStatus
 }
 
 /// <summary>
-/// Account della dashboard registrato con Google. Gli utenti della configuration (Dashboard:Users) restano a
-/// parte e sono gli amministratori: approvano le richieste.
+/// Account della dashboard registrato da sé, con email e password oppure con Google. Gli utenti della
+/// configurazione (Dashboard:Users) restano a parte e sono gli amministratori: approvano le richieste.
 /// </summary>
 public sealed class DashboardAccount
 {
@@ -218,6 +218,9 @@ public sealed class DashboardAccount
     public string? GoogleSubject { get; set; }
 
     public string? DisplayName { get; set; }
+
+    /// <summary>Hash PBKDF2 della password scelta alla registrazione; null per chi entra solo con Google.</summary>
+    public string? PasswordHash { get; set; }
 
     public AccountStatus Status { get; set; }
 

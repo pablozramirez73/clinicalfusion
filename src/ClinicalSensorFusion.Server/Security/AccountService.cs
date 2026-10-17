@@ -24,6 +24,15 @@ public enum GoogleSignInOutcome
 
 public sealed record GoogleSignInResult(GoogleSignInOutcome Outcome, ClaimsPrincipal? Principal = null);
 
+/// <summary>Esito di una registrazione con email e password.</summary>
+public enum RegistrationOutcome
+{
+    /// <summary>Richiesta registrata (o già presente: non si dice a chi registra se l'indirizzo esiste).</summary>
+    Requested,
+    InvalidEmail,
+    WeakPassword,
+}
+
 /// <summary>Una richiesta o un account, come lo vede l'amministratore.</summary>
 public sealed record AccountItem(
     Guid Id, string Email, string? DisplayName, AccountStatus Status, bool IsAdmin,
@@ -107,6 +116,73 @@ public sealed class AccountService(ClinicalDbContext db, DashboardUserService us
                 account.LastLoginAt = now;
                 account.GoogleSubject ??= subject;
                 account.Email = normalized;
+                await db.SaveChangesAsync(ct);
+                return new(GoogleSignInOutcome.SignedIn, Principal(account.Email, account.DisplayName, account.IsAdmin, account.Id));
+            default:
+                return new(GoogleSignInOutcome.Denied);
+        }
+    }
+
+    /// <summary>Lunghezza minima della password scelta alla registrazione.</summary>
+    public const int MinPasswordLength = 12;
+
+    /// <summary>
+    /// Registrazione con email e password: crea una richiesta in attesa di approvazione. Se l'indirizzo esiste già
+    /// non cambia nulla e la risposta è la stessa, così il modulo non rivela quali indirizzi sono registrati.
+    /// </summary>
+    public async Task<RegistrationOutcome> RegisterAsync(
+        string? email, string? displayName, string? password, ClaimsPrincipal actor, CancellationToken ct = default)
+    {
+        var normalized = email?.Trim().ToLowerInvariant();
+        if (normalized is null || normalized.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(normalized, out var parsed)
+            || parsed.Address != normalized || !normalized.Contains('.', StringComparison.Ordinal))
+        {
+            return RegistrationOutcome.InvalidEmail;
+        }
+
+        if (password is null || password.Length < MinPasswordLength || password.Length > 256)
+        {
+            return RegistrationOutcome.WeakPassword;
+        }
+
+        var exists = users.IsConfiguredEmail(normalized) || await db.Accounts.AnyAsync(a => a.Email == normalized, ct);
+        if (!exists)
+        {
+            db.Accounts.Add(new DashboardAccount
+            {
+                Id = Guid.CreateVersion7(),
+                Email = normalized,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim()[..Math.Min(displayName.Trim().Length, 200)],
+                PasswordHash = DashboardUserService.HashPassword(password),
+                Status = AccountStatus.Pending,
+                RequestedAt = clock.GetUtcNow(),
+            });
+        }
+
+        audit.Record(actor, exists ? "account.request.duplicate" : "account.request", normalized);
+        await db.SaveChangesAsync(ct);
+        return RegistrationOutcome.Requested;
+    }
+
+    /// <summary>
+    /// Accesso con email e password di un account registrato: entra solo se approvato. Pending se la richiesta è
+    /// ancora da decidere (e la password è giusta), Denied in ogni altro caso.
+    /// </summary>
+    public async Task<GoogleSignInResult> SignInWithPasswordAsync(string? email, string? password, CancellationToken ct = default)
+    {
+        var normalized = email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var account = normalized.Length == 0 ? null : await db.Accounts.FirstOrDefaultAsync(a => a.Email == normalized, ct);
+        if (!DashboardUserService.VerifyPassword(account?.PasswordHash, password ?? string.Empty) || account is null)
+        {
+            return new(GoogleSignInOutcome.Denied);
+        }
+
+        switch (account.Status)
+        {
+            case AccountStatus.Pending:
+                return new(GoogleSignInOutcome.Pending);
+            case AccountStatus.Approved:
+                account.LastLoginAt = clock.GetUtcNow();
                 await db.SaveChangesAsync(ct);
                 return new(GoogleSignInOutcome.SignedIn, Principal(account.Email, account.DisplayName, account.IsAdmin, account.Id));
             default:

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { useAuthProviders, useLogin } from '../api/hooks';
+import { useAuthProviders, useLogin, useRegister } from '../api/hooks';
 import { t } from '../i18n';
 import { LanguageSelect } from '../i18n/LanguageSelect';
 
@@ -10,17 +10,43 @@ export function LoginPage() {
   const providers = useAuthProviders();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const register = useRegister();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [registered, setRegistered] = useState(false);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     login.mutate({ userName, password }, { onSuccess: () => navigate('/', { replace: true }) });
   };
 
+  const submitRegistration = (e: FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) return;
+    register.mutate({ email: userName, displayName, password }, {
+      onSuccess: () => {
+        setRegistered(true);
+        setMode('login');
+        setPassword('');
+        setConfirm('');
+      },
+    });
+  };
+
   const error = login.error instanceof ApiError
-    ? login.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.') : t('Credenziali non valide.')
+    ? login.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.')
+      : login.error.status === 403 ? t('La tua richiesta di accesso è ancora in attesa di approvazione.')
+      : t('Credenziali non valide.')
     : login.error ? t('Server non raggiungibile.') : null;
+
+  const registerError = password !== confirm && confirm.length > 0
+    ? t('Le due password non coincidono.')
+    : register.error instanceof ApiError
+      ? register.error.status === 429 ? t('Troppi tentativi: riprovare tra un minuto.') : register.error.message
+      : register.error ? t('Server non raggiungibile.') : null;
 
   // Ritorno da Google: annullato, oppure account non autorizzato per questa dashboard.
   const googleError = params.get('error') === 'google-denied'
@@ -28,9 +54,49 @@ export function LoginPage() {
     : params.get('error') === 'google' ? t('Accesso con Google non riuscito o annullato.') : null;
 
   // Registrazione: la richiesta resta in attesa finché un amministratore non la approva.
-  const notice = params.get('status') === 'requested'
-    ? t('Richiesta di accesso inviata. Potrai entrare con Google appena un amministratore la approva.')
-    : params.get('status') === 'pending' ? t('La tua richiesta di accesso è ancora in attesa di approvazione.') : null;
+  const notice = registered
+    ? t('Richiesta di accesso inviata. Potrai entrare appena un amministratore la approva.')
+    : params.get('status') === 'requested'
+      ? t('Richiesta di accesso inviata. Potrai entrare con Google appena un amministratore la approva.')
+      : params.get('status') === 'pending' ? t('La tua richiesta di accesso è ancora in attesa di approvazione.') : null;
+
+  if (mode === 'register') {
+    return (
+      <div className="login">
+        <div className="login-glow" aria-hidden />
+        <form className="login-card" onSubmit={submitRegistration}>
+          <img src="/favicon.svg" alt="" width={56} height={56} />
+          <h1>{t('Crea un nuovo account')}</h1>
+          <p className="muted">{t('La richiesta va approvata da un amministratore prima di poter entrare.')}</p>
+          <label>
+            {t('Nome e cognome')}
+            <input autoComplete="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required autoFocus />
+          </label>
+          <label>
+            Email
+            <input type="email" autoComplete="email" value={userName} onChange={(e) => setUserName(e.target.value)} required />
+          </label>
+          <label>
+            Password
+            <input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </label>
+          <label>
+            {t('Ripeti la password')}
+            <input type="password" autoComplete="new-password" minLength={12} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          </label>
+          <p className="muted login-hint">{t('Almeno 12 caratteri.')}</p>
+          {registerError && <div className="alert" role="alert">{registerError}</div>}
+          <button className="primary" disabled={register.isPending || password !== confirm}>
+            {register.isPending ? t('Invio…') : t('Invia la richiesta')}
+          </button>
+          {providers.data?.google && (
+            <a className="google-button" href="/api/v1/auth/google?returnUrl=%2F">{t('Registrati con Google')}</a>
+          )}
+          <button type="button" className="link" onClick={() => setMode('login')}>{t('Hai già un account? Accedi')}</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="login">
@@ -40,7 +106,7 @@ export function LoginPage() {
         <h1>Clinical Sensor Fusion</h1>
         <p className="muted">{t('Area riservata al personale sanitario')}</p>
         <label>
-          {t('Utente')}
+          {t('Utente o email')}
           <input autoComplete="username" value={userName} onChange={(e) => setUserName(e.target.value)} required autoFocus />
         </label>
         <label>
@@ -67,6 +133,9 @@ export function LoginPage() {
             <p className="muted login-hint">{t('Al primo accesso con Google si crea una richiesta: entri dopo l\'approvazione di un amministratore.')}</p>
           </>
         )}
+        <button type="button" className="link" onClick={() => { setMode('register'); setRegistered(false); }}>
+          {t('Non hai un account? Crea un nuovo account')}
+        </button>
       </form>
     </div>
   );

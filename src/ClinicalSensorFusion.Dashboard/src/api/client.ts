@@ -41,8 +41,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(response.status, message, details);
   }
 
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  // 204, oppure 202 senza corpo (es. registrazione accettata): niente JSON da leggere.
+  const body = response.status === 204 ? '' : await response.text();
+  return (body ? JSON.parse(body) : undefined) as T;
 }
 
 export const post = <T>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });

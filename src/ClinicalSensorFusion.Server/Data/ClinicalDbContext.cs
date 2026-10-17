@@ -104,6 +104,7 @@ public sealed class ClinicalDbContext(DbContextOptions<ClinicalDbContext> option
             e.Property(a => a.GoogleSubject).HasMaxLength(255);
             e.HasIndex(a => a.GoogleSubject).IsUnique().HasFilter("\"GoogleSubject\" IS NOT NULL");
             e.Property(a => a.DisplayName).HasMaxLength(200);
+            e.Property(a => a.PasswordHash).HasMaxLength(200);
             e.Property(a => a.DecidedBy).HasMaxLength(254);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.HasIndex(a => a.Status);
