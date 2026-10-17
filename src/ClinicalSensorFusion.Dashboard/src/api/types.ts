@@ -13,6 +13,7 @@ export type Joint =
   | 'LeftAnkle' | 'RightAnkle';
 
 export interface CurrentUser { userName: string; displayName: string }
+export interface AuthProviders { password: boolean; google: boolean }
 
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number }
 

@@ -26,8 +26,27 @@ public sealed class DashboardUser
 
     public string? DisplayName { get; init; }
 
-    /// <summary>Hash PBKDF2 (formato ASP.NET Core Identity v3), generato con <c>dotnet run -- hash-password</c>.</summary>
-    public required string PasswordHash { get; init; }
+    /// <summary>
+    /// Hash PBKDF2 (formato ASP.NET Core Identity v3), generato con <c>dotnet run -- hash-password</c>. Vuoto per
+    /// chi entra solo con Google: il login con password per quell'utente non riesce mai.
+    /// </summary>
+    public string? PasswordHash { get; init; }
+
+    /// <summary>
+    /// Account Google con cui questo utente può entrare (accesso singolo). Vale solo un indirizzo che Google
+    /// dichiara verificato; un account Google non elencato qui non entra, anche se l'accesso a Google riesce.
+    /// </summary>
+    public string? GoogleEmail { get; init; }
+}
+
+/// <summary>Accesso con Google (sezione <c>Authentication:Google</c>). Attivo solo se ci sono entrambi i valori.</summary>
+public sealed class GoogleSignInOptions
+{
+    public string? ClientId { get; init; }
+
+    public string? ClientSecret { get; init; }
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 }
 
 /// <summary>Limiti di frequenza (sezione <c>RateLimits</c>). I valori predefiniti stanno larghi sull'uso reale.</summary>

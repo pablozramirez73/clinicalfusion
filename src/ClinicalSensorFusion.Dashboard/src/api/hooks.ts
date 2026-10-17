@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, post, put } from './client';
 import type {
-  CurrentUser, Overview, PagedResult, PatientDetail, PatientInput, PatientListItem, PoseReplay,
+  AuthProviders, CurrentUser, Overview, PagedResult, PatientDetail, PatientInput, PatientListItem, PoseReplay,
   SessionDetail, SessionListItem, Spectrogram, SystemHealth, SystemMetrics, TrendPoint,
 } from './types';
 
@@ -18,6 +18,10 @@ export const keys = {
   systemHealth: ['system', 'health'] as const,
   systemMetrics: ['system', 'metrics'] as const,
 };
+
+/** Modi di accesso offerti dal server (il pulsante Google compare solo se è configurato). */
+export const useAuthProviders = () =>
+  useQuery({ queryKey: ['auth', 'providers'], queryFn: () => api<AuthProviders>('auth/providers'), retry: false, staleTime: Infinity });
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api<CurrentUser>('auth/me'), retry: false, staleTime: Infinity });
 

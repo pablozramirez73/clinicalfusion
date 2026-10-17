@@ -78,7 +78,10 @@ services.AddScoped<DemoDataSeeder>();
 
 // Due mondi separati: i dispositivi (chiave API, solo ingestione) e i clinici (cookie della dashboard,
 // oppure token JWT per chi usa le API senza browser: Swagger, script).
-services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var googleSignIn = builder.Configuration.GetSection("Authentication:Google").Get<GoogleSignInOptions>() ?? new GoogleSignInOptions();
+services.Configure<GoogleSignInOptions>(builder.Configuration.GetSection("Authentication:Google"));
+var authentication = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
+authentication
     .AddCookie(o =>
     {
         o.Cookie.Name = "csf_session";
@@ -93,6 +96,39 @@ services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     })
     .AddJwtBearer(o => o.MapInboundClaims = false)
     .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null);
+
+// Accesso singolo con Google, solo se configurato: Google dice chi è la persona, ma entra solo chi ha il suo
+// indirizzo verificato in Dashboard:Users:*:GoogleEmail (AuthEndpoints.CompleteGoogleAsync). Il risultato di
+// Google resta per pochi minuti in un cookie a parte, mai valido per le API.
+if (googleSignIn.IsConfigured)
+{
+    authentication
+        .AddCookie(AuthEndpoints.ExternalScheme, o =>
+        {
+            o.Cookie.Name = "csf_external";
+            o.Cookie.HttpOnly = true;
+            // Lax: il ritorno da Google è una navigazione da un altro sito.
+            o.Cookie.SameSite = SameSiteMode.Lax;
+            o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+            o.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+        })
+        .AddGoogle(o =>
+        {
+            o.ClientId = googleSignIn.ClientId!;
+            o.ClientSecret = googleSignIn.ClientSecret!;
+            o.SignInScheme = AuthEndpoints.ExternalScheme;
+            o.CallbackPath = "/signin-google";
+            o.ClaimActions.MapJsonKey(AuthEndpoints.EmailVerifiedClaim, "email_verified");
+            // L'utente ha annullato su Google, o Google ha rifiutato: si torna al login con un messaggio.
+            o.AccessDeniedPath = "/login?error=google";
+            o.Events.OnRemoteFailure = ctx =>
+            {
+                ctx.Response.Redirect("/login?error=google");
+                ctx.HandleResponse();
+                return Task.CompletedTask;
+            };
+        });
+}
 services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<JwtTokenService>((o, tokens) => o.TokenValidationParameters = tokens.ValidationParameters);
 

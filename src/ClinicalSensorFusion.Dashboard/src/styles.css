@@ -177,6 +177,12 @@ input[type='range'] { padding: 0; accent-color: var(--cyan); }
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
 }
 .login-card img { border-radius: 14px; box-shadow: 0 0 30px rgba(34, 211, 238, 0.4); }
+.login-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.82rem; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: rgba(148, 163, 184, 0.25); }
+.google-button { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px; border-radius: 10px;
+  background: #fff; color: #1f2937; font-weight: 600; text-decoration: none; border: 1px solid rgba(15, 23, 42, 0.15); }
+.google-button:hover { background: #f1f5f9; }
+.google-button:focus-visible { outline: 2px solid var(--accent, #22d3ee); outline-offset: 2px; }
 .login-card label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 0.88rem; }
 
 .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 24px; }

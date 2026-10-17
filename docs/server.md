@@ -171,6 +171,28 @@ launchctl kickstart -k gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel   # ri
 launchctl bootout gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel        # stop definitivo
 ```
 
+### Accesso con Google (single sign-on)
+
+Oltre a utente e password, la dashboard può accettare l'accesso con un account Google. Google conferma chi è la
+persona; il server la fa entrare solo se l'indirizzo è **verificato** da Google ed è associato a un utente della
+dashboard (`Dashboard:Users:*:GoogleEmail`). Un account Google qualunque non entra, anche se l'accesso a Google
+riesce. La sessione aperta è la stessa del login con password (cookie di 8 ore); i tentativi finiscono nel registro
+di audit (`auth.login` con `google`, oppure `auth.login.failed` con l'indirizzo) e nella metrica `csf.auth.logins`
+con `method=google`. Un utente può avere solo `GoogleEmail`, senza `PasswordHash`: per lui il login con password
+non riesce mai.
+
+Configurazione:
+
+1. Google Cloud Console → *API e servizi* → *Credenziali* → *Crea credenziali* → *ID client OAuth* → tipo
+   *Applicazione web*. URI di reindirizzamento autorizzati: `https://clica.syntaxnode.work/signin-google` (e, per
+   provare dal Mac, `https://localhost:5180/signin-google`). Google non accetta indirizzi IP della rete locale:
+   dal telefono o da un altro computer l'accesso con Google passa dal tunnel.
+2. Nel file `.server-lan.env` togliere il commento alle righe `Authentication__Google__ClientId`,
+   `Authentication__Google__ClientSecret` e `Dashboard__Users__0__GoogleEmail` e compilarle (il segreto non va
+   nel repository), poi riavviare `run-server-lan.sh`.
+3. Nella pagina di login compare **Accedi con Google** (la dashboard chiede a `GET /api/v1/auth/providers` se è
+   attivo). Senza configurazione il pulsante non c'è e `GET /api/v1/auth/google` risponde 404.
+
 ### Lingua della dashboard e delle risposte del server
 
 La dashboard è in italiano e in inglese: la lingua si sceglie dal menu in fondo alla barra laterale (o nella

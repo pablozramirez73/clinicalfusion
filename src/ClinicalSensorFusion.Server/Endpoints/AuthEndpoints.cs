@@ -4,13 +4,18 @@ using ClinicalSensorFusion.Server.Security;
 using ClinicalSensorFusion.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Options;
 
 namespace ClinicalSensorFusion.Server.Endpoints;
 
 public sealed record LoginRequest(string UserName, string Password);
 
 public sealed record CurrentUser(string UserName, string DisplayName);
+
+/// <summary>Modi di accesso disponibili, per la pagina di login.</summary>
+public sealed record AuthProviders(bool Password, bool Google);
 
 /// <summary>Risposta di <c>POST /auth/token</c> (stessi nomi di OAuth 2.0).</summary>
 public sealed record TokenResponse(
@@ -22,6 +27,11 @@ public static class AuthEndpoints
 {
     public const string LoginRateLimit = "login";
 
+    /// <summary>Cookie temporaneo con l'esito dell'accesso a Google, prima di decidere se la persona può entrare.</summary>
+    public const string ExternalScheme = "External";
+
+    public const string EmailVerifiedClaim = "email_verified";
+
     public static RouteGroupBuilder MapAuth(this RouteGroupBuilder api)
     {
         var g = api.MapGroup("/auth").WithTags("Autenticazione");
@@ -30,8 +40,72 @@ public static class AuthEndpoints
             .WithSummary("Token JWT per usare le API senza browser (Swagger, script).");
         g.MapPost("/logout", (Delegate)LogoutAsync).RequireAuthorization(Policies.Clinician);
         g.MapGet("/me", Me).RequireAuthorization(Policies.Clinician);
+        g.MapGet("/providers", (IOptions<GoogleSignInOptions> google) => TypedResults.Ok(new AuthProviders(true, google.Value.IsConfigured)))
+            .AllowAnonymous();
+        g.MapGet("/google", StartGoogle).AllowAnonymous().RequireRateLimiting(LoginRateLimit)
+            .WithSummary("Accesso con Google: reindirizza a Google e poi torna alla dashboard.");
+        g.MapGet("/google/complete", CompleteGoogleAsync).AllowAnonymous().RequireRateLimiting(LoginRateLimit)
+            .ExcludeFromDescription();
         return api;
     }
+
+    private static IResult StartGoogle(string? returnUrl, IOptions<GoogleSignInOptions> google)
+    {
+        if (!google.Value.IsConfigured)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var complete = "/api/v1/auth/google/complete?returnUrl=" + Uri.EscapeDataString(LocalPath(returnUrl));
+        return TypedResults.Challenge(new AuthenticationProperties { RedirectUri = complete }, [GoogleDefaults.AuthenticationScheme]);
+    }
+
+    /// <summary>
+    /// Ritorno da Google. Google ha confermato l'identità; qui si decide se è una persona autorizzata: indirizzo
+    /// verificato e associato a un utente della dashboard. Solo allora si apre la sessione, identica a quella
+    /// del login con password.
+    /// </summary>
+    private static async Task<IResult> CompleteGoogleAsync(
+        string? returnUrl, HttpContext http, DashboardUserService users, AuditService audit, Data.ClinicalDbContext db)
+    {
+        var external = await http.AuthenticateAsync(ExternalScheme);
+        if (!external.Succeeded)
+        {
+            return TypedResults.Redirect("/login?error=google");
+        }
+
+        await http.SignOutAsync(ExternalScheme);
+        var email = external.Principal.FindFirstValue(ClaimTypes.Email);
+        var verified = string.Equals(external.Principal.FindFirstValue(EmailVerifiedClaim), "true", StringComparison.OrdinalIgnoreCase);
+        var user = users.FindByGoogle(email, verified);
+        if (user is null)
+        {
+            // L'indirizzo tentato va nel registro: serve a capire chi ha provato a entrare.
+            audit.Record(http.User, "auth.login.failed", "google:" + email);
+            await db.SaveChangesAsync();
+            CountLogin("google", success: false);
+            return TypedResults.Redirect("/login?error=google-denied");
+        }
+
+        var principal = Principal(user);
+        await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+        audit.Record(principal, "auth.login", "google");
+        await db.SaveChangesAsync();
+        CountLogin("google", success: true);
+        return TypedResults.Redirect(LocalPath(returnUrl));
+    }
+
+    /// <summary>Solo percorsi di questo sito: niente reindirizzamenti verso altri domini (open redirect).</summary>
+    internal static string LocalPath(string? returnUrl) =>
+        returnUrl is ['/', not '/' and not '\\', ..] or "/" ? returnUrl : "/";
+
+    private static ClaimsPrincipal Principal(DashboardUser user) => new(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.Name, user.UserName),
+            new Claim("display_name", user.DisplayName ?? user.UserName),
+            new Claim(ClaimTypes.Role, Roles.Clinician),
+        ],
+        CookieAuthenticationDefaults.AuthenticationScheme));
 
     private static async Task<Results<Ok<CurrentUser>, UnauthorizedHttpResult>> LoginAsync(
         LoginRequest request, DashboardUserService users, AuditService audit, Data.ClinicalDbContext db, HttpContext http)
@@ -46,14 +120,7 @@ public static class AuthEndpoints
             return TypedResults.Unauthorized();
         }
 
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.Name, user.UserName),
-                new Claim("display_name", user.DisplayName ?? user.UserName),
-                new Claim(ClaimTypes.Role, Roles.Clinician),
-            ],
-            CookieAuthenticationDefaults.AuthenticationScheme));
-
+        var principal = Principal(user);
         await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
         audit.Record(principal, "auth.login");
         await db.SaveChangesAsync();

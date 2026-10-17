@@ -176,4 +176,8 @@ export const en: Record<string, string> = {
   "Salva": "Save",
   "Eliminare definitivamente il paziente con tutte le rilevazioni e gli audio? L'operazione non è reversibile.": "Permanently delete the patient with all sessions and audio? This cannot be undone.",
   "Elimina": "Delete",
+  "oppure": "or",
+  "Accedi con Google": "Sign in with Google",
+  "Accesso con Google non riuscito o annullato.": "Google sign-in failed or was cancelled.",
+  "Questo account Google non è autorizzato: chiedi all'amministratore di associarlo al tuo utente.": "This Google account is not authorised: ask the administrator to link it to your user.",
 };

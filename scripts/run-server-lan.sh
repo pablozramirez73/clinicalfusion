@@ -87,6 +87,11 @@ export Ingest__Devices__0__Name="$DEVICE_NAME"
 export Ingest__Devices__0__KeySha256="$device_hash"
 export Dashboard__Users__0__PasswordHash="$password_hash"
 $(connection_string)
+# Accesso con Google (facoltativo, vedi docs/server.md): client OAuth creato nella Google Cloud Console e
+# indirizzo Google dell'utente della dashboard. Togliere il commento e compilare:
+# export Authentication__Google__ClientId="…apps.googleusercontent.com"
+# export Authentication__Google__ClientSecret="…"
+# export Dashboard__Users__0__GoogleEmail="nome.cognome@gmail.com"
 ENV
   )
 
