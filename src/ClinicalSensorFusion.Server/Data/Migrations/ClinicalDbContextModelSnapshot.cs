@@ -16,7 +16,7 @@ partial class ClinicalDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261013052953_IngestOwnershipAndAuditContext";
+    public override string LastMigrationId => "20261017002418_DashboardAccounts";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -146,6 +146,60 @@ partial class ClinicalDbContextModelSnapshot : ModelSnapshot
                 b.HasIndex("At");
 
                 b.ToTable("audit_log");
+            });
+
+        modelBuilder.Entity("ClinicalSensorFusion.Server.Data.DashboardAccount", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uuid");
+
+                b.Property<DateTimeOffset?>("DecidedAt")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("DecidedBy")
+                    .HasMaxLength(254)
+                    .HasColumnType("character varying(254)");
+
+                b.Property<string>("DisplayName")
+                    .HasMaxLength(200)
+                    .HasColumnType("character varying(200)");
+
+                b.Property<string>("Email")
+                    .IsRequired()
+                    .HasMaxLength(254)
+                    .HasColumnType("character varying(254)");
+
+                b.Property<string>("GoogleSubject")
+                    .HasMaxLength(255)
+                    .HasColumnType("character varying(255)");
+
+                b.Property<bool>("IsAdmin")
+                    .HasColumnType("boolean");
+
+                b.Property<DateTimeOffset?>("LastLoginAt")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<DateTimeOffset>("RequestedAt")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("character varying(20)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Email")
+                    .IsUnique();
+
+                b.HasIndex("GoogleSubject")
+                    .IsUnique()
+                    .HasFilter("\"GoogleSubject\" IS NOT NULL");
+
+                b.HasIndex("Status");
+
+                b.ToTable("dashboard_accounts");
             });
 
         modelBuilder.Entity("ClinicalSensorFusion.Server.Data.Patient", b =>

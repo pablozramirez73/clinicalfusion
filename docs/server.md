@@ -171,15 +171,25 @@ launchctl kickstart -k gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel   # ri
 launchctl bootout gui/$(id -u)/work.syntaxnode.clinicalfusion-tunnel        # stop definitivo
 ```
 
-### Accesso con Google (single sign-on)
+### Accesso con Google (single sign-on) e registrazione con approvazione
 
-Oltre a utente e password, la dashboard può accettare l'accesso con un account Google. Google conferma chi è la
-persona; il server la fa entrare solo se l'indirizzo è **verificato** da Google ed è associato a un utente della
-dashboard (`Dashboard:Users:*:GoogleEmail`). Un account Google qualunque non entra, anche se l'accesso a Google
-riesce. La sessione aperta è la stessa del login con password (cookie di 8 ore); i tentativi finiscono nel registro
-di audit (`auth.login` con `google`, oppure `auth.login.failed` con l'indirizzo) e nella metrica `csf.auth.logins`
-con `method=google`. Un utente può avere solo `GoogleEmail`, senza `PasswordHash`: per lui il login con password
-non riesce mai.
+Oltre a utente e password, la dashboard accetta l'accesso con un account Google, che serve anche a
+**registrarsi**. Google conferma chi è la persona (serve un indirizzo **verificato** da Google); poi:
+
+- **utenti della configurazione** (`Dashboard:Users`) con `GoogleEmail`: entrano subito. Sono gli
+  **amministratori**, come chi entra con utente e password;
+- **primo accesso di chiunque altro**: si registra una *richiesta di accesso* (tabella `dashboard_accounts`) e la
+  pagina di login lo dice. Finché la richiesta è in attesa la persona non vede nessun dato;
+- un amministratore decide dalla pagina **Accessi** della dashboard (`/accounts`): *Approva*, *Approva come
+  amministratore*, *Rifiuta*; per un account già approvato, *Togli l'accesso*. Una decisione vale subito anche per
+  le sessioni già aperte, perché lo stato dell'account si ricontrolla a ogni richiesta;
+- account approvato: entra con Google, con la stessa sessione del login con password (cookie di 8 ore).
+
+Ogni passaggio finisce nel registro di audit (`account.request`, `account.approved`, `account.rejected`,
+`account.disabled`, `auth.login` con `google`, `auth.login.failed` con l'indirizzo) e gli accessi nella metrica
+`csf.auth.logins` con `method=google`. Un utente della configurazione può avere solo `GoogleEmail`, senza
+`PasswordHash`: per lui il login con password non riesce mai. API per gli amministratori: `GET /api/v1/accounts/`,
+`POST /api/v1/accounts/{id}/approve` (corpo facoltativo `{"isAdmin": true}`), `/reject`, `/disable`.
 
 Configurazione:
 
@@ -188,9 +198,10 @@ Configurazione:
    provare dal Mac, `https://localhost:5180/signin-google`). Google non accetta indirizzi IP della rete locale:
    dal telefono o da un altro computer l'accesso con Google passa dal tunnel.
 2. Nel file `.server-lan.env` togliere il commento alle righe `Authentication__Google__ClientId`,
-   `Authentication__Google__ClientSecret` e `Dashboard__Users__0__GoogleEmail` e compilarle (il segreto non va
-   nel repository), poi riavviare `run-server-lan.sh`.
-3. Nella pagina di login compare **Accedi con Google** (la dashboard chiede a `GET /api/v1/auth/providers` se è
+   `Authentication__Google__ClientSecret` e `Dashboard__Users__0__GoogleEmail` (il tuo indirizzo Google, così sei
+   amministratore anche con Google) e compilarle (il segreto non va nel repository), poi riavviare
+   `run-server-lan.sh`.
+3. Nella pagina di login compare **Accedi o registrati con Google** (la dashboard chiede a `GET /api/v1/auth/providers` se è
    attivo). Senza configurazione il pulsante non c'è e `GET /api/v1/auth/google` risponde 404.
 
 ### Lingua della dashboard e delle risposte del server

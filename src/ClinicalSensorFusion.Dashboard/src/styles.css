@@ -212,3 +212,7 @@ label.language select { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 .sidebar-footer { flex-wrap: wrap; }
 .sidebar-footer label.language { flex: 0 0 100%; flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 10px; }
 .sidebar-footer label.language select { width: 100%; }
+.notice { padding: 10px 12px; border-radius: 10px; font-size: 0.88rem; color: var(--cyan);
+  background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.35); }
+.login-hint { margin: 0; font-size: 0.8rem; text-align: center; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

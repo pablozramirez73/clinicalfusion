@@ -72,6 +72,7 @@ services.AddHttpContextAccessor();
 services.AddSingleton<DashboardUserService>();
 services.AddSingleton<AudioStorage>();
 services.AddScoped<AuditService>();
+services.AddScoped<AccountService>();
 services.AddScoped<IngestService>();
 services.AddScoped<SessionAnalytics>();
 services.AddScoped<DemoDataSeeder>();
@@ -93,6 +94,16 @@ authentication
         // API JSON: 401/403 invece del redirect a una pagina di login.
         o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
         o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
+        // Account registrati con Google: rifiuto o accesso tolto valgono subito, anche per le sessioni già aperte.
+        o.Events.OnValidatePrincipal = async ctx =>
+        {
+            if (Guid.TryParse(ctx.Principal?.FindFirst(AccountService.AccountIdClaim)?.Value, out var accountId)
+                && !await ctx.HttpContext.RequestServices.GetRequiredService<AccountService>().IsActiveAsync(accountId, ctx.HttpContext.RequestAborted))
+            {
+                ctx.RejectPrincipal();
+                await ctx.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
     })
     .AddJwtBearer(o => o.MapInboundClaims = false)
     .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null);
@@ -136,7 +147,10 @@ services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Ingest, p => p.AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName).RequireRole(Roles.Device))
     .AddPolicy(Policies.Clinician, p => p
         .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, JwtBearerDefaults.AuthenticationScheme)
-        .RequireRole(Roles.Clinician));
+        .RequireRole(Roles.Clinician))
+    .AddPolicy(Policies.Admin, p => p
+        .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme)
+        .RequireRole(Roles.Admin));
 
 // Limiti letti dalle opzioni al primo uso (non qui): così valgono anche le configurazioni aggiunte dopo, es. nei test.
 services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimits"));
@@ -227,7 +241,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
-api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest().MapAiProxy();
+api.MapAuth().MapPatients().MapSessions().MapDashboard().MapAudit().MapSystem().MapIngest().MapAiProxy().MapAccounts();
 app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFhir();
 app.MapHealth();

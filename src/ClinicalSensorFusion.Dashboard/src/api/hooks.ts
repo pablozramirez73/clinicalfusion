@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, post, put } from './client';
 import type {
-  AuthProviders, CurrentUser, Overview, PagedResult, PatientDetail, PatientInput, PatientListItem, PoseReplay,
+  AccountItem, AuthProviders, CurrentUser, Overview, PagedResult, PatientDetail, PatientInput, PatientListItem, PoseReplay,
   SessionDetail, SessionListItem, Spectrogram, SystemHealth, SystemMetrics, TrendPoint,
 } from './types';
 
@@ -85,3 +85,16 @@ export const useSpectrogram = (id: string, enabled: boolean) =>
 // Stato del sistema: aggiornato da solo, la pagina serve a guardare cosa succede adesso.
 export const useSystemHealth = () => useQuery({ queryKey: keys.systemHealth, queryFn: () => api<SystemHealth>('system/health'), refetchInterval: 15_000 });
 export const useSystemMetrics = () => useQuery({ queryKey: keys.systemMetrics, queryFn: () => api<SystemMetrics>('system/metrics'), refetchInterval: 15_000 });
+
+/** Richieste di accesso e account registrati con Google (solo amministratori). */
+export const useAccounts = () =>
+  useQuery({ queryKey: ['accounts'], queryFn: () => api<AccountItem[]>('accounts/'), refetchInterval: 30_000 });
+
+export function useDecideAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; action: 'approve' | 'reject' | 'disable'; isAdmin?: boolean }) =>
+      post<AccountItem>(`accounts/${v.id}/${v.action}`, v.action === 'approve' ? { isAdmin: v.isAdmin ?? false } : undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['accounts'] }),
+  });
+}

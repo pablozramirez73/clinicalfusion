@@ -189,3 +189,47 @@ public sealed class AuditEntry
 
     public string? UserAgent { get; set; }
 }
+
+/// <summary>Stato di un account della dashboard creato con l'accesso Google.</summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<AccountStatus>))]
+public enum AccountStatus
+{
+    /// <summary>Richiesta di accesso registrata: non vede nessun dato finché un amministratore non la approva.</summary>
+    Pending,
+    Approved,
+    Rejected,
+
+    /// <summary>Accesso tolto dopo l'approvazione: le sessioni aperte decadono alla richiesta successiva.</summary>
+    Disabled,
+}
+
+/// <summary>
+/// Account della dashboard registrato con Google. Gli utenti della configuration (Dashboard:Users) restano a
+/// parte e sono gli amministratori: approvano le richieste.
+/// </summary>
+public sealed class DashboardAccount
+{
+    public Guid Id { get; set; }
+
+    /// <summary>Indirizzo Google verificato, in minuscolo: è l'identificativo con cui l'account entra.</summary>
+    public required string Email { get; set; }
+
+    /// <summary>Identificativo stabile dell'account Google (<c>sub</c>), per riconoscerlo anche se cambia indirizzo.</summary>
+    public string? GoogleSubject { get; set; }
+
+    public string? DisplayName { get; set; }
+
+    public AccountStatus Status { get; set; }
+
+    /// <summary>Un account approvato può essere anche amministratore e approvare a sua volta.</summary>
+    public bool IsAdmin { get; set; }
+
+    public DateTimeOffset RequestedAt { get; set; }
+
+    public DateTimeOffset? DecidedAt { get; set; }
+
+    /// <summary>Chi ha approvato, rifiutato o disattivato.</summary>
+    public string? DecidedBy { get; set; }
+
+    public DateTimeOffset? LastLoginAt { get; set; }
+}

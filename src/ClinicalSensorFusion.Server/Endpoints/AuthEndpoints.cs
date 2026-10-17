@@ -12,7 +12,7 @@ namespace ClinicalSensorFusion.Server.Endpoints;
 
 public sealed record LoginRequest(string UserName, string Password);
 
-public sealed record CurrentUser(string UserName, string DisplayName);
+public sealed record CurrentUser(string UserName, string DisplayName, bool IsAdmin = false);
 
 /// <summary>Modi di accesso disponibili, per la pagina di login.</summary>
 public sealed record AuthProviders(bool Password, bool Google);
@@ -61,12 +61,12 @@ public static class AuthEndpoints
     }
 
     /// <summary>
-    /// Ritorno da Google. Google ha confermato l'identità; qui si decide se è una persona autorizzata: indirizzo
-    /// verificato e associato a un utente della dashboard. Solo allora si apre la sessione, identica a quella
-    /// del login con password.
+    /// Ritorno da Google. Google ha confermato l'identità; qui si decide cosa può fare: entrare (utente della
+    /// configurazione o account approvato), registrare una richiesta da approvare, o niente. La sessione aperta
+    /// è la stessa del login con password.
     /// </summary>
     private static async Task<IResult> CompleteGoogleAsync(
-        string? returnUrl, HttpContext http, DashboardUserService users, AuditService audit, Data.ClinicalDbContext db)
+        string? returnUrl, HttpContext http, AccountService accounts, AuditService audit, Data.ClinicalDbContext db)
     {
         var external = await http.AuthenticateAsync(ExternalScheme);
         if (!external.Succeeded)
@@ -75,37 +75,37 @@ public static class AuthEndpoints
         }
 
         await http.SignOutAsync(ExternalScheme);
-        var email = external.Principal.FindFirstValue(ClaimTypes.Email);
-        var verified = string.Equals(external.Principal.FindFirstValue(EmailVerifiedClaim), "true", StringComparison.OrdinalIgnoreCase);
-        var user = users.FindByGoogle(email, verified);
-        if (user is null)
-        {
-            // L'indirizzo tentato va nel registro: serve a capire chi ha provato a entrare.
-            audit.Record(http.User, "auth.login.failed", "google:" + email);
-            await db.SaveChangesAsync();
-            CountLogin("google", success: false);
-            return TypedResults.Redirect("/login?error=google-denied");
-        }
+        var google = external.Principal;
+        var email = google.FindFirstValue(ClaimTypes.Email);
+        var verified = string.Equals(google.FindFirstValue(EmailVerifiedClaim), "true", StringComparison.OrdinalIgnoreCase);
+        var result = await accounts.SignInWithGoogleAsync(
+            email, verified, google.FindFirstValue(ClaimTypes.NameIdentifier), google.FindFirstValue(ClaimTypes.Name), http.User, http.RequestAborted);
 
-        var principal = Principal(user);
-        await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-        audit.Record(principal, "auth.login", "google");
-        await db.SaveChangesAsync();
-        CountLogin("google", success: true);
-        return TypedResults.Redirect(LocalPath(returnUrl));
+        switch (result.Outcome)
+        {
+            case GoogleSignInOutcome.SignedIn:
+                await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, result.Principal!);
+                audit.Record(result.Principal!, "auth.login", "google");
+                await db.SaveChangesAsync();
+                CountLogin("google", success: true);
+                return TypedResults.Redirect(LocalPath(returnUrl));
+            case GoogleSignInOutcome.Requested:
+                return TypedResults.Redirect("/login?status=requested");
+            case GoogleSignInOutcome.Pending:
+                return TypedResults.Redirect("/login?status=pending");
+            default:
+                // L'indirizzo tentato va nel registro: serve a capire chi ha provato a entrare.
+                audit.Record(http.User, "auth.login.failed", "google:" + email);
+                await db.SaveChangesAsync();
+                CountLogin("google", success: false);
+                return TypedResults.Redirect("/login?error=google-denied");
+        }
     }
 
     /// <summary>Solo percorsi di questo sito: niente reindirizzamenti verso altri domini (open redirect).</summary>
     internal static string LocalPath(string? returnUrl) =>
         returnUrl is ['/', not '/' and not '\\', ..] or "/" ? returnUrl : "/";
 
-    private static ClaimsPrincipal Principal(DashboardUser user) => new(new ClaimsIdentity(
-        [
-            new Claim(ClaimTypes.Name, user.UserName),
-            new Claim("display_name", user.DisplayName ?? user.UserName),
-            new Claim(ClaimTypes.Role, Roles.Clinician),
-        ],
-        CookieAuthenticationDefaults.AuthenticationScheme));
 
     private static async Task<Results<Ok<CurrentUser>, UnauthorizedHttpResult>> LoginAsync(
         LoginRequest request, DashboardUserService users, AuditService audit, Data.ClinicalDbContext db, HttpContext http)
@@ -120,12 +120,13 @@ public static class AuthEndpoints
             return TypedResults.Unauthorized();
         }
 
-        var principal = Principal(user);
+        // Gli utenti della configurazione sono gli amministratori: approvano le richieste di accesso.
+        var principal = AccountService.Principal(user.UserName, user.DisplayName, isAdmin: true);
         await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
         audit.Record(principal, "auth.login");
         await db.SaveChangesAsync();
         CountLogin("cookie", success: true);
-        return TypedResults.Ok(new CurrentUser(user.UserName, user.DisplayName ?? user.UserName));
+        return TypedResults.Ok(new CurrentUser(user.UserName, user.DisplayName ?? user.UserName, IsAdmin: true));
     }
 
     /// <summary>Stesse credenziali, stesso limite di tentativi e stesso audit del login della dashboard.</summary>
@@ -163,5 +164,6 @@ public static class AuthEndpoints
     }
 
     private static Ok<CurrentUser> Me(ClaimsPrincipal user) =>
-        TypedResults.Ok(new CurrentUser(user.Identity!.Name!, user.FindFirstValue(JwtTokenService.DisplayNameClaim) ?? user.Identity.Name!));
+        TypedResults.Ok(new CurrentUser(
+            user.Identity!.Name!, user.FindFirstValue(JwtTokenService.DisplayNameClaim) ?? user.Identity.Name!, user.IsInRole(Roles.Admin)));
 }

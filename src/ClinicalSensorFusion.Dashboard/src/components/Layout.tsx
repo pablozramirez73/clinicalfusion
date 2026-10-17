@@ -23,6 +23,7 @@ export function Layout({ user, children }: { user: CurrentUser; children: ReactN
           <NavLink to="/patients">{t('☰ Pazienti')}</NavLink>
           <NavLink to="/patients/new">{t('＋ Nuovo paziente')}</NavLink>
           <NavLink to="/system">{t('♥ Stato del sistema')}</NavLink>
+          {user.isAdmin && <NavLink to="/accounts">{t('⚿ Accessi')}</NavLink>}
         </nav>
         <div className="sidebar-footer">
           <LanguageSelect />

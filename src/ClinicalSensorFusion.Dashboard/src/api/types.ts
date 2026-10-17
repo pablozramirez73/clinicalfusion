@@ -12,7 +12,12 @@ export type Joint =
   | 'LeftKneeFlexion' | 'RightKneeFlexion'
   | 'LeftAnkle' | 'RightAnkle';
 
-export interface CurrentUser { userName: string; displayName: string }
+export interface CurrentUser { userName: string; displayName: string; isAdmin?: boolean }
+export type AccountStatus = 'Pending' | 'Approved' | 'Rejected' | 'Disabled';
+export interface AccountItem {
+  id: string; email: string; displayName: string | null; status: AccountStatus; isAdmin: boolean;
+  requestedAt: string; decidedAt: string | null; decidedBy: string | null; lastLoginAt: string | null;
+}
 export interface AuthProviders { password: boolean; google: boolean }
 
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number }

@@ -16,6 +16,8 @@ public sealed class ClinicalDbContext(DbContextOptions<ClinicalDbContext> option
 
     public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
 
+    public DbSet<DashboardAccount> Accounts => Set<DashboardAccount>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var b = modelBuilder;
@@ -92,6 +94,19 @@ public sealed class ClinicalDbContext(DbContextOptions<ClinicalDbContext> option
             e.Property(a => a.IpAddress).HasMaxLength(45);
             e.Property(a => a.UserAgent).HasMaxLength(256);
             e.HasIndex(a => a.At);
+        });
+
+        b.Entity<DashboardAccount>(e =>
+        {
+            e.ToTable("dashboard_accounts");
+            e.Property(a => a.Email).HasMaxLength(254);
+            e.HasIndex(a => a.Email).IsUnique();
+            e.Property(a => a.GoogleSubject).HasMaxLength(255);
+            e.HasIndex(a => a.GoogleSubject).IsUnique().HasFilter("\"GoogleSubject\" IS NOT NULL");
+            e.Property(a => a.DisplayName).HasMaxLength(200);
+            e.Property(a => a.DecidedBy).HasMaxLength(254);
+            e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(a => a.Status);
         });
     }
 }

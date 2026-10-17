@@ -76,10 +76,14 @@ public static class Roles
 {
     public const string Device = "Device";
     public const string Clinician = "Clinician";
+
+    /// <summary>Approva le richieste di accesso. Gli utenti della configurazione lo sono sempre.</summary>
+    public const string Admin = "Admin";
 }
 
 public static class Policies
 {
     public const string Ingest = "Ingest";
     public const string Clinician = "Clinician";
+    public const string Admin = "Admin";
 }

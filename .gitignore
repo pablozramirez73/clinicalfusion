@@ -23,7 +23,8 @@ auth.log
 
 # Dashboard compilata (generata da src/ClinicalSensorFusion.Dashboard con npm run build)
 src/ClinicalSensorFusion.Server/wwwroot/
-src/ClinicalSensorFusion.Server/data/
+# Solo l'archivio audio: su macOS "data/" coprirebbe anche Data/Migrations (stesso nome senza maiuscole).
+src/ClinicalSensorFusion.Server/data/audio/
 node_modules/
 
 # Modelli di ML: dati scaricati e ambiente Python (ml/README.md)
